@@ -43,6 +43,25 @@ def test_constants_defined() -> None:
     assert YANDEX_DEVICE_TYPE_RECEIVER
 
 
+def test_cloud_plus_constants() -> None:
+    """Cloud Plus constants should be importable and well-formed."""
+    from music_assistant.providers.yandex_smarthome.constants import (
+        CLOUD_SKILL_WEBHOOK_TEMPLATE,
+        CONF_SKILL_TOKEN,
+        CONNECTION_TYPE_CLOUD_PLUS,
+        YANDEX_DIALOGS_CALLBACK_BASE,
+        YANDEX_DIALOGS_DEVELOPER_URL,
+        YANDEX_OAUTH_URL,
+    )
+
+    assert CONNECTION_TYPE_CLOUD_PLUS == "cloud_plus"
+    assert CONF_SKILL_TOKEN == "skill_token"
+    assert "dialogs.yandex.net" in YANDEX_DIALOGS_CALLBACK_BASE
+    assert "dialogs.yandex.ru" in YANDEX_DIALOGS_DEVELOPER_URL
+    assert "oauth.yandex.ru" in YANDEX_OAUTH_URL
+    assert "{instance_id}" in CLOUD_SKILL_WEBHOOK_TEMPLATE
+
+
 def test_constants_capability_types() -> None:
     """Yandex capability constants should be properly defined."""
     from music_assistant.providers.yandex_smarthome.constants import (

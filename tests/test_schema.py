@@ -19,7 +19,6 @@ from provider.schema import (
     CloudRequest,
     CloudResponse,
     DeviceAction,
-    DeviceActionResult,
     DeviceDescription,
     DeviceListPayload,
     DeviceState,
@@ -32,7 +31,6 @@ from provider.schema import (
     YandexResponseCode,
     YandexToggleInstance,
 )
-
 
 # ---------------------------------------------------------------------------
 # Enum values

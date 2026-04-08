@@ -2,16 +2,13 @@
 
 from __future__ import annotations
 
-import asyncio
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import aiohttp
 import pytest
 
 from provider.cloud import CloudManager, get_cloud_otp, register_cloud_instance
 from provider.schema import CloudRequest
-
 
 # ---------------------------------------------------------------------------
 # CloudManager tests

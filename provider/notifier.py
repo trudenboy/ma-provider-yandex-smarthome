@@ -12,7 +12,7 @@ import logging
 import time
 from collections.abc import Callable
 from dataclasses import asdict
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import aiohttp
 
@@ -25,8 +25,9 @@ from .device import get_device_state, is_player_exposable
 from .schema import CallbackPayload, CallbackRequest, DeviceState
 
 if TYPE_CHECKING:
-    from music_assistant.mass import MusicAssistant
     from music_assistant_models.event import MassEvent
+
+    from music_assistant.mass import MusicAssistant
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -153,7 +154,7 @@ class StateNotifier:
                 json=asdict(payload),
                 headers=self._auth_header,
             ) as resp:
-                if resp.status != 200:
+                if resp.status not in (200, 202):
                     body = await resp.text()
                     self._logger.warning(
                         "State callback failed (HTTP %d): %s", resp.status, body[:200]
@@ -199,7 +200,7 @@ class StateNotifier:
                 json={"ts": time.time()},
                 headers=self._auth_header,
             ) as resp:
-                if resp.status != 200:
+                if resp.status not in (200, 202):
                     body = await resp.text()
                     self._logger.warning(
                         "Discovery callback failed (HTTP %d): %s", resp.status, body[:200]

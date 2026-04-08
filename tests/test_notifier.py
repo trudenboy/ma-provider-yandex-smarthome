@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass, field
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import aiohttp
 import pytest
@@ -236,3 +236,90 @@ class TestStateNotifierReportAll:
         await notifier._report_all_states()
 
         session.post.assert_not_called()
+
+
+class TestStateNotifierCloudPlus:
+    """Tests specific to Cloud Plus (Yandex Dialogs API) behaviour."""
+
+    @pytest.mark.asyncio
+    async def test_accepts_http_202(self):
+        """Yandex Dialogs returns 202 on successful callback — should not warn."""
+        mock_resp = AsyncMock()
+        mock_resp.status = 202
+
+        session = MagicMock(spec=aiohttp.ClientSession)
+        ctx = MagicMock()
+        ctx.__aenter__ = AsyncMock(return_value=mock_resp)
+        ctx.__aexit__ = AsyncMock(return_value=False)
+        session.post.return_value = ctx
+
+        mass = _make_mass()
+        notifier = StateNotifier(
+            mass=mass,
+            session=session,
+            user_id="cloud-instance-id",
+            callback_url="https://dialogs.yandex.net/api/v1/skills/test-uuid/callback/state",
+            auth_header={"Authorization": "OAuth test-oauth-token"},
+        )
+
+        from provider.device import get_device_state
+        player = MockPlayer(player_id="p1")
+        notifier._pending["p1"] = get_device_state(player)
+
+        await notifier._flush_pending()
+
+        session.post.assert_called_once()
+        call_kwargs = session.post.call_args
+        assert "dialogs.yandex.net" in call_kwargs[0][0]
+        assert call_kwargs.kwargs["headers"]["Authorization"] == "OAuth test-oauth-token"
+
+    @pytest.mark.asyncio
+    async def test_rejects_http_500(self):
+        """Non-success status codes should still trigger warning."""
+        mock_resp = AsyncMock()
+        mock_resp.status = 500
+        mock_resp.text = AsyncMock(return_value="Internal Server Error")
+
+        session = MagicMock(spec=aiohttp.ClientSession)
+        ctx = MagicMock()
+        ctx.__aenter__ = AsyncMock(return_value=mock_resp)
+        ctx.__aexit__ = AsyncMock(return_value=False)
+        session.post.return_value = ctx
+
+        mass = _make_mass()
+        notifier = _make_notifier(mass=mass, session=session)
+
+        from provider.device import get_device_state
+        player = MockPlayer(player_id="p1")
+        notifier._pending["p1"] = get_device_state(player)
+
+        await notifier._flush_pending()
+
+        session.post.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_discovery_url_cloud_plus(self):
+        """Discovery URL should use replace('/state', '/discovery') for Dialogs API."""
+        mock_resp = AsyncMock()
+        mock_resp.status = 202
+
+        session = MagicMock(spec=aiohttp.ClientSession)
+        ctx = MagicMock()
+        ctx.__aenter__ = AsyncMock(return_value=mock_resp)
+        ctx.__aexit__ = AsyncMock(return_value=False)
+        session.post.return_value = ctx
+
+        mass = _make_mass()
+        notifier = StateNotifier(
+            mass=mass,
+            session=session,
+            user_id="cloud-instance-id",
+            callback_url="https://dialogs.yandex.net/api/v1/skills/test-uuid/callback/state",
+            auth_header={"Authorization": "OAuth test-token"},
+        )
+
+        await notifier._send_discovery()
+
+        session.post.assert_called_once()
+        url = session.post.call_args[0][0]
+        assert url == "https://dialogs.yandex.net/api/v1/skills/test-uuid/callback/discovery"

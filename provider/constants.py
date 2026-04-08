@@ -11,6 +11,7 @@ CONF_CLOUD_INSTANCE_ID = "cloud_instance_id"
 CONF_CLOUD_INSTANCE_PASSWORD = "cloud_instance_password"
 CONF_CLOUD_CONNECTION_TOKEN = "cloud_connection_token"
 CONF_SKILL_ID = "skill_id"
+CONF_SKILL_TOKEN = "skill_token"
 
 # ---------------------------------------------------------------------------
 # Config actions
@@ -22,6 +23,7 @@ CONF_ACTION_GET_OTP = "get_otp"
 # Connection types
 # ---------------------------------------------------------------------------
 CONNECTION_TYPE_CLOUD = "cloud"
+CONNECTION_TYPE_CLOUD_PLUS = "cloud_plus"
 CONNECTION_TYPE_DIRECT = "direct"
 
 # ---------------------------------------------------------------------------
@@ -36,9 +38,16 @@ CLOUD_CALLBACK_URL = f"{CLOUD_BASE_URL}/api/home_assistant/v2/callback"
 CLOUD_PLATFORM = "music_assistant"
 
 # ---------------------------------------------------------------------------
-# Direct mode — Yandex Dialogs API
+# Cloud Plus / Direct mode — Yandex Dialogs API
 # ---------------------------------------------------------------------------
-YANDEX_DIALOGS_CALLBACK_URL = "https://dialogs.yandex.net/api/v1/skills"
+YANDEX_DIALOGS_CALLBACK_BASE = "https://dialogs.yandex.net/api/v1/skills"
+YANDEX_DIALOGS_DEVELOPER_URL = "https://dialogs.yandex.ru/developer/smart-home"
+YANDEX_OAUTH_URL = "https://oauth.yandex.ru/authorize?response_type=token&client_id=c473ca268cd749d3a8371351a8f2bcbd"
+
+# Webhook URL template for yaha-cloud relay (private skill points here)
+CLOUD_SKILL_WEBHOOK_TEMPLATE = (
+    "https://yaha-cloud.ru/api/home_assistant/v1/skill/{instance_id}"
+)
 
 # ---------------------------------------------------------------------------
 # Timing (seconds)

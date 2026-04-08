@@ -19,11 +19,6 @@ from provider.handlers import (
     handle_user_unlink,
     parse_action_payload,
 )
-from provider.schema import (
-    CapabilityAction,
-    CapabilityActionState,
-    YandexCapabilityType,
-)
 
 
 @dataclass

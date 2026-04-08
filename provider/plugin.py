@@ -18,7 +18,7 @@ Connection modes:
 from __future__ import annotations
 
 from dataclasses import asdict
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from music_assistant.models.plugin import PluginProvider
 
@@ -26,10 +26,15 @@ from .cloud import CloudManager
 from .constants import (
     CLOUD_CALLBACK_URL,
     CONF_CLOUD_CONNECTION_TOKEN,
+    CONF_CLOUD_INSTANCE_ID,
     CONF_CLOUD_INSTANCE_PASSWORD,
     CONF_CONNECTION_TYPE,
     CONF_INSTANCE_NAME,
+    CONF_SKILL_ID,
+    CONF_SKILL_TOKEN,
     CONNECTION_TYPE_CLOUD,
+    CONNECTION_TYPE_CLOUD_PLUS,
+    YANDEX_DIALOGS_CALLBACK_BASE,
 )
 from .handlers import (
     build_response,
@@ -41,9 +46,6 @@ from .handlers import (
 )
 from .notifier import StateNotifier
 from .schema import CloudRequest
-
-if TYPE_CHECKING:
-    pass
 
 
 class YandexSmartHomePlugin(PluginProvider):
@@ -64,6 +66,9 @@ class YandexSmartHomePlugin(PluginProvider):
         self._instance_name = self.config.get_value(CONF_INSTANCE_NAME) or "Music Assistant"
         self._cloud_token = self.config.get_value(CONF_CLOUD_INSTANCE_PASSWORD) or ""
         self._connection_token = self.config.get_value(CONF_CLOUD_CONNECTION_TOKEN) or ""
+        self._cloud_instance_id = self.config.get_value(CONF_CLOUD_INSTANCE_ID) or ""
+        self._skill_id = self.config.get_value(CONF_SKILL_ID) or ""
+        self._skill_token = self.config.get_value(CONF_SKILL_TOKEN) or ""
 
         self.logger.info(
             "Yandex Smart Home plugin init (mode=%s, name=%s)",
@@ -78,7 +83,7 @@ class YandexSmartHomePlugin(PluginProvider):
         """
         self.logger.info("Yandex Smart Home plugin loaded")
 
-        if self._connection_type == CONNECTION_TYPE_CLOUD:
+        if self._connection_type in (CONNECTION_TYPE_CLOUD, CONNECTION_TYPE_CLOUD_PLUS):
             await self._start_cloud_mode()
         else:
             self.logger.warning(
@@ -108,14 +113,27 @@ class YandexSmartHomePlugin(PluginProvider):
             task_id="yandex_smarthome_cloud",
         )
 
-        # State notifier
-        auth_header = {"Authorization": f"Bearer {self._cloud_token}"}
-        callback_url = f"{CLOUD_CALLBACK_URL}/state"
+        # State notifier — different callback URL/auth for cloud_plus
+        if self._connection_type == CONNECTION_TYPE_CLOUD_PLUS:
+            if not self._skill_id or not self._skill_token:
+                self.logger.error(
+                    "Cloud Plus mode requires skill_id and skill_token"
+                )
+                return
+            callback_url = (
+                f"{YANDEX_DIALOGS_CALLBACK_BASE}/{self._skill_id}/callback/state"
+            )
+            auth_header = {"Authorization": f"OAuth {self._skill_token}"}
+            user_id = self._cloud_instance_id
+        else:
+            callback_url = f"{CLOUD_CALLBACK_URL}/state"
+            auth_header = {"Authorization": f"Bearer {self._cloud_token}"}
+            user_id = self._instance_name
 
         self._state_notifier = StateNotifier(
             mass=self.mass,
             session=session,
-            user_id=self._instance_name,
+            user_id=user_id,
             callback_url=callback_url,
             auth_header=auth_header,
             logger=self.logger,
