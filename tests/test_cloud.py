@@ -7,7 +7,11 @@ from unittest.mock import AsyncMock, MagicMock
 import aiohttp
 import pytest
 
-from provider.cloud import CloudManager, get_cloud_otp, register_cloud_instance
+from provider.cloud import (
+    CloudManager,
+    get_cloud_otp,
+    register_cloud_instance,
+)
 from provider.constants import CLOUD_RECONNECT_MIN
 from provider.schema import CloudRequest
 
