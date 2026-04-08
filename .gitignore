@@ -65,3 +65,7 @@ secrets.yaml
 
 # Virtual env
 .venv/
+
+# Screenshots (keep docs/skill_icon.png)
+*.png
+!docs/skill_icon.png
