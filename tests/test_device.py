@@ -173,7 +173,7 @@ class TestExecuteCapabilityAction:
         )
         result = await execute_capability_action(mass, "p1", action)
         mass.players.cmd_play.assert_awaited_once_with("p1")
-        assert result.action_result.status == "DONE"
+        assert result.state.action_result.status == "DONE"
 
     @pytest.mark.asyncio
     async def test_on_off_false_stops(self):
@@ -184,7 +184,7 @@ class TestExecuteCapabilityAction:
         )
         result = await execute_capability_action(mass, "p1", action)
         mass.players.cmd_stop.assert_awaited_once_with("p1")
-        assert result.action_result.status == "DONE"
+        assert result.state.action_result.status == "DONE"
 
     @pytest.mark.asyncio
     async def test_volume_absolute(self):
@@ -195,7 +195,7 @@ class TestExecuteCapabilityAction:
         )
         result = await execute_capability_action(mass, "p1", action)
         mass.players.cmd_volume_set.assert_awaited_once_with("p1", 65)
-        assert result.action_result.status == "DONE"
+        assert result.state.action_result.status == "DONE"
 
     @pytest.mark.asyncio
     async def test_volume_relative_up(self):
@@ -239,7 +239,7 @@ class TestExecuteCapabilityAction:
         )
         result = await execute_capability_action(mass, "p1", action)
         mass.players.cmd_volume_mute.assert_awaited_once_with("p1", True)
-        assert result.action_result.status == "DONE"
+        assert result.state.action_result.status == "DONE"
 
     @pytest.mark.asyncio
     async def test_pause_true(self):
@@ -250,7 +250,7 @@ class TestExecuteCapabilityAction:
         )
         result = await execute_capability_action(mass, "p1", action)
         mass.players.cmd_pause.assert_awaited_once_with("p1")
-        assert result.action_result.status == "DONE"
+        assert result.state.action_result.status == "DONE"
 
     @pytest.mark.asyncio
     async def test_pause_false_plays(self):
@@ -270,8 +270,8 @@ class TestExecuteCapabilityAction:
             state=CapabilityActionState(instance="foo", value=42),
         )
         result = await execute_capability_action(mass, "p1", action)
-        assert result.action_result.status == "ERROR"
-        assert result.action_result.error_code == "INVALID_ACTION"
+        assert result.state.action_result.status == "ERROR"
+        assert result.state.action_result.error_code == "INVALID_ACTION"
 
     @pytest.mark.asyncio
     async def test_command_exception_returns_error(self):
@@ -282,8 +282,8 @@ class TestExecuteCapabilityAction:
             state=CapabilityActionState(instance="on", value=True),
         )
         result = await execute_capability_action(mass, "p1", action)
-        assert result.action_result.status == "ERROR"
-        assert result.action_result.error_code == "INTERNAL_ERROR"
+        assert result.state.action_result.status == "ERROR"
+        assert result.state.action_result.error_code == "INTERNAL_ERROR"
 
 
 # ---------------------------------------------------------------------------
@@ -330,5 +330,5 @@ class TestErrorHelpers:
         ]
         results = make_error_action_result("p1", actions)
         assert len(results) == 2
-        assert all(r.action_result.status == "ERROR" for r in results)
-        assert all(r.action_result.error_code == "DEVICE_UNREACHABLE" for r in results)
+        assert all(r.state.action_result.status == "ERROR" for r in results)
+        assert all(r.state.action_result.error_code == "DEVICE_UNREACHABLE" for r in results)

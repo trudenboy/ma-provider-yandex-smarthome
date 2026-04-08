@@ -197,12 +197,23 @@ class ActionResult:
 
 
 @dataclass
+class CapabilityActionResultState:
+    """State with action result for a single capability in an action response.
+
+    Per Yandex Smart Home API, action_result goes inside 'state' alongside instance.
+    """
+
+    instance: str
+    value: Any = None
+    action_result: ActionResult = field(default_factory=ActionResult)
+
+
+@dataclass
 class CapabilityActionResult:
     """Result for a single capability in an action response."""
 
     type: str
-    state: CapabilityInstanceState
-    action_result: ActionResult = field(default_factory=ActionResult)
+    state: CapabilityActionResultState
 
 
 @dataclass

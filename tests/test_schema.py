@@ -11,6 +11,7 @@ from provider.schema import (
     CallbackRequest,
     CapabilityAction,
     CapabilityActionResult,
+    CapabilityActionResultState,
     CapabilityActionState,
     CapabilityDescription,
     CapabilityInstanceState,
@@ -249,7 +250,11 @@ class TestCapabilityActionResult:
     def test_default_result(self):
         result = CapabilityActionResult(
             type=YandexCapabilityType.ON_OFF,
-            state=CapabilityInstanceState(instance="on", value=True),
+            state=CapabilityActionResultState(
+                instance="on",
+                value=True,
+                action_result=ActionResult(status="DONE"),
+            ),
         )
-        assert result.action_result.status == "DONE"
-        assert result.action_result.error_code is None
+        assert result.state.action_result.status == "DONE"
+        assert result.state.action_result.error_code is None

@@ -167,7 +167,7 @@ class TestHandleDevicesAction:
             },
         })
         result = await handle_devices_action(mass, payload)
-        assert result.devices[0].capabilities[0].action_result.error_code == "DEVICE_UNREACHABLE"
+        assert result.devices[0].capabilities[0].state.action_result.error_code == "DEVICE_UNREACHABLE"
 
 
 # ---------------------------------------------------------------------------

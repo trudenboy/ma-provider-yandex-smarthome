@@ -24,6 +24,7 @@ from .schema import (
     ActionResult,
     CapabilityAction,
     CapabilityActionResult,
+    CapabilityActionResultState,
     CapabilityDescription,
     CapabilityInstanceState,
     CapabilityParameters,
@@ -160,11 +161,13 @@ async def execute_capability_action(
         else:
             return CapabilityActionResult(
                 type=action.type,
-                state=CapabilityInstanceState(instance=instance, value=value),
-                action_result=ActionResult(
-                    status="ERROR",
-                    error_code=ERROR_INVALID_ACTION,
-                    error_message=f"Unknown capability: {action.type}/{instance}",
+                state=CapabilityActionResultState(
+                    instance=instance,
+                    action_result=ActionResult(
+                        status="ERROR",
+                        error_code=ERROR_INVALID_ACTION,
+                        error_message=f"Unknown capability: {action.type}/{instance}",
+                    ),
                 ),
             )
 
@@ -172,17 +175,22 @@ async def execute_capability_action(
         _LOGGER.exception("Error executing action %s/%s on %s", action.type, instance, player_id)
         return CapabilityActionResult(
             type=action.type,
-            state=CapabilityInstanceState(instance=instance, value=value),
-            action_result=ActionResult(
-                status="ERROR",
-                error_code=ERROR_INTERNAL_ERROR,
+            state=CapabilityActionResultState(
+                instance=instance,
+                action_result=ActionResult(
+                    status="ERROR",
+                    error_code=ERROR_INTERNAL_ERROR,
+                ),
             ),
         )
 
     return CapabilityActionResult(
         type=action.type,
-        state=CapabilityInstanceState(instance=instance, value=value),
-        action_result=ActionResult(status="DONE"),
+        state=CapabilityActionResultState(
+            instance=instance,
+            value=value,
+            action_result=ActionResult(status="DONE"),
+        ),
     )
 
 
@@ -214,10 +222,12 @@ def make_error_action_result(
     return [
         CapabilityActionResult(
             type=a.type,
-            state=CapabilityInstanceState(instance=a.state.instance, value=a.state.value),
-            action_result=ActionResult(
-                status="ERROR",
-                error_code=ERROR_DEVICE_UNREACHABLE,
+            state=CapabilityActionResultState(
+                instance=a.state.instance,
+                action_result=ActionResult(
+                    status="ERROR",
+                    error_code=ERROR_DEVICE_UNREACHABLE,
+                ),
             ),
         )
         for a in actions
