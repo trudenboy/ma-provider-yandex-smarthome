@@ -60,19 +60,17 @@ def _build_status_label(
     """Build the status label text based on registration state."""
     if otp_code and is_cloud_plus:
         return (
-            f"✅ Cloud instance registered! "
-            f"OTP code: {otp_code} — "
-            f"To link: Open Yandex app → Devices → Add device → Smart Home → "
-            f"find your private skill → enter OTP code → "
-            f"then click Save below to complete setup."
+            "✅ Cloud instance registered! "
+            "Open Yandex app → Devices → Add device → Smart Home → "
+            "find your private skill → enter OTP code below → "
+            "then click Save to complete setup."
         )
     if otp_code:
         return (
-            f"✅ Cloud instance registered! "
-            f"OTP code: {otp_code} — "
-            f"To link: Open Yandex app → Devices → Add device → Smart Home → "
-            f"find 'Yaha Cloud' skill → enter OTP code → "
-            f"then click Save below to complete setup."
+            "✅ Cloud instance registered! "
+            "Open Yandex app → Devices → Add device → Smart Home → "
+            "find 'Yaha Cloud' skill → enter OTP code below → "
+            "then click Save to complete setup."
         )
     if is_registered:
         return (
@@ -80,25 +78,21 @@ def _build_status_label(
             "Use 'Get OTP code' if you need to re-link with Yandex."
         )
     return (
-        "Register a cloud instance to connect with Yandex Alice.\n"
+        "Register a cloud instance to connect with Yandex Alice. "
         "This is free and uses the yaha-cloud.ru relay service (no public URL needed)."
     )
 
 
-def _build_cloud_plus_label(
-    is_cloud_plus: bool, is_registered: bool, cloud_instance_id: str
-) -> str:
+def _build_cloud_plus_label(is_cloud_plus: bool, is_registered: bool) -> str:
     """Build the Cloud Plus instruction label."""
     if not is_cloud_plus:
         return ""
     if is_registered:
-        webhook_url = CLOUD_SKILL_WEBHOOK_TEMPLATE.format(instance_id=cloud_instance_id)
         return (
-            f"Cloud Plus setup: "
-            f"1) Create a private Smart Home skill at {YANDEX_DIALOGS_DEVELOPER_URL} "
-            f"2) Set webhook URL to: {webhook_url} "
-            f"3) Get OAuth token at: {YANDEX_OAUTH_URL} "
-            f"4) Enter skill_id and token below, then Save."
+            "Cloud Plus: 1) Create a private Smart Home skill (link below). "
+            "2) Set the webhook URL from the field below. "
+            "3) Get OAuth token (link below). "
+            "4) Enter skill_id and token, then Save."
         )
     return (
         "Cloud Plus mode requires a private skill in Yandex.Dialogs. "
@@ -173,9 +167,14 @@ async def get_config_entries(
     cloud_instance_id = str(values.get(CONF_CLOUD_INSTANCE_ID, ""))
 
     label_text = _build_status_label(otp_code, is_cloud_plus, is_registered)
-    cloud_plus_label = _build_cloud_plus_label(
-        is_cloud_plus, is_registered, cloud_instance_id
-    )
+    cloud_plus_label = _build_cloud_plus_label(is_cloud_plus, is_registered)
+
+    # Compute copyable values for Cloud Plus mode
+    webhook_url = ""
+    if is_cloud_plus and is_registered:
+        webhook_url = CLOUD_SKILL_WEBHOOK_TEMPLATE.format(
+            instance_id=cloud_instance_id
+        )
 
     return (
         # Instance name
@@ -214,13 +213,15 @@ async def get_config_entries(
             type=ConfigEntryType.LABEL,
             label=label_text,
         ),
-        # Cloud Plus instructions (shown only in cloud_plus mode)
+        # OTP code — copyable text field (shown only when OTP is available)
         ConfigEntry(
-            key="label_cloud_plus",
-            type=ConfigEntryType.LABEL,
-            label=cloud_plus_label,
-            depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
+            key="otp_code",
+            type=ConfigEntryType.STRING,
+            label="OTP Code",
+            description="Copy this code and enter it in the Yandex app.",
+            required=False,
+            value=otp_code,
+            hidden=not otp_code,
         ),
         # Register action (hidden after registration)
         ConfigEntry(
@@ -242,7 +243,51 @@ async def get_config_entries(
             action_label="Get OTP code",
             hidden=not is_registered,
         ),
-        # --- Cloud Plus fields (visible only in cloud_plus mode) ---
+        # --- Cloud Plus section ---
+        # Cloud Plus instructions
+        ConfigEntry(
+            key="label_cloud_plus",
+            type=ConfigEntryType.LABEL,
+            label=cloud_plus_label,
+            depends_on=CONF_CONNECTION_TYPE,
+            depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
+        ),
+        # Webhook URL — copyable (shown in cloud_plus after registration)
+        ConfigEntry(
+            key="webhook_url",
+            type=ConfigEntryType.STRING,
+            label="Webhook URL (set this in your Yandex.Dialogs skill)",
+            description="Copy and paste into your private skill's webhook URL field.",
+            required=False,
+            value=webhook_url if webhook_url else None,
+            hidden=not webhook_url,
+            depends_on=CONF_CONNECTION_TYPE,
+            depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
+        ),
+        # Yandex Dialogs developer console link — copyable
+        ConfigEntry(
+            key="dialogs_url",
+            type=ConfigEntryType.STRING,
+            label="Yandex.Dialogs Console (create skill here)",
+            required=False,
+            default_value=YANDEX_DIALOGS_DEVELOPER_URL,
+            help_link=YANDEX_DIALOGS_DEVELOPER_URL,
+            depends_on=CONF_CONNECTION_TYPE,
+            depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
+        ),
+        # OAuth URL — copyable (shown after registration in cloud_plus mode)
+        ConfigEntry(
+            key="oauth_url",
+            type=ConfigEntryType.STRING,
+            label="OAuth URL (get token here)",
+            required=False,
+            default_value=YANDEX_OAUTH_URL,
+            help_link=YANDEX_OAUTH_URL,
+            hidden=not is_registered,
+            depends_on=CONF_CONNECTION_TYPE,
+            depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
+        ),
+        # Skill ID — user input
         ConfigEntry(
             key=CONF_SKILL_ID,
             type=ConfigEntryType.STRING,
@@ -255,14 +300,12 @@ async def get_config_entries(
             depends_on=CONF_CONNECTION_TYPE,
             depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
         ),
+        # Skill OAuth Token — user input
         ConfigEntry(
             key=CONF_SKILL_TOKEN,
             type=ConfigEntryType.SECURE_STRING,
             label="Skill OAuth Token",
-            description=(
-                "OAuth token for sending state callbacks to Yandex. "
-                "Get it by authorizing at the OAuth URL shown in the instructions above."
-            ),
+            description="Paste the OAuth token obtained from the URL above.",
             required=False,
             depends_on=CONF_CONNECTION_TYPE,
             depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
