@@ -33,9 +33,15 @@ CLOUD_BASE_URL = "https://yaha-cloud.ru"
 CLOUD_WS_URL = "wss://yaha-cloud.ru/api/home_assistant/v1/connect"
 CLOUD_REGISTER_URL = f"{CLOUD_BASE_URL}/api/home_assistant/v1/instance/register"
 CLOUD_CALLBACK_URL = f"{CLOUD_BASE_URL}/api/home_assistant/v2/callback"
+CLOUD_OAUTH_AUTHORIZE_URL = f"{CLOUD_BASE_URL}/oauth/authorize"
+CLOUD_OAUTH_TOKEN_URL = f"{CLOUD_BASE_URL}/oauth/token"
 
 # Platform identifier sent to the cloud relay
 CLOUD_PLATFORM = "music_assistant"
+
+# Account linking template: client_id = "yandex_smart_home:{instance_id}"
+CLOUD_SKILL_CLIENT_ID_TEMPLATE = "yandex_smart_home:{instance_id}"
+CLOUD_SKILL_CLIENT_SECRET = "secret"
 
 # ---------------------------------------------------------------------------
 # Cloud Plus / Direct mode — Yandex Dialogs API

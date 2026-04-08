@@ -36,13 +36,27 @@ In Music Assistant → Settings → Providers → Yandex Smart Home:
 
 1. Go to [Yandex.Dialogs Developer Console](https://dialogs.yandex.ru/developer/smart-home)
 2. Click **Create dialog** → **Smart Home**
-3. Fill in the required fields:
+3. Fill in the **Basic info** section:
+   - **Language**: `Русский`
    - **Name**: any name (e.g., "Music Assistant")
-   - **Webhook URL**: paste the URL from step 1:
+   - **Device connection instructions**: any text
+   - **Supported devices list**: any text
+   - **Backend URL**: paste the webhook URL from step 1:
      ```
      https://yaha-cloud.ru/api/home_assistant/v1/skill/{your_instance_id}
      ```
-4. **Save** the skill. Do NOT publish it — it works as a private (draft) skill.
+   - **Access type**: `Private`
+   - **Developer name**: any name
+   - **Icon**: any image (e.g., `docs/skill_icon.png` from this repo)
+4. Click **Save** at the top of the page
+5. Fill in the **Account linking** section:
+   - **Client identifier** (Идентификатор приложения): `yandex_smart_home:{your_instance_id}`
+   - **Client secret** (Секрет приложения): `secret`
+   - **Authorization URL** (URL авторизации): `https://yaha-cloud.ru/oauth/authorize`
+   - **Token endpoint** (URL для получения токена): `https://yaha-cloud.ru/oauth/token`
+   - **Refresh token URL** (URL для обновления токена): `https://yaha-cloud.ru/oauth/token`
+6. Click **Save**, go back to **Basic info**
+7. Click **Publish**
 
 ### 3. Get Skill ID
 

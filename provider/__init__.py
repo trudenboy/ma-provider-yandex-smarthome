@@ -25,6 +25,11 @@ from music_assistant_models.enums import ConfigEntryType, ProviderFeature
 
 from .cloud import get_cloud_otp, register_cloud_instance
 from .constants import (
+    CLOUD_BASE_URL,
+    CLOUD_OAUTH_AUTHORIZE_URL,
+    CLOUD_OAUTH_TOKEN_URL,
+    CLOUD_SKILL_CLIENT_ID_TEMPLATE,
+    CLOUD_SKILL_CLIENT_SECRET,
     CLOUD_SKILL_WEBHOOK_TEMPLATE,
     CONF_ACTION_GET_OTP,
     CONF_ACTION_REGISTER,
@@ -89,10 +94,12 @@ def _build_cloud_plus_label(is_cloud_plus: bool, is_registered: bool) -> str:
         return ""
     if is_registered:
         return (
-            "Cloud Plus: 1) Create a private Smart Home skill (link below). "
-            "2) Set the webhook URL from the field below. "
-            "3) Get OAuth token (link below). "
-            "4) Enter skill_id and token, then Save."
+            "Cloud Plus setup: "
+            "1) Open Yandex.Dialogs console (link below) → Smart Home → Create skill. "
+            "2) Fill 'Basic info': Backend URL = webhook URL below, Access = Private. "
+            "3) Save, then fill 'Account linking' section with values below. "
+            "4) Save & Publish. "
+            "5) Get OAuth token → enter skill_id and token → Save."
         )
     return (
         "Cloud Plus mode requires a private skill in Yandex.Dialogs. "
@@ -171,8 +178,12 @@ async def get_config_entries(
 
     # Compute copyable values for Cloud Plus mode
     webhook_url = ""
+    client_id = ""
     if is_cloud_plus and is_registered:
         webhook_url = CLOUD_SKILL_WEBHOOK_TEMPLATE.format(
+            instance_id=cloud_instance_id
+        )
+        client_id = CLOUD_SKILL_CLIENT_ID_TEMPLATE.format(
             instance_id=cloud_instance_id
         )
 
@@ -256,11 +267,63 @@ async def get_config_entries(
         ConfigEntry(
             key="webhook_url",
             type=ConfigEntryType.STRING,
-            label="Webhook URL (set this in your Yandex.Dialogs skill)",
-            description="Copy and paste into your private skill's webhook URL field.",
+            label="Backend URL (set in 'Basic info' section)",
+            description="Copy and paste into your private skill's Backend URL field.",
             required=False,
             value=webhook_url if webhook_url else None,
             hidden=not webhook_url,
+            depends_on=CONF_CONNECTION_TYPE,
+            depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
+        ),
+        # --- Account linking fields (Связка аккаунтов) ---
+        # Client ID — copyable (shown after registration in cloud_plus)
+        ConfigEntry(
+            key="skill_client_id",
+            type=ConfigEntryType.STRING,
+            label="Client ID (Идентификатор приложения)",
+            description="Copy to 'Account linking' → 'Client identifier' field.",
+            required=False,
+            value=client_id if client_id else None,
+            hidden=not client_id,
+            depends_on=CONF_CONNECTION_TYPE,
+            depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
+        ),
+        # Client Secret — copyable
+        ConfigEntry(
+            key="skill_client_secret",
+            type=ConfigEntryType.STRING,
+            label="Client Secret (Секрет приложения)",
+            description="Copy to 'Account linking' → 'Client secret' field.",
+            required=False,
+            default_value=CLOUD_SKILL_CLIENT_SECRET,
+            hidden=not is_registered,
+            depends_on=CONF_CONNECTION_TYPE,
+            depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
+        ),
+        # Authorization URL — copyable
+        ConfigEntry(
+            key="skill_auth_url",
+            type=ConfigEntryType.STRING,
+            label="Authorization URL (URL авторизации)",
+            description="Copy to 'Account linking' → 'Authorization URL' field.",
+            required=False,
+            default_value=CLOUD_OAUTH_AUTHORIZE_URL,
+            hidden=not is_registered,
+            depends_on=CONF_CONNECTION_TYPE,
+            depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
+        ),
+        # Token URL — copyable
+        ConfigEntry(
+            key="skill_token_url",
+            type=ConfigEntryType.STRING,
+            label="Token URL (URL для получения/обновления токена)",
+            description=(
+                "Copy to both 'Token endpoint' and 'Refresh token URL' fields "
+                "in the 'Account linking' section."
+            ),
+            required=False,
+            default_value=CLOUD_OAUTH_TOKEN_URL,
+            hidden=not is_registered,
             depends_on=CONF_CONNECTION_TYPE,
             depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
         ),
