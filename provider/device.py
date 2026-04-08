@@ -57,10 +57,12 @@ def _supports_select_source(player: Player) -> bool:
     if not features:
         return False
     # PlayerFeature.SELECT_SOURCE == "select_source"
-    return any(str(f) == "select_source" or getattr(f, "value", None) == "select_source" for f in features)
+    return any(
+        str(f) == "select_source" or getattr(f, "value", None) == "select_source" for f in features
+    )
 
 
-def _get_source_list(player: Player) -> list:
+def _get_source_list(player: Player) -> list[str]:
     """Get the source list from a player, or empty list if not available."""
     if not _supports_select_source(player):
         return []
@@ -70,12 +72,12 @@ def _get_source_list(player: Player) -> list:
     return []
 
 
-def _build_source_modes(source_list: list) -> list[ModeValue]:
+def _build_source_modes(source_list: list[str]) -> list[ModeValue]:
     """Build Yandex mode values from an MA source list (max 10)."""
     return [ModeValue(value=YANDEX_MODE_VALUES[i]) for i in range(min(len(source_list), 10))]
 
 
-def _source_to_mode(active_source: str | None, source_list: list) -> str | None:
+def _source_to_mode(active_source: str | None, source_list: list[str]) -> str | None:
     """Map active MA source name/id to a Yandex mode value."""
     if not active_source or not source_list:
         return None
@@ -87,7 +89,7 @@ def _source_to_mode(active_source: str | None, source_list: list) -> str | None:
     return None
 
 
-def _mode_to_source(mode_value: str, source_list: list) -> str | None:
+def _mode_to_source(mode_value: str, source_list: list[str]) -> str | None:
     """Resolve a Yandex mode value to an MA source name."""
     try:
         idx = list(YANDEX_MODE_VALUES).index(mode_value)
@@ -171,7 +173,6 @@ def get_device_state(player: Player) -> DeviceState:
     """Read current MA player state and convert to Yandex capability states."""
     from music_assistant_models.enums import PlaybackState
 
-    is_playing = player.playback_state in (PlaybackState.PLAYING, PlaybackState.PAUSED)
     is_paused = player.playback_state == PlaybackState.PAUSED
     volume = player.volume_level if player.volume_level is not None else 0
     muted = player.volume_muted if player.volume_muted is not None else False
@@ -208,9 +209,7 @@ def get_device_state(player: Player) -> DeviceState:
             capabilities.append(
                 CapabilityState(
                     type=YandexCapabilityType.MODE,
-                    state=CapabilityInstanceState(
-                        instance=INSTANCE_INPUT_SOURCE, value=mode_value
-                    ),
+                    state=CapabilityInstanceState(instance=INSTANCE_INPUT_SOURCE, value=mode_value),
                 )
             )
 
@@ -328,9 +327,7 @@ def is_player_exposable(player: Player, exposed_ids: set[str] | None = None) -> 
     if player.synced_to:
         return False
     # If a filter is set, only expose selected players
-    if exposed_ids and player.player_id not in exposed_ids:
-        return False
-    return True
+    return not (exposed_ids and player.player_id not in exposed_ids)
 
 
 def make_error_device_state(device_id: str) -> DeviceState:
@@ -343,7 +340,7 @@ def make_error_device_state(device_id: str) -> DeviceState:
 
 
 def make_error_action_result(
-    device_id: str, actions: list[CapabilityAction]
+    _device_id: str, actions: list[CapabilityAction]
 ) -> list[CapabilityActionResult]:
     """Create error action results for all capabilities of an unreachable device."""
     return [

@@ -63,13 +63,15 @@ class YandexSmartHomePlugin(PluginProvider):
 
     async def handle_async_init(self) -> None:
         """Handle async initialization of the plugin."""
-        self._connection_type = self.config.get_value(CONF_CONNECTION_TYPE) or CONNECTION_TYPE_CLOUD
-        self._instance_name = self.config.get_value(CONF_INSTANCE_NAME) or "Music Assistant"
-        self._cloud_token = self.config.get_value(CONF_CLOUD_INSTANCE_PASSWORD) or ""
-        self._connection_token = self.config.get_value(CONF_CLOUD_CONNECTION_TOKEN) or ""
-        self._cloud_instance_id = self.config.get_value(CONF_CLOUD_INSTANCE_ID) or ""
-        self._skill_id = self.config.get_value(CONF_SKILL_ID) or ""
-        self._skill_token = self.config.get_value(CONF_SKILL_TOKEN) or ""
+        self._connection_type = str(
+            self.config.get_value(CONF_CONNECTION_TYPE) or CONNECTION_TYPE_CLOUD
+        )
+        self._instance_name = str(self.config.get_value(CONF_INSTANCE_NAME) or "Music Assistant")
+        self._cloud_token = str(self.config.get_value(CONF_CLOUD_INSTANCE_PASSWORD) or "")
+        self._connection_token = str(self.config.get_value(CONF_CLOUD_CONNECTION_TOKEN) or "")
+        self._cloud_instance_id = str(self.config.get_value(CONF_CLOUD_INSTANCE_ID) or "")
+        self._skill_id = str(self.config.get_value(CONF_SKILL_ID) or "")
+        self._skill_token = str(self.config.get_value(CONF_SKILL_TOKEN) or "")
 
         # Parse exposed players filter
         exposed_raw = self.config.get_value(CONF_EXPOSED_PLAYERS) or []
@@ -77,6 +79,8 @@ class YandexSmartHomePlugin(PluginProvider):
             exposed_raw = [x.strip() for x in exposed_raw.split(",") if x.strip()]
         elif isinstance(exposed_raw, list):
             exposed_raw = [str(x) for x in exposed_raw if x]
+        else:
+            exposed_raw = []
         self._exposed_ids: set[str] | None = set(exposed_raw) if exposed_raw else None
 
         self.logger.info(
@@ -95,9 +99,7 @@ class YandexSmartHomePlugin(PluginProvider):
         if self._connection_type in (CONNECTION_TYPE_CLOUD, CONNECTION_TYPE_CLOUD_PLUS):
             await self._start_cloud_mode()
         else:
-            self.logger.warning(
-                "Direct mode not yet implemented — use cloud mode"
-            )
+            self.logger.warning("Direct mode not yet implemented — use cloud mode")
 
     async def _start_cloud_mode(self) -> None:
         """Initialize and start cloud relay connection + state notifier."""
@@ -125,13 +127,9 @@ class YandexSmartHomePlugin(PluginProvider):
         # State notifier — different callback URL/auth for cloud_plus
         if self._connection_type == CONNECTION_TYPE_CLOUD_PLUS:
             if not self._skill_id or not self._skill_token:
-                self.logger.error(
-                    "Cloud Plus mode requires skill_id and skill_token"
-                )
+                self.logger.error("Cloud Plus mode requires skill_id and skill_token")
                 return
-            callback_url = (
-                f"{YANDEX_DIALOGS_CALLBACK_BASE}/{self._skill_id}/callback/state"
-            )
+            callback_url = f"{YANDEX_DIALOGS_CALLBACK_BASE}/{self._skill_id}/callback/state"
             auth_header = {"Authorization": f"OAuth {self._skill_token}"}
             user_id = self._cloud_instance_id
         else:
@@ -161,30 +159,32 @@ class YandexSmartHomePlugin(PluginProvider):
 
         self.logger.debug(
             "Cloud request: action=%s, request_id=%s",
-            action, request_id,
+            action,
+            request_id,
         )
 
         try:
             if normalized == "/user/devices":
-                payload = await handle_device_list(
-                    self.mass, self._cloud_instance_id,
+                device_list = await handle_device_list(
+                    self.mass,
+                    self._cloud_instance_id,
                     exposed_ids=self._exposed_ids,
                 )
-                return build_response(request_id, asdict(payload))
+                return build_response(request_id, asdict(device_list))
 
             if normalized == "/user/devices/query":
                 device_ids = [d["id"] for d in message.get("devices", [])]
-                payload = await handle_devices_query(self.mass, device_ids)
-                return build_response(request_id, asdict(payload))
+                states = await handle_devices_query(self.mass, device_ids)
+                return build_response(request_id, asdict(states))
 
             if normalized == "/user/devices/action":
                 action_payload = parse_action_payload(message)
-                payload = await handle_devices_action(self.mass, action_payload)
-                return build_response(request_id, asdict(payload))
+                action_result = await handle_devices_action(self.mass, action_payload)
+                return build_response(request_id, asdict(action_result))
 
             if normalized == "/user/unlink":
-                payload = await handle_user_unlink()
-                return build_response(request_id, payload)
+                unlink_result = await handle_user_unlink()
+                return build_response(request_id, unlink_result)
 
             self.logger.warning("Unknown cloud action: %s", action)
             return build_response(request_id, {})

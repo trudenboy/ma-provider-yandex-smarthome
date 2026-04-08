@@ -280,7 +280,7 @@ class TestExecuteCapabilityAction:
             type=YandexCapabilityType.TOGGLE,
             state=CapabilityActionState(instance="pause", value=False),
         )
-        result = await execute_capability_action(mass, "p1", action)
+        await execute_capability_action(mass, "p1", action)
         mass.players.cmd_play.assert_awaited_once_with("p1")
 
     @pytest.mark.asyncio
@@ -366,7 +366,8 @@ class TestChannelCapability:
         player = MockPlayer()
         desc = get_device_description(player)
         channel_caps = [
-            c for c in desc.capabilities
+            c
+            for c in desc.capabilities
             if c.type == YandexCapabilityType.RANGE
             and c.parameters
             and c.parameters.instance == INSTANCE_CHANNEL
@@ -382,10 +383,7 @@ class TestChannelCapability:
         """Channel state should always report value 0."""
         player = MockPlayer(playback_state=PlaybackState.PLAYING)
         state = get_device_state(player)
-        channel_states = [
-            c for c in state.capabilities
-            if c.state.instance == INSTANCE_CHANNEL
-        ]
+        channel_states = [c for c in state.capabilities if c.state.instance == INSTANCE_CHANNEL]
         assert len(channel_states) == 1
         assert channel_states[0].state.value == 0
 
@@ -478,22 +476,18 @@ class TestInputSourceCapability:
             supported_features={"select_source"},
         )
         state = get_device_state(player)
-        mode_states = [
-            c for c in state.capabilities
-            if c.state.instance == INSTANCE_INPUT_SOURCE
-        ]
+        mode_states = [c for c in state.capabilities if c.state.instance == INSTANCE_INPUT_SOURCE]
         assert len(mode_states) == 1
         assert mode_states[0].state.value == "two"  # index 1 → "two"
 
     def test_state_no_active_source(self):
         """No active source → no input_source state reported."""
         sources = [MockPlayerSource(id="hdmi1", name="HDMI 1")]
-        player = MockPlayer(source_list=sources, active_source=None, supported_features={"select_source"})
+        player = MockPlayer(
+            source_list=sources, active_source=None, supported_features={"select_source"}
+        )
         state = get_device_state(player)
-        mode_states = [
-            c for c in state.capabilities
-            if c.state.instance == INSTANCE_INPUT_SOURCE
-        ]
+        mode_states = [c for c in state.capabilities if c.state.instance == INSTANCE_INPUT_SOURCE]
         assert len(mode_states) == 0
 
     @pytest.mark.asyncio
@@ -503,10 +497,12 @@ class TestInputSourceCapability:
             MockPlayerSource(id="hdmi1", name="HDMI 1"),
             MockPlayerSource(id="optical", name="Optical"),
         ]
-        player = MockPlayer(player_id="p1", source_list=sources, supported_features={"select_source"})
+        player = MockPlayer(
+            player_id="p1", source_list=sources, supported_features={"select_source"}
+        )
         mass = MockMass()
         mass.players._players["p1"] = player
-        mass.players.get_player = lambda pid: mass.players._players.get(pid)
+        mass.players.get_player = mass.players._players.get
 
         action = CapabilityAction(
             type=YandexCapabilityType.MODE,
@@ -522,7 +518,7 @@ class TestInputSourceCapability:
         player = MockPlayer(player_id="p1", source_list=[])
         mass = MockMass()
         mass.players._players["p1"] = player
-        mass.players.get_player = lambda pid: mass.players._players.get(pid)
+        mass.players.get_player = mass.players._players.get
 
         action = CapabilityAction(
             type=YandexCapabilityType.MODE,
@@ -545,24 +541,19 @@ class TestPlayerFilter:
 
     def test_filter_includes_player(self):
         """Player in the filter set is exposed."""
-        assert is_player_exposable(
-            MockPlayer(player_id="p1"), exposed_ids={"p1", "p2"}
-        ) is True
+        assert is_player_exposable(MockPlayer(player_id="p1"), exposed_ids={"p1", "p2"}) is True
 
     def test_filter_excludes_player(self):
         """Player not in the filter set is NOT exposed."""
-        assert is_player_exposable(
-            MockPlayer(player_id="p3"), exposed_ids={"p1", "p2"}
-        ) is False
+        assert is_player_exposable(MockPlayer(player_id="p3"), exposed_ids={"p1", "p2"}) is False
 
     def test_empty_filter_exposes_all(self):
         """Empty set filter should expose all players (same as None)."""
-        assert is_player_exposable(
-            MockPlayer(player_id="p1"), exposed_ids=set()
-        ) is True
+        assert is_player_exposable(MockPlayer(player_id="p1"), exposed_ids=set()) is True
 
     def test_filter_still_checks_available(self):
         """Even in filter, unavailable players are not exposed."""
-        assert is_player_exposable(
-            MockPlayer(player_id="p1", available=False), exposed_ids={"p1"}
-        ) is False
+        assert (
+            is_player_exposable(MockPlayer(player_id="p1", available=False), exposed_ids={"p1"})
+            is False
+        )

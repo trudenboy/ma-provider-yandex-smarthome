@@ -44,7 +44,7 @@ def _make_mass(players: list[MockPlayer]) -> MagicMock:
     mass.players.__iter__ = MagicMock(return_value=iter(players))
 
     player_map = {p.player_id: p for p in players}
-    mass.players.get_player = MagicMock(side_effect=lambda pid: player_map.get(pid))
+    mass.players.get_player = MagicMock(side_effect=player_map.get)
 
     mass.players.cmd_play = AsyncMock()
     mass.players.cmd_stop = AsyncMock()
@@ -153,17 +153,23 @@ class TestHandleDevicesAction:
     @pytest.mark.asyncio
     async def test_executes_on_off(self):
         mass = _make_mass([MockPlayer(player_id="p1")])
-        payload = parse_action_payload({
-            "payload": {
-                "devices": [{
-                    "id": "p1",
-                    "capabilities": [{
-                        "type": "devices.capabilities.on_off",
-                        "state": {"instance": "on", "value": True},
-                    }],
-                }],
-            },
-        })
+        payload = parse_action_payload(
+            {
+                "payload": {
+                    "devices": [
+                        {
+                            "id": "p1",
+                            "capabilities": [
+                                {
+                                    "type": "devices.capabilities.on_off",
+                                    "state": {"instance": "on", "value": True},
+                                }
+                            ],
+                        }
+                    ],
+                },
+            }
+        )
         result = await handle_devices_action(mass, payload)
         assert len(result.devices) == 1
         mass.players.cmd_play.assert_awaited_once_with("p1")
@@ -171,19 +177,27 @@ class TestHandleDevicesAction:
     @pytest.mark.asyncio
     async def test_missing_device_returns_error(self):
         mass = _make_mass([])
-        payload = parse_action_payload({
-            "payload": {
-                "devices": [{
-                    "id": "missing",
-                    "capabilities": [{
-                        "type": "devices.capabilities.on_off",
-                        "state": {"instance": "on", "value": True},
-                    }],
-                }],
-            },
-        })
+        payload = parse_action_payload(
+            {
+                "payload": {
+                    "devices": [
+                        {
+                            "id": "missing",
+                            "capabilities": [
+                                {
+                                    "type": "devices.capabilities.on_off",
+                                    "state": {"instance": "on", "value": True},
+                                }
+                            ],
+                        }
+                    ],
+                },
+            }
+        )
         result = await handle_devices_action(mass, payload)
-        assert result.devices[0].capabilities[0].state.action_result.error_code == "DEVICE_UNREACHABLE"
+        assert (
+            result.devices[0].capabilities[0].state.action_result.error_code == "DEVICE_UNREACHABLE"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -207,13 +221,17 @@ class TestParseActionPayload:
     def test_basic_payload(self):
         raw = {
             "payload": {
-                "devices": [{
-                    "id": "p1",
-                    "capabilities": [{
-                        "type": "devices.capabilities.on_off",
-                        "state": {"instance": "on", "value": True},
-                    }],
-                }],
+                "devices": [
+                    {
+                        "id": "p1",
+                        "capabilities": [
+                            {
+                                "type": "devices.capabilities.on_off",
+                                "state": {"instance": "on", "value": True},
+                            }
+                        ],
+                    }
+                ],
             },
         }
         payload = parse_action_payload(raw)
@@ -229,13 +247,17 @@ class TestParseActionPayload:
     def test_relative_volume(self):
         raw = {
             "payload": {
-                "devices": [{
-                    "id": "p1",
-                    "capabilities": [{
-                        "type": "devices.capabilities.range",
-                        "state": {"instance": "volume", "value": 10, "relative": True},
-                    }],
-                }],
+                "devices": [
+                    {
+                        "id": "p1",
+                        "capabilities": [
+                            {
+                                "type": "devices.capabilities.range",
+                                "state": {"instance": "volume", "value": 10, "relative": True},
+                            }
+                        ],
+                    }
+                ],
             },
         }
         payload = parse_action_payload(raw)
@@ -258,13 +280,17 @@ class TestParseActionPayload:
     def test_unwrapped_payload(self):
         """parse_action_payload should also handle messages without outer 'payload' key."""
         raw = {
-            "devices": [{
-                "id": "p1",
-                "capabilities": [{
-                    "type": "devices.capabilities.toggle",
-                    "state": {"instance": "pause", "value": True},
-                }],
-            }],
+            "devices": [
+                {
+                    "id": "p1",
+                    "capabilities": [
+                        {
+                            "type": "devices.capabilities.toggle",
+                            "state": {"instance": "pause", "value": True},
+                        }
+                    ],
+                }
+            ],
         }
         payload = parse_action_payload(raw)
         assert len(payload.devices) == 1
@@ -286,6 +312,7 @@ class TestBuildResponse:
 
     def test_dataclass_payload(self):
         from provider.schema import DeviceListPayload
+
         payload = DeviceListPayload(user_id="u1", devices=[])
         resp = build_response("req-1", payload)
         assert resp["request_id"] == "req-1"

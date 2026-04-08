@@ -58,7 +58,7 @@ Alice voice command
 
 ## Installation
 
-> ⚠️ **Experimental** — This provider is under active development.
+> This provider is under active development.
 
 ### As a custom provider
 

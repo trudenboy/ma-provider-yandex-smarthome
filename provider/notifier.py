@@ -14,7 +14,8 @@ from collections.abc import Callable
 from dataclasses import asdict
 from typing import TYPE_CHECKING
 
-import aiohttp
+if TYPE_CHECKING:
+    import aiohttp
 
 from .constants import (
     STATE_HEARTBEAT_INTERVAL,
@@ -162,9 +163,7 @@ class StateNotifier:
                         "State callback failed (HTTP %d): %s", resp.status, body[:200]
                     )
                 else:
-                    self._logger.debug(
-                        "State callback sent: %d device(s)", len(devices)
-                    )
+                    self._logger.debug("State callback sent: %d device(s)", len(devices))
         except Exception:
             self._logger.exception("State callback error")
 
@@ -173,8 +172,8 @@ class StateNotifier:
         devices: list[DeviceState] = []
         for player in self._mass.players:
             player_state = player.state if hasattr(player, "state") else player
-            if is_player_exposable(player_state, exposed_ids=self._exposed_ids):
-                devices.append(get_device_state(player_state))
+            if is_player_exposable(player_state, exposed_ids=self._exposed_ids):  # type: ignore[arg-type]
+                devices.append(get_device_state(player_state))  # type: ignore[arg-type]
         if devices:
             self._logger.info("Reporting all states: %d device(s)", len(devices))
             await self._send_state_callback(devices)

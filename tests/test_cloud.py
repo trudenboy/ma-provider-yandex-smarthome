@@ -16,9 +16,7 @@ from provider.schema import CloudRequest
 
 
 class TestCloudManager:
-    def _make_manager(
-        self, on_request: AsyncMock | None = None
-    ) -> CloudManager:
+    def _make_manager(self, on_request: AsyncMock | None = None) -> CloudManager:
         session = MagicMock(spec=aiohttp.ClientSession)
         if on_request is None:
             on_request = AsyncMock(return_value={"request_id": "r1", "payload": {}})
@@ -109,6 +107,7 @@ class TestCloudManager:
     def test_reconnect_delay_reset_logic(self):
         """Verify that _reconnect_delay is set to min by default."""
         from provider.constants import CLOUD_RECONNECT_MIN
+
         mgr = self._make_manager()
         assert mgr._reconnect_delay == CLOUD_RECONNECT_MIN
 
@@ -124,11 +123,13 @@ class TestRegisterCloudInstance:
         mock_resp = AsyncMock()
         mock_resp.status = 200
         mock_resp.raise_for_status = MagicMock()
-        mock_resp.json = AsyncMock(return_value={
-            "id": "inst-123",
-            "password": "pwd-xyz",
-            "connection_token": "tok-abc",
-        })
+        mock_resp.json = AsyncMock(
+            return_value={
+                "id": "inst-123",
+                "password": "pwd-xyz",
+                "connection_token": "tok-abc",
+            }
+        )
 
         session = MagicMock(spec=aiohttp.ClientSession)
         ctx = MagicMock()
@@ -146,9 +147,13 @@ class TestRegisterCloudInstance:
         mock_resp = AsyncMock()
         mock_resp.status = 200
         mock_resp.raise_for_status = MagicMock()
-        mock_resp.json = AsyncMock(return_value={
-            "id": "inst-1", "password": "p", "connection_token": "t",
-        })
+        mock_resp.json = AsyncMock(
+            return_value={
+                "id": "inst-1",
+                "password": "p",
+                "connection_token": "t",
+            }
+        )
 
         session = MagicMock(spec=aiohttp.ClientSession)
         ctx = MagicMock()

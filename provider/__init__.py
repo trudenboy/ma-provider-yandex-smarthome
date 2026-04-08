@@ -59,9 +59,7 @@ _LOGGER = logging.getLogger(__name__)
 SUPPORTED_FEATURES: set[ProviderFeature] = set()
 
 
-def _build_status_label(
-    otp_code: str | None, is_cloud_plus: bool, is_registered: bool
-) -> str:
+def _build_status_label(otp_code: str | None, is_cloud_plus: bool, is_registered: bool) -> str:
     """Build the status label text based on registration state."""
     if otp_code and is_cloud_plus:
         return (
@@ -195,18 +193,14 @@ async def get_config_entries(
     client_id = ""
     if is_cloud_plus and is_registered:
         webhook_url = CLOUD_SKILL_WEBHOOK_TEMPLATE
-        client_id = CLOUD_SKILL_CLIENT_ID_TEMPLATE.format(
-            instance_id=cloud_instance_id
-        )
+        client_id = CLOUD_SKILL_CLIENT_ID_TEMPLATE.format(instance_id=cloud_instance_id)
 
     # Build player options for exposed players filter
     player_options: list[ConfigValueOption] = []
     try:
         for player in mass.players:
             p = player.state if hasattr(player, "state") else player
-            player_options.append(
-                ConfigValueOption(title=p.name, value=p.player_id)
-            )
+            player_options.append(ConfigValueOption(title=p.name or p.player_id, value=p.player_id))
     except Exception:  # noqa: S110
         pass
 
@@ -218,7 +212,7 @@ async def get_config_entries(
             label="Instance Name",
             description=(
                 "Name of this MA instance as it will appear in Yandex Smart Home. "
-                'Alice will use this name for voice commands, e.g. '
+                "Alice will use this name for voice commands, e.g. "
                 '"Алиса, включи музыку на [имя]".'
             ),
             required=False,
@@ -310,7 +304,7 @@ async def get_config_entries(
             label="Backend URL (→ Basic info)",
             description="Copy and paste into your private skill's Backend URL field.",
             required=False,
-            value=webhook_url if webhook_url else None,
+            value=webhook_url or None,
             hidden=not webhook_url,
             depends_on=CONF_CONNECTION_TYPE,
             depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
@@ -324,7 +318,7 @@ async def get_config_entries(
             label="Client ID (→ Account linking)",
             description="Copy to 'Account linking' → 'Client identifier' field.",
             required=False,
-            value=client_id if client_id else None,
+            value=client_id or None,
             hidden=not client_id,
             depends_on=CONF_CONNECTION_TYPE,
             depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
@@ -430,7 +424,7 @@ async def get_config_entries(
             required=False,
             multi_value=True,
             default_value=[],
-            options=tuple(player_options) if player_options else None,
+            options=list(player_options) if player_options else [],
         ),
         # --- Auto-managed fields (hidden, populated by actions) ---
         ConfigEntry(
@@ -447,9 +441,7 @@ async def get_config_entries(
             label="Cloud Instance Password",
             hidden=True,
             required=False,
-            value=(
-                cast("str", values.get(CONF_CLOUD_INSTANCE_PASSWORD)) if values else None
-            ),
+            value=(cast("str", values.get(CONF_CLOUD_INSTANCE_PASSWORD)) if values else None),
         ),
         ConfigEntry(
             key=CONF_CLOUD_CONNECTION_TOKEN,
@@ -457,8 +449,6 @@ async def get_config_entries(
             label="Cloud Connection Token",
             hidden=True,
             required=False,
-            value=(
-                cast("str", values.get(CONF_CLOUD_CONNECTION_TOKEN)) if values else None
-            ),
+            value=(cast("str", values.get(CONF_CLOUD_CONNECTION_TOKEN)) if values else None),
         ),
     )

@@ -210,6 +210,7 @@ class TestStateNotifierFlush:
 
         # Queue a pending state
         from provider.device import get_device_state
+
         player = MockPlayer(player_id="p1")
         notifier._pending["p1"] = get_device_state(player)
 
@@ -289,6 +290,7 @@ class TestStateNotifierCloudPlus:
         )
 
         from provider.device import get_device_state
+
         player = MockPlayer(player_id="p1")
         notifier._pending["p1"] = get_device_state(player)
 
@@ -316,6 +318,7 @@ class TestStateNotifierCloudPlus:
         notifier = _make_notifier(mass=mass, session=session)
 
         from provider.device import get_device_state
+
         player = MockPlayer(player_id="p1")
         notifier._pending["p1"] = get_device_state(player)
 

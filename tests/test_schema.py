@@ -74,7 +74,9 @@ class TestDeviceDescription:
     """Test DeviceDescription serialization."""
 
     def test_minimal(self):
-        desc = DeviceDescription(id="p1", name="Living Room", type=YandexDeviceType.MEDIA_DEVICE_RECEIVER)
+        desc = DeviceDescription(
+            id="p1", name="Living Room", type=YandexDeviceType.MEDIA_DEVICE_RECEIVER
+        )
         data = asdict(desc)
         assert data["id"] == "p1"
         assert data["name"] == "Living Room"
@@ -201,7 +203,9 @@ class TestCloudMessages:
     """Test cloud WebSocket message models."""
 
     def test_cloud_request(self):
-        req = CloudRequest(request_id="abc-123", action="/v1.0/user/devices", message={"key": "val"})
+        req = CloudRequest(
+            request_id="abc-123", action="/v1.0/user/devices", message={"key": "val"}
+        )
         assert req.request_id == "abc-123"
         assert req.action == "/v1.0/user/devices"
         assert req.message == {"key": "val"}

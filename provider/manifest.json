@@ -11,7 +11,7 @@
     "aiohttp>=3.9.0"
   ],
   "documentation": "https://github.com/trudenboy/ma-provider-yandex-smarthome",
-  "stage": "experimental",
+  "stage": "alpha",
   "multi_instance": false,
   "builtin": false
 }

@@ -1,13 +1,25 @@
 [project]
 name = "ma-provider-yandex-smarthome"
-version = "0.0.1"
+version = "1.0.0"
 requires-python = ">=3.12"
 dependencies = [
     "aiohttp>=3.9.0",
 ]
 
+[dependency-groups]
+dev = [
+    "codespell>=2.2.0",
+    "mypy>=1.0.0",
+    "pre-commit>=3.0.0",
+    "pre-commit-hooks>=4.0.0",
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "ruff>=0.4.0",
+]
+
 [tool.codespell]
 skip = "*.min.js,docs-site/package-lock.json"
+ignore-words-list = "hass"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

@@ -19,7 +19,7 @@ try:
     from enum import StrEnum as _StrEnum
 except ImportError:
 
-    class _StrEnum(str, Enum):  # type: ignore[no-redef]
+    class _StrEnum(str, Enum):  # type: ignore[no-redef]  # noqa: UP042
         """Backport of StrEnum for Python < 3.11."""
 
 
@@ -40,6 +40,7 @@ def _ensure_module(name: str, attrs: dict | None = None) -> types.ModuleType:
 
 # Create music_assistant_models namespace
 _ensure_module("music_assistant_models")
+
 
 # music_assistant_models.enums
 class _PlaybackState(_StrEnum):
@@ -78,6 +79,7 @@ _ensure_module(
     },
 )
 
+
 # music_assistant_models.config_entries
 class _ConfigEntry:
     def __init__(self, **kwargs):
@@ -104,6 +106,7 @@ _ensure_module(
 
 # music_assistant_models.player
 _ensure_module("music_assistant_models.player", {"Player": MagicMock})
+
 
 # music_assistant_models.event
 class _MassEvent:

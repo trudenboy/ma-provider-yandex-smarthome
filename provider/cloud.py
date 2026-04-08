@@ -63,14 +63,12 @@ class CloudManager:
                 break
             except Exception:
                 if not self._running:
-                    break
+                    break  # type: ignore[unreachable]
                 self._logger.exception(
                     "Cloud connection error, reconnecting in %ds", self._reconnect_delay
                 )
                 await asyncio.sleep(self._reconnect_delay)
-                self._reconnect_delay = min(
-                    self._reconnect_delay * 2, CLOUD_RECONNECT_MAX
-                )
+                self._reconnect_delay = min(self._reconnect_delay * 2, CLOUD_RECONNECT_MAX)
 
     async def _connect_once(self) -> None:
         """Single WebSocket connection attempt + message loop."""
@@ -115,7 +113,7 @@ class CloudManager:
             request = CloudRequest(
                 request_id=data["request_id"],
                 action=data["action"],
-                message=raw_message,
+                message=raw_message if isinstance(raw_message, dict) else None,
             )
             self._logger.debug("Cloud request: action=%s", request.action)
             response = await self._on_request(request)
@@ -155,7 +153,7 @@ async def register_cloud_instance(
         # yaha-cloud.ru may return text/plain content-type for JSON
         data = await resp.json(content_type=None)
         _LOGGER.info("Registered cloud instance: %s", data.get("id"))
-        return data
+        return dict(data)
 
 
 async def get_cloud_otp(
@@ -174,4 +172,4 @@ async def get_cloud_otp(
         resp.raise_for_status()
         # yaha-cloud.ru may return text/plain content-type for JSON
         data = await resp.json(content_type=None)
-        return data["code"]
+        return str(data["code"])

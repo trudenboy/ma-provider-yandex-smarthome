@@ -17,13 +17,14 @@ try:
     from enum import StrEnum
 except ImportError:
     # Python < 3.11 fallback
-    class StrEnum(str, Enum):  # type: ignore[no-redef]
+    class StrEnum(str, Enum):  # type: ignore[no-redef]  # noqa: UP042
         """Backport of StrEnum for Python < 3.11."""
 
 
 # ---------------------------------------------------------------------------
 # Enums
 # ---------------------------------------------------------------------------
+
 
 class YandexDeviceType(StrEnum):
     """Yandex Smart Home device types relevant to MA players."""
@@ -74,6 +75,7 @@ class YandexResponseCode(StrEnum):
 # ---------------------------------------------------------------------------
 # Device description — returned by /user/devices
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class RangeParameters:
@@ -138,6 +140,7 @@ class DeviceDescription:
 # Capability state — for /user/devices/query and state callbacks
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class CapabilityInstanceState:
     """State of a specific capability instance."""
@@ -167,6 +170,7 @@ class DeviceState:
 # ---------------------------------------------------------------------------
 # Action request — from /user/devices/action
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class CapabilityActionState:
@@ -203,6 +207,7 @@ class ActionRequestPayload:
 # ---------------------------------------------------------------------------
 # Action result
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class ActionResult:
@@ -245,6 +250,7 @@ class DeviceActionResult:
 # Response payloads
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class DeviceListPayload:
     """Payload for /user/devices response."""
@@ -271,6 +277,7 @@ class ActionResultPayload:
 # Callback — state reporting to Yandex
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class CallbackPayload:
     """Payload for callback/state POST."""
@@ -290,6 +297,7 @@ class CallbackRequest:
 # ---------------------------------------------------------------------------
 # Cloud WebSocket messages
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class CloudRequest:

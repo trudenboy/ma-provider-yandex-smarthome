@@ -85,8 +85,16 @@ UNIT_PERCENT = "unit.percent"
 
 # Yandex mode values for input_source mapping (by index position)
 YANDEX_MODE_VALUES = (
-    "one", "two", "three", "four", "five",
-    "six", "seven", "eight", "nine", "ten",
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+    "eight",
+    "nine",
+    "ten",
 )
 
 # ---------------------------------------------------------------------------

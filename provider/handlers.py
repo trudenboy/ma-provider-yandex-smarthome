@@ -48,16 +48,14 @@ async def handle_device_list(
     devices = []
     for player in mass.players:
         state = player.state if hasattr(player, "state") else player
-        if not is_player_exposable(state, exposed_ids=exposed_ids):
+        if not is_player_exposable(state, exposed_ids=exposed_ids):  # type: ignore[arg-type]
             continue
-        devices.append(get_device_description(state))
+        devices.append(get_device_description(state))  # type: ignore[arg-type]
     _LOGGER.debug("Device list: %d devices exposed", len(devices))
     return DeviceListPayload(user_id=user_id, devices=devices)
 
 
-async def handle_devices_query(
-    mass: MusicAssistant, device_ids: list[str]
-) -> DeviceStatesPayload:
+async def handle_devices_query(mass: MusicAssistant, device_ids: list[str]) -> DeviceStatesPayload:
     """Handle /user/devices/query — return current states for requested devices."""
     states: list[DeviceState] = []
     for device_id in device_ids:
@@ -75,7 +73,7 @@ async def handle_devices_query(
             states.append(make_error_device_state(device_id))
             continue
 
-        states.append(get_device_state(player_state))
+        states.append(get_device_state(player_state))  # type: ignore[arg-type]
 
     return DeviceStatesPayload(devices=states)
 
