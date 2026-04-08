@@ -151,10 +151,19 @@ def parse_action_payload(raw: dict[str, Any]) -> ActionRequestPayload:
     return ActionRequestPayload(devices=devices)
 
 
+def _strip_none(obj: Any) -> Any:
+    """Recursively remove None values from dicts (Yandex API rejects null fields)."""
+    if isinstance(obj, dict):
+        return {k: _strip_none(v) for k, v in obj.items() if v is not None}
+    if isinstance(obj, list):
+        return [_strip_none(item) for item in obj]
+    return obj
+
+
 def build_response(request_id: str, payload: Any) -> dict[str, Any]:
     """Wrap a handler result in the Yandex Smart Home API response envelope."""
     if payload is None:
         return {"request_id": request_id, "payload": {}}
     if isinstance(payload, dict):
-        return {"request_id": request_id, "payload": payload}
-    return {"request_id": request_id, "payload": asdict(payload)}
+        return {"request_id": request_id, "payload": _strip_none(payload)}
+    return {"request_id": request_id, "payload": _strip_none(asdict(payload))}

@@ -160,7 +160,7 @@ class StateNotifier:
                         "State callback failed (HTTP %d): %s", resp.status, body[:200]
                     )
                 else:
-                    self._logger.debug(
+                    self._logger.info(
                         "State callback sent: %d device(s)", len(devices)
                     )
         except Exception:
