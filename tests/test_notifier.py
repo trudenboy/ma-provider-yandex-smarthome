@@ -29,6 +29,8 @@ class MockPlayer:
     synced_to: str | None = None
     device_info: Any = None
     supported_features: set[str] = field(default_factory=set)
+    source_list: list = field(default_factory=list)
+    active_source: str | None = None
 
 
 @dataclass
@@ -165,6 +167,30 @@ class TestStateNotifierEvents:
         notifier._on_player_event(event)
 
         assert len(notifier._pending) == 0
+
+    def test_on_player_filtered_by_exposed_ids(self):
+        """Player not in exposed_ids should be ignored."""
+        mass = _make_mass()
+        notifier = _make_notifier(mass=mass)
+        notifier._exposed_ids = {"p2", "p3"}
+
+        player = MockPlayer(player_id="p1", playback_state=PlaybackState.PLAYING)
+        event = MockEvent(event=EventType.PLAYER_UPDATED, data=player)
+        notifier._on_player_event(event)
+
+        assert "p1" not in notifier._pending
+
+    def test_on_player_included_by_exposed_ids(self):
+        """Player in exposed_ids should be queued."""
+        mass = _make_mass()
+        notifier = _make_notifier(mass=mass)
+        notifier._exposed_ids = {"p1", "p2"}
+
+        player = MockPlayer(player_id="p1", playback_state=PlaybackState.PLAYING)
+        event = MockEvent(event=EventType.PLAYER_UPDATED, data=player)
+        notifier._on_player_event(event)
+
+        assert "p1" in notifier._pending
 
 
 class TestStateNotifierFlush:

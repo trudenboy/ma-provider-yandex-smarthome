@@ -9,16 +9,20 @@
 
 ## Overview
 
-This plugin bridges Music Assistant and the Yandex Smart Home ecosystem. It registers MA players as smart home devices (type `media_device`), enabling voice control through Alice:
+This plugin bridges [Music Assistant](https://github.com/music-assistant/server) and the Yandex Smart Home ecosystem. It registers MA players as smart home devices (type `media_device.receiver`), enabling voice control through Yandex Alice.
+
+### Voice Commands
 
 | Voice command | Action |
 |---|---|
-| «Алиса, включи музыку на \<имя\>» | Play / resume |
-| «Алиса, выключи \<имя\>» | Stop / pause |
-| «Алиса, сделай громче на \<имя\>» | Volume up |
-| «Алиса, поставь громкость 50 на \<имя\>» | Set volume |
+| «Алиса, включи музыку на \<имя\>» | Play / resume current queue |
+| «Алиса, выключи \<имя\>» | Stop playback |
+| «Алиса, сделай громче на \<имя\>» | Volume up (+10) |
+| «Алиса, сделай тише на \<имя\>» | Volume down (-10) |
+| «Алиса, поставь громкость 50 на \<имя\>» | Set volume to 50% |
 | «Алиса, пауза на \<имя\>» | Pause |
 | «Алиса, дальше на \<имя\>» | Next track |
+| «Алиса, назад на \<имя\>» | Previous track |
 
 ## Architecture
 
@@ -31,24 +35,26 @@ Alice voice command
         ▼ (Smart Home API callback)
 ┌───────────────────┐
 │  This plugin      │──────► MA Player commands
-│  (PluginProvider)  │       (play/pause/stop/vol/next)
+│  (PluginProvider)  │       (play/pause/stop/vol/next/prev/source)
 │                   │
-│  HTTP webhook or  │◄────── MA Player state events
-│  cloud relay      │──────► Yandex state reports
+│  Cloud relay      │◄────── MA Player state events
+│  (yaha-cloud.ru)  │──────► Yandex state reports
 └───────────────────┘
 ```
 
-### Yandex Smart Home Capabilities Mapped
+### Yandex Smart Home Capabilities
 
-| Yandex Capability | MA Player Action |
-|---|---|
-| `on_off` | `play()` / `stop()` |
-| `range(volume)` | `volume_set()` |
-| `toggle(mute)` | `volume_mute()` |
-| `toggle(pause)` | `play()` / `pause()` |
+| Yandex Capability | MA Player Action | Notes |
+|---|---|---|
+| `on_off` | `play()` / `stop()` | "включи" resumes queue, "выключи" stops |
+| `range(volume)` | `volume_set()` | Absolute and relative (±) |
+| `toggle(mute)` | `volume_mute()` | |
+| `toggle(pause)` | `play()` / `pause()` | |
+| `range(channel)` | `next_track()` / `previous_track()` | Relative only: +1=next, -1=prev |
+| `mode(input_source)` | `select_source()` | Maps source_list by index (max 10) |
 
 > **Note:** Yandex Smart Home API does **not** support `play_media` for third-party devices.
-> When Alice says "включи музыку", the plugin triggers play/resume on the current MA queue.
+> "Включи музыку" triggers play/resume on the current MA queue, not a specific track.
 
 ## Installation
 
@@ -58,8 +64,14 @@ Alice voice command
 
 1. Copy the `provider/` folder to your MA custom providers directory
 2. Restart Music Assistant
-3. Go to Settings → Providers → Add → Yandex Smart Home
-4. Configure instance name and cloud token
+3. Go to **Settings → Providers → Add → Yandex Smart Home**
+4. Choose connection type:
+   - **Cloud** — uses public Yaha Cloud skill (simplest setup)
+   - **Cloud Plus** — uses a private skill (required if Yaha Cloud is already linked to Home Assistant on the same Yandex account)
+5. Click **Register with cloud** — this creates an instance on the yaha-cloud.ru relay
+6. Copy the OTP code and enter it in the Yandex app:
+   - Yandex app → Devices → Add device → Smart Home → find the skill → enter OTP
+7. (Cloud Plus only) Create a private skill in [Yandex.Dialogs](https://dialogs.yandex.ru/developer/smart-home) — the config flow provides all required values to copy
 
 ### Development
 
@@ -68,7 +80,7 @@ Alice voice command
 git clone https://github.com/trudenboy/ma-provider-yandex-smarthome.git
 cd ma-provider-yandex-smarthome
 
-# Dev environment with Docker
+# Dev environment with Docker (recommended)
 docker compose -f docker-compose.dev.yml up
 
 # Or manual setup
@@ -80,20 +92,33 @@ pytest
 
 | Parameter | Description |
 |---|---|
-| **Instance Name** | How this MA instance appears in Yandex Smart Home. Alice uses this name for voice commands. |
-| **Cloud Token** | OAuth token for Yandex Smart Home API authentication. |
+| **Instance Name** | How this MA instance appears in Yandex Smart Home. Alice uses this name. |
+| **Connection Type** | `cloud` (public skill) or `cloud_plus` (private skill). |
+| **Exposed Players** | Select which MA players to expose to Alice. Empty = all players. |
+
+Cloud Plus mode additionally requires **Skill ID** and **Skill OAuth Token** from Yandex.Dialogs.
+
+## Limitations
+
+- **No play_media** — Alice cannot start a specific song/playlist. "Включи музыку" only resumes the current MA queue.
+- **Max 10 input sources** — Yandex mode capability supports up to 10 values.
+- **No seek** — Yandex Smart Home API does not support seek for third-party media devices.
+- **No track info** — Cannot push track name/artwork to Yandex (not supported by the API).
 
 ## Status
 
-🚧 **Work in progress.** Core scaffolding is complete. Implementation of the Smart Home API bridge is underway.
-
 - [x] Project scaffold with CI/CD
-- [ ] Yandex Smart Home API client
-- [ ] Device registration & discovery
-- [ ] Capability action handling (on_off, volume, pause)
-- [ ] State reporting to Yandex
-- [ ] Cloud relay mode (no public URL needed)
-- [ ] Direct webhook mode
+- [x] Cloud relay connection (yaha-cloud.ru WebSocket)
+- [x] Cloud Plus mode (private skill via Yandex.Dialogs)
+- [x] Auto-registration config flow with OTP
+- [x] Device registration & discovery
+- [x] Capability: on_off, volume, mute, pause
+- [x] Capability: next/previous track (channel)
+- [x] Capability: input source selection (mode)
+- [x] Player filter (expose selected players only)
+- [x] State reporting to Yandex (debounced + heartbeat)
+- [ ] Direct webhook mode (no relay needed, requires public URL)
+- [ ] Smart on_off (resume YaMusic playback when queue is empty)
 
 ## Related Projects
 

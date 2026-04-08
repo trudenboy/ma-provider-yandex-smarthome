@@ -29,6 +29,7 @@ from .constants import (
     CONF_CLOUD_INSTANCE_ID,
     CONF_CLOUD_INSTANCE_PASSWORD,
     CONF_CONNECTION_TYPE,
+    CONF_EXPOSED_PLAYERS,
     CONF_INSTANCE_NAME,
     CONF_SKILL_ID,
     CONF_SKILL_TOKEN,
@@ -69,6 +70,14 @@ class YandexSmartHomePlugin(PluginProvider):
         self._cloud_instance_id = self.config.get_value(CONF_CLOUD_INSTANCE_ID) or ""
         self._skill_id = self.config.get_value(CONF_SKILL_ID) or ""
         self._skill_token = self.config.get_value(CONF_SKILL_TOKEN) or ""
+
+        # Parse exposed players filter
+        exposed_raw = self.config.get_value(CONF_EXPOSED_PLAYERS) or []
+        if isinstance(exposed_raw, str):
+            exposed_raw = [x.strip() for x in exposed_raw.split(",") if x.strip()]
+        elif isinstance(exposed_raw, list):
+            exposed_raw = [str(x) for x in exposed_raw if x]
+        self._exposed_ids: set[str] | None = set(exposed_raw) if exposed_raw else None
 
         self.logger.info(
             "Yandex Smart Home plugin init (mode=%s, name=%s)",
@@ -137,6 +146,7 @@ class YandexSmartHomePlugin(PluginProvider):
             callback_url=callback_url,
             auth_header=auth_header,
             logger=self.logger,
+            exposed_ids=self._exposed_ids,
         )
         await self._state_notifier.start()
 
@@ -156,7 +166,10 @@ class YandexSmartHomePlugin(PluginProvider):
 
         try:
             if normalized == "/user/devices":
-                payload = await handle_device_list(self.mass, self._cloud_instance_id)
+                payload = await handle_device_list(
+                    self.mass, self._cloud_instance_id,
+                    exposed_ids=self._exposed_ids,
+                )
                 return build_response(request_id, asdict(payload))
 
             if normalized == "/user/devices/query":

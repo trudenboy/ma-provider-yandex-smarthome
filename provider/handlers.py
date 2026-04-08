@@ -39,12 +39,16 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 
-async def handle_device_list(mass: MusicAssistant, user_id: str) -> DeviceListPayload:
+async def handle_device_list(
+    mass: MusicAssistant,
+    user_id: str,
+    exposed_ids: set[str] | None = None,
+) -> DeviceListPayload:
     """Handle /user/devices — return list of all MA players as Yandex devices."""
     devices = []
     for player in mass.players:
         state = player.state if hasattr(player, "state") else player
-        if not is_player_exposable(state):
+        if not is_player_exposable(state, exposed_ids=exposed_ids):
             continue
         devices.append(get_device_description(state))
     _LOGGER.debug("Device list: %d devices exposed", len(devices))

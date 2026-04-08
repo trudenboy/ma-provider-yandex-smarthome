@@ -12,6 +12,7 @@ CONF_CLOUD_INSTANCE_PASSWORD = "cloud_instance_password"
 CONF_CLOUD_CONNECTION_TOKEN = "cloud_connection_token"
 CONF_SKILL_ID = "skill_id"
 CONF_SKILL_TOKEN = "skill_token"
+CONF_EXPOSED_PLAYERS = "exposed_players"
 
 # ---------------------------------------------------------------------------
 # Config actions
@@ -77,8 +78,16 @@ INSTANCE_ON = "on"
 INSTANCE_VOLUME = "volume"
 INSTANCE_MUTE = "mute"
 INSTANCE_PAUSE = "pause"
+INSTANCE_CHANNEL = "channel"
+INSTANCE_INPUT_SOURCE = "input_source"
 
 UNIT_PERCENT = "unit.percent"
+
+# Yandex mode values for input_source mapping (by index position)
+YANDEX_MODE_VALUES = (
+    "one", "two", "three", "four", "five",
+    "six", "seven", "eight", "nine", "ten",
+)
 
 # ---------------------------------------------------------------------------
 # Yandex Smart Home API — response codes

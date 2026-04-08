@@ -13,12 +13,15 @@ from .constants import (
     ERROR_DEVICE_UNREACHABLE,
     ERROR_INTERNAL_ERROR,
     ERROR_INVALID_ACTION,
+    INSTANCE_CHANNEL,
+    INSTANCE_INPUT_SOURCE,
     INSTANCE_MUTE,
     INSTANCE_ON,
     INSTANCE_PAUSE,
     INSTANCE_VOLUME,
     UNIT_PERCENT,
     YANDEX_DEVICE_TYPE_RECEIVER,
+    YANDEX_MODE_VALUES,
 )
 from .schema import (
     ActionResult,
@@ -31,6 +34,7 @@ from .schema import (
     CapabilityState,
     DeviceDescription,
     DeviceState,
+    ModeValue,
     RangeParameters,
     YandexCapabilityType,
     YandexDeviceInfo,
@@ -40,6 +44,53 @@ if TYPE_CHECKING:
     from music_assistant_models.player import Player
 
 _LOGGER = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Source list helpers (for input_source capability)
+# ---------------------------------------------------------------------------
+
+
+def _get_source_list(player: Player) -> list:
+    """Get the source list from a player, or empty list if not available."""
+    source_list = getattr(player, "source_list", None)
+    if source_list:
+        return list(source_list)
+    return []
+
+
+def _build_source_modes(source_list: list) -> list[ModeValue]:
+    """Build Yandex mode values from an MA source list (max 10)."""
+    return [ModeValue(value=YANDEX_MODE_VALUES[i]) for i in range(min(len(source_list), 10))]
+
+
+def _source_to_mode(active_source: str | None, source_list: list) -> str | None:
+    """Map active MA source name/id to a Yandex mode value."""
+    if not active_source or not source_list:
+        return None
+    for i, source in enumerate(source_list[:10]):
+        source_name = getattr(source, "name", str(source))
+        source_id = getattr(source, "id", str(source))
+        if active_source in (source_name, source_id):
+            return YANDEX_MODE_VALUES[i]
+    return None
+
+
+def _mode_to_source(mode_value: str, source_list: list) -> str | None:
+    """Resolve a Yandex mode value to an MA source name."""
+    try:
+        idx = list(YANDEX_MODE_VALUES).index(mode_value)
+    except ValueError:
+        return None
+    if idx >= len(source_list):
+        return None
+    source = source_list[idx]
+    return getattr(source, "name", str(source))
+
+
+# ---------------------------------------------------------------------------
+# Device description & state
+# ---------------------------------------------------------------------------
 
 
 def _volume_range_params() -> CapabilityParameters:
@@ -67,7 +118,30 @@ def get_device_description(player: Player) -> DeviceDescription:
             type=YandexCapabilityType.TOGGLE,
             parameters=CapabilityParameters(instance=INSTANCE_PAUSE),
         ),
+        CapabilityDescription(
+            type=YandexCapabilityType.RANGE,
+            parameters=CapabilityParameters(
+                instance=INSTANCE_CHANNEL,
+                range=RangeParameters(min=0, max=999, precision=1),
+                random_access=False,
+            ),
+        ),
     ]
+
+    # mode(input_source) — only if player has sources
+    source_list = _get_source_list(player)
+    if source_list:
+        modes = _build_source_modes(source_list)
+        if modes:
+            capabilities.append(
+                CapabilityDescription(
+                    type=YandexCapabilityType.MODE,
+                    parameters=CapabilityParameters(
+                        instance=INSTANCE_INPUT_SOURCE,
+                        modes=modes,
+                    ),
+                )
+            )
 
     model = "MA Player"
     if hasattr(player, "device_info") and player.device_info:
@@ -91,27 +165,45 @@ def get_device_state(player: Player) -> DeviceState:
     volume = player.volume_level if player.volume_level is not None else 0
     muted = player.volume_muted if player.volume_muted is not None else False
 
-    return DeviceState(
-        id=player.player_id,
-        capabilities=[
-            CapabilityState(
-                type=YandexCapabilityType.ON_OFF,
-                state=CapabilityInstanceState(instance=INSTANCE_ON, value=is_playing),
-            ),
-            CapabilityState(
-                type=YandexCapabilityType.RANGE,
-                state=CapabilityInstanceState(instance=INSTANCE_VOLUME, value=volume),
-            ),
-            CapabilityState(
-                type=YandexCapabilityType.TOGGLE,
-                state=CapabilityInstanceState(instance=INSTANCE_MUTE, value=muted),
-            ),
-            CapabilityState(
-                type=YandexCapabilityType.TOGGLE,
-                state=CapabilityInstanceState(instance=INSTANCE_PAUSE, value=is_paused),
-            ),
-        ],
-    )
+    capabilities = [
+        CapabilityState(
+            type=YandexCapabilityType.ON_OFF,
+            state=CapabilityInstanceState(instance=INSTANCE_ON, value=is_playing),
+        ),
+        CapabilityState(
+            type=YandexCapabilityType.RANGE,
+            state=CapabilityInstanceState(instance=INSTANCE_VOLUME, value=volume),
+        ),
+        CapabilityState(
+            type=YandexCapabilityType.TOGGLE,
+            state=CapabilityInstanceState(instance=INSTANCE_MUTE, value=muted),
+        ),
+        CapabilityState(
+            type=YandexCapabilityType.TOGGLE,
+            state=CapabilityInstanceState(instance=INSTANCE_PAUSE, value=is_paused),
+        ),
+        CapabilityState(
+            type=YandexCapabilityType.RANGE,
+            state=CapabilityInstanceState(instance=INSTANCE_CHANNEL, value=0),
+        ),
+    ]
+
+    # input_source state — only if player has sources
+    source_list = _get_source_list(player)
+    if source_list:
+        active = getattr(player, "active_source", None)
+        mode_value = _source_to_mode(active, source_list)
+        if mode_value:
+            capabilities.append(
+                CapabilityState(
+                    type=YandexCapabilityType.MODE,
+                    state=CapabilityInstanceState(
+                        instance=INSTANCE_INPUT_SOURCE, value=mode_value
+                    ),
+                )
+            )
+
+    return DeviceState(id=player.player_id, capabilities=capabilities)
 
 
 async def execute_capability_action(
@@ -158,6 +250,34 @@ async def execute_capability_action(
             else:
                 await mass.players.cmd_play(player_id)
 
+        elif action.type == YandexCapabilityType.RANGE and instance == INSTANCE_CHANNEL:
+            if action.state.relative:
+                if int(value) > 0:
+                    await mass.players.cmd_next_track(player_id)
+                elif int(value) < 0:
+                    await mass.players.cmd_previous_track(player_id)
+            # Non-relative channel set is ignored (no concept of channel number in MA)
+
+        elif action.type == YandexCapabilityType.MODE and instance == INSTANCE_INPUT_SOURCE:
+            player = mass.players.get_player(player_id)
+            p_state = player.state if hasattr(player, "state") else player
+            source_list = _get_source_list(p_state)
+            source = _mode_to_source(str(value), source_list)
+            if source:
+                await mass.players.cmd_select_source(player_id, source)
+            else:
+                return CapabilityActionResult(
+                    type=action.type,
+                    state=CapabilityActionResultState(
+                        instance=instance,
+                        action_result=ActionResult(
+                            status="ERROR",
+                            error_code=ERROR_INVALID_ACTION,
+                            error_message=f"Unknown source mode: {value}",
+                        ),
+                    ),
+                )
+
         else:
             return CapabilityActionResult(
                 type=action.type,
@@ -194,7 +314,7 @@ async def execute_capability_action(
     )
 
 
-def is_player_exposable(player: Player) -> bool:
+def is_player_exposable(player: Player, exposed_ids: set[str] | None = None) -> bool:
     """Determine whether an MA player should be exposed to Yandex Smart Home."""
     if not player.available:
         return False
@@ -202,6 +322,9 @@ def is_player_exposable(player: Player) -> bool:
         return False
     # Don't expose players that are synced to another player (they are controlled via leader)
     if player.synced_to:
+        return False
+    # If a filter is set, only expose selected players
+    if exposed_ids and player.player_id not in exposed_ids:
         return False
     return True
 

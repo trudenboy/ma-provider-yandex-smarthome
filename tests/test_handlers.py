@@ -34,6 +34,8 @@ class MockPlayer:
     synced_to: str | None = None
     device_info: Any = None
     supported_features: set[str] = field(default_factory=set)
+    source_list: list = field(default_factory=list)
+    active_source: str | None = None
 
 
 def _make_mass(players: list[MockPlayer]) -> MagicMock:
@@ -98,6 +100,19 @@ class TestHandleDeviceList:
         result = await handle_device_list(mass, "user1")
         assert len(result.devices) == 1
         assert result.devices[0].id == "leader"
+
+    @pytest.mark.asyncio
+    async def test_filters_by_exposed_ids(self):
+        players = [
+            MockPlayer(player_id="p1", name="Speaker 1"),
+            MockPlayer(player_id="p2", name="Speaker 2"),
+            MockPlayer(player_id="p3", name="Speaker 3"),
+        ]
+        mass = _make_mass(players)
+        result = await handle_device_list(mass, "user1", exposed_ids={"p1", "p3"})
+        assert len(result.devices) == 2
+        ids = {d.id for d in result.devices}
+        assert ids == {"p1", "p3"}
 
 
 # ---------------------------------------------------------------------------

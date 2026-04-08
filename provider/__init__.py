@@ -25,7 +25,6 @@ from music_assistant_models.enums import ConfigEntryType, ProviderFeature
 
 from .cloud import get_cloud_otp, register_cloud_instance
 from .constants import (
-    CLOUD_BASE_URL,
     CLOUD_OAUTH_AUTHORIZE_URL,
     CLOUD_OAUTH_TOKEN_URL,
     CLOUD_SKILL_CLIENT_ID_TEMPLATE,
@@ -37,6 +36,7 @@ from .constants import (
     CONF_CLOUD_INSTANCE_ID,
     CONF_CLOUD_INSTANCE_PASSWORD,
     CONF_CONNECTION_TYPE,
+    CONF_EXPOSED_PLAYERS,
     CONF_INSTANCE_NAME,
     CONF_SKILL_ID,
     CONF_SKILL_TOKEN,
@@ -198,6 +198,17 @@ async def get_config_entries(
         client_id = CLOUD_SKILL_CLIENT_ID_TEMPLATE.format(
             instance_id=cloud_instance_id
         )
+
+    # Build player options for exposed players filter
+    player_options: list[ConfigValueOption] = []
+    try:
+        for player in mass.players:
+            p = player.state if hasattr(player, "state") else player
+            player_options.append(
+                ConfigValueOption(title=p.name, value=p.player_id)
+            )
+    except Exception:  # noqa: S110
+        pass
 
     return (
         # Instance name
@@ -384,6 +395,19 @@ async def get_config_entries(
             required=False,
             depends_on=CONF_CONNECTION_TYPE,
             depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
+        ),
+        # --- Player filter ---
+        ConfigEntry(
+            key=CONF_EXPOSED_PLAYERS,
+            type=ConfigEntryType.STRING,
+            label="Exposed Players",
+            description=(
+                "Select which MA players to expose to Yandex Smart Home. "
+                "Leave empty to expose all players."
+            ),
+            required=False,
+            multi_value=True,
+            options=tuple(player_options) if player_options else None,
         ),
         # --- Auto-managed fields (hidden, populated by actions) ---
         ConfigEntry(

@@ -38,12 +38,20 @@ class YandexCapabilityType(StrEnum):
     ON_OFF = "devices.capabilities.on_off"
     RANGE = "devices.capabilities.range"
     TOGGLE = "devices.capabilities.toggle"
+    MODE = "devices.capabilities.mode"
 
 
 class YandexRangeInstance(StrEnum):
     """Range capability instances."""
 
     VOLUME = "volume"
+    CHANNEL = "channel"
+
+
+class YandexModeInstance(StrEnum):
+    """Mode capability instances."""
+
+    INPUT_SOURCE = "input_source"
 
 
 class YandexToggleInstance(StrEnum):
@@ -77,12 +85,21 @@ class RangeParameters:
 
 
 @dataclass
+class ModeValue:
+    """A single mode value for mode capabilities."""
+
+    value: str
+
+
+@dataclass
 class CapabilityParameters:
     """Parameters block inside a capability description."""
 
     instance: str
     range: RangeParameters | None = None
     unit: str | None = None
+    random_access: bool | None = None
+    modes: list[ModeValue] | None = None
 
 
 @dataclass

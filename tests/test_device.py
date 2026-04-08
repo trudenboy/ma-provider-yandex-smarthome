@@ -11,6 +11,8 @@ import pytest
 from music_assistant_models.enums import PlaybackState
 
 from provider.constants import (
+    INSTANCE_CHANNEL,
+    INSTANCE_INPUT_SOURCE,
     INSTANCE_MUTE,
     INSTANCE_ON,
     INSTANCE_PAUSE,
@@ -38,6 +40,14 @@ class MockDeviceInfo:
 
 
 @dataclass
+class MockPlayerSource:
+    """Minimal mock of music_assistant_models.player.PlayerSource."""
+
+    id: str = "source_1"
+    name: str = "Source 1"
+
+
+@dataclass
 class MockPlayer:
     """Minimal mock of music_assistant_models.player.Player."""
 
@@ -52,6 +62,8 @@ class MockPlayer:
     synced_to: str | None = None
     device_info: MockDeviceInfo | None = None
     supported_features: set[str] = field(default_factory=set)
+    source_list: list[MockPlayerSource] = field(default_factory=list)
+    active_source: str | None = None
 
 
 class MockPlayers:
@@ -63,6 +75,13 @@ class MockPlayers:
         self.cmd_pause = AsyncMock()
         self.cmd_volume_set = AsyncMock()
         self.cmd_volume_mute = AsyncMock()
+        self.cmd_next_track = AsyncMock()
+        self.cmd_previous_track = AsyncMock()
+        self.cmd_select_source = AsyncMock()
+        self._players: dict[str, MockPlayer] = {}
+
+    def get_player(self, player_id: str) -> MockPlayer | None:
+        return self._players.get(player_id)
 
 
 @dataclass
@@ -82,7 +101,8 @@ class TestGetDeviceDescription:
         assert desc.id == "test_player_1"
         assert desc.name == "Living Room Speaker"
         assert desc.type == YANDEX_DEVICE_TYPE_RECEIVER
-        assert len(desc.capabilities) == 4
+        # 5 base capabilities: on_off, volume, mute, pause, channel
+        assert len(desc.capabilities) == 5
 
     def test_capability_types(self):
         player = MockPlayer()
@@ -332,3 +352,215 @@ class TestErrorHelpers:
         assert len(results) == 2
         assert all(r.state.action_result.status == "ERROR" for r in results)
         assert all(r.state.action_result.error_code == "DEVICE_UNREACHABLE" for r in results)
+
+
+# ---------------------------------------------------------------------------
+# Tests: channel capability (next/previous track)
+# ---------------------------------------------------------------------------
+
+
+class TestChannelCapability:
+    def test_channel_in_description(self):
+        """Channel capability should always be present in device description."""
+        player = MockPlayer()
+        desc = get_device_description(player)
+        channel_caps = [
+            c for c in desc.capabilities
+            if c.type == YandexCapabilityType.RANGE
+            and c.parameters
+            and c.parameters.instance == INSTANCE_CHANNEL
+        ]
+        assert len(channel_caps) == 1
+        cap = channel_caps[0]
+        assert cap.parameters.random_access is False
+        assert cap.parameters.range is not None
+        assert cap.parameters.range.min == 0
+        assert cap.parameters.range.max == 999
+
+    def test_channel_state_always_zero(self):
+        """Channel state should always report value 0."""
+        player = MockPlayer(playback_state=PlaybackState.PLAYING)
+        state = get_device_state(player)
+        channel_states = [
+            c for c in state.capabilities
+            if c.state.instance == INSTANCE_CHANNEL
+        ]
+        assert len(channel_states) == 1
+        assert channel_states[0].state.value == 0
+
+    @pytest.mark.asyncio
+    async def test_channel_relative_positive_next_track(self):
+        """Relative +1 channel → cmd_next_track."""
+        mass = MockMass()
+        action = CapabilityAction(
+            type=YandexCapabilityType.RANGE,
+            state=CapabilityActionState(instance="channel", value=1, relative=True),
+        )
+        result = await execute_capability_action(mass, "p1", action)
+        mass.players.cmd_next_track.assert_awaited_once_with("p1")
+        assert result.state.action_result.status == "DONE"
+
+    @pytest.mark.asyncio
+    async def test_channel_relative_negative_prev_track(self):
+        """Relative -1 channel → cmd_previous_track."""
+        mass = MockMass()
+        action = CapabilityAction(
+            type=YandexCapabilityType.RANGE,
+            state=CapabilityActionState(instance="channel", value=-1, relative=True),
+        )
+        result = await execute_capability_action(mass, "p1", action)
+        mass.players.cmd_previous_track.assert_awaited_once_with("p1")
+        assert result.state.action_result.status == "DONE"
+
+    @pytest.mark.asyncio
+    async def test_channel_non_relative_ignored(self):
+        """Non-relative channel set is a no-op (returns DONE)."""
+        mass = MockMass()
+        action = CapabilityAction(
+            type=YandexCapabilityType.RANGE,
+            state=CapabilityActionState(instance="channel", value=5, relative=False),
+        )
+        result = await execute_capability_action(mass, "p1", action)
+        mass.players.cmd_next_track.assert_not_awaited()
+        mass.players.cmd_previous_track.assert_not_awaited()
+        assert result.state.action_result.status == "DONE"
+
+
+# ---------------------------------------------------------------------------
+# Tests: input_source capability (mode/input_source)
+# ---------------------------------------------------------------------------
+
+
+class TestInputSourceCapability:
+    def test_no_source_list_no_mode_cap(self):
+        """Player without source_list should not have mode capability."""
+        player = MockPlayer(source_list=[])
+        desc = get_device_description(player)
+        mode_caps = [c for c in desc.capabilities if c.type == YandexCapabilityType.MODE]
+        assert len(mode_caps) == 0
+
+    def test_with_sources_has_mode_cap(self):
+        """Player with source_list should have mode(input_source) capability."""
+        sources = [
+            MockPlayerSource(id="hdmi1", name="HDMI 1"),
+            MockPlayerSource(id="optical", name="Optical"),
+        ]
+        player = MockPlayer(source_list=sources)
+        desc = get_device_description(player)
+        mode_caps = [c for c in desc.capabilities if c.type == YandexCapabilityType.MODE]
+        assert len(mode_caps) == 1
+        cap = mode_caps[0]
+        assert cap.parameters.instance == INSTANCE_INPUT_SOURCE
+        assert cap.parameters.modes is not None
+        assert len(cap.parameters.modes) == 2
+        assert cap.parameters.modes[0].value == "one"
+        assert cap.parameters.modes[1].value == "two"
+
+    def test_max_10_sources(self):
+        """Only the first 10 sources should be mapped."""
+        sources = [MockPlayerSource(id=f"s{i}", name=f"Source {i}") for i in range(15)]
+        player = MockPlayer(source_list=sources)
+        desc = get_device_description(player)
+        mode_caps = [c for c in desc.capabilities if c.type == YandexCapabilityType.MODE]
+        assert len(mode_caps[0].parameters.modes) == 10
+
+    def test_state_with_active_source(self):
+        """State should report current source as mode value."""
+        sources = [
+            MockPlayerSource(id="hdmi1", name="HDMI 1"),
+            MockPlayerSource(id="optical", name="Optical"),
+        ]
+        player = MockPlayer(
+            source_list=sources,
+            active_source="Optical",
+            playback_state=PlaybackState.PLAYING,
+        )
+        state = get_device_state(player)
+        mode_states = [
+            c for c in state.capabilities
+            if c.state.instance == INSTANCE_INPUT_SOURCE
+        ]
+        assert len(mode_states) == 1
+        assert mode_states[0].state.value == "two"  # index 1 → "two"
+
+    def test_state_no_active_source(self):
+        """No active source → no input_source state reported."""
+        sources = [MockPlayerSource(id="hdmi1", name="HDMI 1")]
+        player = MockPlayer(source_list=sources, active_source=None)
+        state = get_device_state(player)
+        mode_states = [
+            c for c in state.capabilities
+            if c.state.instance == INSTANCE_INPUT_SOURCE
+        ]
+        assert len(mode_states) == 0
+
+    @pytest.mark.asyncio
+    async def test_select_source_action(self):
+        """Mode action should call cmd_select_source with resolved source name."""
+        sources = [
+            MockPlayerSource(id="hdmi1", name="HDMI 1"),
+            MockPlayerSource(id="optical", name="Optical"),
+        ]
+        player = MockPlayer(player_id="p1", source_list=sources)
+        mass = MockMass()
+        mass.players._players["p1"] = player
+        mass.players.get_player = lambda pid: mass.players._players.get(pid)
+
+        action = CapabilityAction(
+            type=YandexCapabilityType.MODE,
+            state=CapabilityActionState(instance="input_source", value="two"),
+        )
+        result = await execute_capability_action(mass, "p1", action)
+        mass.players.cmd_select_source.assert_awaited_once_with("p1", "Optical")
+        assert result.state.action_result.status == "DONE"
+
+    @pytest.mark.asyncio
+    async def test_unknown_source_mode_returns_error(self):
+        """Invalid mode value should return INVALID_ACTION error."""
+        player = MockPlayer(player_id="p1", source_list=[])
+        mass = MockMass()
+        mass.players._players["p1"] = player
+        mass.players.get_player = lambda pid: mass.players._players.get(pid)
+
+        action = CapabilityAction(
+            type=YandexCapabilityType.MODE,
+            state=CapabilityActionState(instance="input_source", value="five"),
+        )
+        result = await execute_capability_action(mass, "p1", action)
+        assert result.state.action_result.status == "ERROR"
+        assert result.state.action_result.error_code == "INVALID_ACTION"
+
+
+# ---------------------------------------------------------------------------
+# Tests: player filter (exposed_ids)
+# ---------------------------------------------------------------------------
+
+
+class TestPlayerFilter:
+    def test_no_filter_exposes_all(self):
+        """Without exposed_ids, all valid players are exposed."""
+        assert is_player_exposable(MockPlayer()) is True
+
+    def test_filter_includes_player(self):
+        """Player in the filter set is exposed."""
+        assert is_player_exposable(
+            MockPlayer(player_id="p1"), exposed_ids={"p1", "p2"}
+        ) is True
+
+    def test_filter_excludes_player(self):
+        """Player not in the filter set is NOT exposed."""
+        assert is_player_exposable(
+            MockPlayer(player_id="p3"), exposed_ids={"p1", "p2"}
+        ) is False
+
+    def test_empty_filter_exposes_all(self):
+        """Empty set filter should expose all players (same as None)."""
+        assert is_player_exposable(
+            MockPlayer(player_id="p1"), exposed_ids=set()
+        ) is True
+
+    def test_filter_still_checks_available(self):
+        """Even in filter, unavailable players are not exposed."""
+        assert is_player_exposable(
+            MockPlayer(player_id="p1", available=False), exposed_ids={"p1"}
+        ) is False
