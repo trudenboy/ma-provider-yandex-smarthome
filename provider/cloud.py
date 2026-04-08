@@ -10,6 +10,7 @@ Adapted from dext0r/yandex_smart_home cloud.py, stripped of HA dependencies.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
@@ -107,10 +108,14 @@ class CloudManager:
     ) -> None:
         """Parse incoming WS message, call handler, and send response."""
         try:
+            # message may be a JSON string or already parsed dict
+            raw_message = data.get("message")
+            if isinstance(raw_message, str) and raw_message:
+                raw_message = json.loads(raw_message)
             request = CloudRequest(
                 request_id=data["request_id"],
                 action=data["action"],
-                message=data.get("message"),
+                message=raw_message,
             )
             self._logger.debug("Cloud request: action=%s", request.action)
             response = await self._on_request(request)
