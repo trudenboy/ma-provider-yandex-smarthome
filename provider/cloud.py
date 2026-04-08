@@ -19,7 +19,6 @@ import aiohttp
 from .constants import (
     CLOUD_BASE_URL,
     CLOUD_HEARTBEAT_INTERVAL,
-    CLOUD_PLATFORM,
     CLOUD_RECONNECT_MAX,
     CLOUD_RECONNECT_MIN,
     CLOUD_REGISTER_URL,
@@ -140,13 +139,12 @@ async def register_cloud_instance(
 
     Returns dict with 'id', 'password', 'connection_token'.
     No authentication is required — the relay auto-generates credentials.
+    Standard cloud mode — no platform parameter (compatible with yaha-cloud.ru).
     """
-    async with session.post(
-        CLOUD_REGISTER_URL,
-        json={"platform": CLOUD_PLATFORM},
-    ) as resp:
+    async with session.post(CLOUD_REGISTER_URL) as resp:
         resp.raise_for_status()
-        data = await resp.json()
+        # yaha-cloud.ru may return text/plain content-type for JSON
+        data = await resp.json(content_type=None)
         _LOGGER.info("Registered cloud instance: %s", data.get("id"))
         return data
 
@@ -165,5 +163,6 @@ async def get_cloud_otp(
     headers = {"Authorization": f"Bearer {token}"}
     async with session.post(url, headers=headers) as resp:
         resp.raise_for_status()
-        data = await resp.json()
+        # yaha-cloud.ru may return text/plain content-type for JSON
+        data = await resp.json(content_type=None)
         return data["code"]

@@ -113,13 +113,11 @@ async def get_config_entries(
     # --- Build label text ---
     if otp_code:
         label_text = (
-            f"✅ Cloud instance registered!\n\n"
-            f"**OTP code: {otp_code}**\n\n"
-            f"To link with Yandex Alice:\n"
-            f"1. Open the Yandex app → Devices → Add device → Smart Home\n"
-            f"2. Find 'Yaha Cloud' skill and add it\n"
-            f"3. Enter the OTP code shown above\n"
-            f"4. Click **Save** below to complete setup"
+            f"✅ Cloud instance registered! "
+            f"OTP code: {otp_code} — "
+            f"To link: Open Yandex app → Devices → Add device → Smart Home → "
+            f"find 'Yaha Cloud' skill → enter OTP code → "
+            f"then click Save below to complete setup."
         )
     elif is_registered:
         label_text = (

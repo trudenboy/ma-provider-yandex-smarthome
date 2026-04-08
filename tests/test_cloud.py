@@ -145,7 +145,7 @@ class TestRegisterCloudInstance:
         assert result["connection_token"] == "tok-abc"
 
     @pytest.mark.asyncio
-    async def test_register_sends_platform(self):
+    async def test_register_no_platform_param(self):
         mock_resp = AsyncMock()
         mock_resp.status = 200
         mock_resp.raise_for_status = MagicMock()
@@ -160,9 +160,9 @@ class TestRegisterCloudInstance:
         session.post.return_value = ctx
 
         await register_cloud_instance(session)
-        # Verify platform is sent in the POST body
+        # Standard cloud mode: no json body (compatible with yaha-cloud.ru)
         call_kwargs = session.post.call_args
-        assert call_kwargs.kwargs.get("json") == {"platform": "music_assistant"}
+        assert call_kwargs.kwargs.get("json") is None
 
 
 class TestGetCloudOtp:
