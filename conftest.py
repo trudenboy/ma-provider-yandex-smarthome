@@ -85,9 +85,15 @@ class _ConfigEntry:
             setattr(self, k, v)
 
 
+class _ConfigValueOption:
+    def __init__(self, title="", value=None):
+        self.title = title
+        self.value = value
+
+
 _ensure_module(
     "music_assistant_models.config_entries",
-    {"ConfigEntry": _ConfigEntry, "ConfigValueType": str},
+    {"ConfigEntry": _ConfigEntry, "ConfigValueOption": _ConfigValueOption, "ConfigValueType": str},
 )
 
 # music_assistant_models.provider

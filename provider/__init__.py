@@ -20,7 +20,7 @@ import logging
 from typing import TYPE_CHECKING, cast
 
 import aiohttp
-from music_assistant_models.config_entries import ConfigEntry
+from music_assistant_models.config_entries import ConfigEntry, ConfigValueOption
 from music_assistant_models.enums import ConfigEntryType, ProviderFeature
 
 from .cloud import get_cloud_otp, register_cloud_instance
@@ -203,7 +203,10 @@ async def get_config_entries(
             ),
             required=True,
             default_value=CONNECTION_TYPE_CLOUD,
-            options=("cloud", "cloud_plus"),
+            options=[
+                ConfigValueOption(title="Cloud (public Yaha Cloud skill)", value="cloud"),
+                ConfigValueOption(title="Cloud Plus (private skill)", value="cloud_plus"),
+            ],
         ),
         # Status label
         ConfigEntry(
@@ -216,7 +219,8 @@ async def get_config_entries(
             key="label_cloud_plus",
             type=ConfigEntryType.LABEL,
             label=cloud_plus_label,
-            hidden=not is_cloud_plus,
+            depends_on=CONF_CONNECTION_TYPE,
+            depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
         ),
         # Register action (hidden after registration)
         ConfigEntry(
@@ -248,7 +252,8 @@ async def get_config_entries(
                 "Find it in the skill URL: /developer/skills/{skill_id}/"
             ),
             required=False,
-            hidden=not is_cloud_plus,
+            depends_on=CONF_CONNECTION_TYPE,
+            depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
         ),
         ConfigEntry(
             key=CONF_SKILL_TOKEN,
@@ -259,7 +264,8 @@ async def get_config_entries(
                 "Get it by authorizing at the OAuth URL shown in the instructions above."
             ),
             required=False,
-            hidden=not is_cloud_plus,
+            depends_on=CONF_CONNECTION_TYPE,
+            depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
         ),
         # --- Auto-managed fields (hidden, populated by actions) ---
         ConfigEntry(
