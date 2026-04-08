@@ -69,3 +69,6 @@ secrets.yaml
 # Screenshots (keep docs/skill_icon.png)
 *.png
 !docs/skill_icon.png
+
+# Internal planning docs
+docs/IMPLEMENTATION_PLAN.md
