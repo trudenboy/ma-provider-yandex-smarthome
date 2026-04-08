@@ -26,7 +26,7 @@ from .cloud import CloudManager
 from .constants import (
     CLOUD_CALLBACK_URL,
     CONF_CLOUD_CONNECTION_TOKEN,
-    CONF_CLOUD_TOKEN,
+    CONF_CLOUD_INSTANCE_PASSWORD,
     CONF_CONNECTION_TYPE,
     CONF_INSTANCE_NAME,
     CONNECTION_TYPE_CLOUD,
@@ -62,7 +62,7 @@ class YandexSmartHomePlugin(PluginProvider):
         """Handle async initialization of the plugin."""
         self._connection_type = self.config.get_value(CONF_CONNECTION_TYPE) or CONNECTION_TYPE_CLOUD
         self._instance_name = self.config.get_value(CONF_INSTANCE_NAME) or "Music Assistant"
-        self._cloud_token = self.config.get_value(CONF_CLOUD_TOKEN) or ""
+        self._cloud_token = self.config.get_value(CONF_CLOUD_INSTANCE_PASSWORD) or ""
         self._connection_token = self.config.get_value(CONF_CLOUD_CONNECTION_TOKEN) or ""
 
         self.logger.info(

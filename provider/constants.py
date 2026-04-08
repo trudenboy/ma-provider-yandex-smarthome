@@ -6,11 +6,17 @@ from __future__ import annotations
 # Config entry keys
 # ---------------------------------------------------------------------------
 CONF_INSTANCE_NAME = "instance_name"
-CONF_CLOUD_TOKEN = "cloud_token"
 CONF_CONNECTION_TYPE = "connection_type"
 CONF_CLOUD_INSTANCE_ID = "cloud_instance_id"
+CONF_CLOUD_INSTANCE_PASSWORD = "cloud_instance_password"
 CONF_CLOUD_CONNECTION_TOKEN = "cloud_connection_token"
 CONF_SKILL_ID = "skill_id"
+
+# ---------------------------------------------------------------------------
+# Config actions
+# ---------------------------------------------------------------------------
+CONF_ACTION_REGISTER = "register_cloud"
+CONF_ACTION_GET_OTP = "get_otp"
 
 # ---------------------------------------------------------------------------
 # Connection types

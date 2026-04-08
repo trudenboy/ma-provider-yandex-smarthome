@@ -128,7 +128,8 @@ class TestRegisterCloudInstance:
         mock_resp.status = 200
         mock_resp.raise_for_status = MagicMock()
         mock_resp.json = AsyncMock(return_value={
-            "instance_id": "inst-123",
+            "id": "inst-123",
+            "password": "pwd-xyz",
             "connection_token": "tok-abc",
         })
 
@@ -139,8 +140,29 @@ class TestRegisterCloudInstance:
         session.post.return_value = ctx
 
         result = await register_cloud_instance(session)
-        assert result["instance_id"] == "inst-123"
+        assert result["id"] == "inst-123"
+        assert result["password"] == "pwd-xyz"
         assert result["connection_token"] == "tok-abc"
+
+    @pytest.mark.asyncio
+    async def test_register_sends_platform(self):
+        mock_resp = AsyncMock()
+        mock_resp.status = 200
+        mock_resp.raise_for_status = MagicMock()
+        mock_resp.json = AsyncMock(return_value={
+            "id": "inst-1", "password": "p", "connection_token": "t",
+        })
+
+        session = MagicMock(spec=aiohttp.ClientSession)
+        ctx = MagicMock()
+        ctx.__aenter__ = AsyncMock(return_value=mock_resp)
+        ctx.__aexit__ = AsyncMock(return_value=False)
+        session.post.return_value = ctx
+
+        await register_cloud_instance(session)
+        # Verify platform is sent in the POST body
+        call_kwargs = session.post.call_args
+        assert call_kwargs.kwargs.get("json") == {"platform": "music_assistant"}
 
 
 class TestGetCloudOtp:
@@ -149,13 +171,30 @@ class TestGetCloudOtp:
         mock_resp = AsyncMock()
         mock_resp.status = 200
         mock_resp.raise_for_status = MagicMock()
-        mock_resp.json = AsyncMock(return_value={"otp": "123456"})
+        mock_resp.json = AsyncMock(return_value={"code": "123456"})
 
         session = MagicMock(spec=aiohttp.ClientSession)
         ctx = MagicMock()
         ctx.__aenter__ = AsyncMock(return_value=mock_resp)
         ctx.__aexit__ = AsyncMock(return_value=False)
-        session.get.return_value = ctx
+        session.post.return_value = ctx
 
         otp = await get_cloud_otp(session, "inst-123", "tok-abc")
         assert otp == "123456"
+
+    @pytest.mark.asyncio
+    async def test_get_otp_uses_post(self):
+        mock_resp = AsyncMock()
+        mock_resp.status = 200
+        mock_resp.raise_for_status = MagicMock()
+        mock_resp.json = AsyncMock(return_value={"code": "999"})
+
+        session = MagicMock(spec=aiohttp.ClientSession)
+        ctx = MagicMock()
+        ctx.__aenter__ = AsyncMock(return_value=mock_resp)
+        ctx.__aexit__ = AsyncMock(return_value=False)
+        session.post.return_value = ctx
+
+        await get_cloud_otp(session, "inst-1", "tok-1")
+        session.post.assert_called_once()
+        assert "inst-1" in str(session.post.call_args)

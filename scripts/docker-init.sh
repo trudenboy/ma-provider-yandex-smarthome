@@ -35,7 +35,14 @@ PYEOF
 )
 if [ -n "$DEPS" ]; then
     echo "==> Installing provider dependencies: $DEPS"
-    /app/venv/bin/pip install --quiet $DEPS
+    # Try uv first (newer MA images), fall back to pip
+    if [ -x /app/venv/bin/uv ]; then
+        /app/venv/bin/uv pip install --quiet $DEPS
+    elif [ -x /app/venv/bin/pip ]; then
+        /app/venv/bin/pip install --quiet $DEPS
+    else
+        pip install --quiet $DEPS
+    fi
 fi
 
 echo "==> Starting Music Assistant..."

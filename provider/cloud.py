@@ -19,6 +19,7 @@ import aiohttp
 from .constants import (
     CLOUD_BASE_URL,
     CLOUD_HEARTBEAT_INTERVAL,
+    CLOUD_PLATFORM,
     CLOUD_RECONNECT_MAX,
     CLOUD_RECONNECT_MIN,
     CLOUD_REGISTER_URL,
@@ -134,15 +135,19 @@ class CloudManager:
 
 async def register_cloud_instance(
     session: aiohttp.ClientSession,
-) -> dict[str, Any]:
-    """Register a new cloud instance.
+) -> dict[str, str]:
+    """Register a new cloud instance on yaha-cloud.ru.
 
-    Returns dict with 'instance_id' and 'connection_token'.
+    Returns dict with 'id', 'password', 'connection_token'.
+    No authentication is required — the relay auto-generates credentials.
     """
-    async with session.post(CLOUD_REGISTER_URL) as resp:
+    async with session.post(
+        CLOUD_REGISTER_URL,
+        json={"platform": CLOUD_PLATFORM},
+    ) as resp:
         resp.raise_for_status()
         data = await resp.json()
-        _LOGGER.info("Registered cloud instance: %s", data.get("instance_id"))
+        _LOGGER.info("Registered cloud instance: %s", data.get("id"))
         return data
 
 
@@ -154,10 +159,11 @@ async def get_cloud_otp(
     """Get a one-time password for linking the instance in the Yandex app.
 
     User enters this OTP in the Yandex Smart Home app to link their account.
+    The token parameter is the connection_token from registration.
     """
     url = f"{CLOUD_BASE_URL}/api/home_assistant/v1/instance/{instance_id}/otp"
     headers = {"Authorization": f"Bearer {token}"}
-    async with session.get(url, headers=headers) as resp:
+    async with session.post(url, headers=headers) as resp:
         resp.raise_for_status()
         data = await resp.json()
-        return data["otp"]
+        return data["code"]

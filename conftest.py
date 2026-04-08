@@ -60,6 +60,8 @@ class _ConfigEntryType(_StrEnum):
     SECURE_STRING = "secure_string"
     BOOLEAN = "boolean"
     INTEGER = "integer"
+    LABEL = "label"
+    ACTION = "action"
 
 
 class _ProviderFeature(_StrEnum):

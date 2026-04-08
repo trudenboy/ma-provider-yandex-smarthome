@@ -33,13 +33,13 @@ def test_manifest_has_codeowners() -> None:
 def test_constants_defined() -> None:
     """Core constants should be importable and non-empty."""
     from music_assistant.providers.yandex_smarthome.constants import (
-        CONF_CLOUD_TOKEN,
+        CONF_CLOUD_INSTANCE_PASSWORD,
         CONF_INSTANCE_NAME,
         YANDEX_DEVICE_TYPE_RECEIVER,
     )
 
     assert CONF_INSTANCE_NAME
-    assert CONF_CLOUD_TOKEN
+    assert CONF_CLOUD_INSTANCE_PASSWORD
     assert YANDEX_DEVICE_TYPE_RECEIVER
 
 
