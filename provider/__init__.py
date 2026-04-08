@@ -240,6 +240,7 @@ async def get_config_entries(
                 ConfigValueOption(title="Cloud (public Yaha Cloud skill)", value="cloud"),
                 ConfigValueOption(title="Cloud Plus (private skill)", value="cloud_plus"),
             ],
+            advanced=True,
         ),
         # Status label
         ConfigEntry(
@@ -277,7 +278,7 @@ async def get_config_entries(
             action_label="Get OTP code",
             hidden=not is_registered,
         ),
-        # --- Cloud Plus section ---
+        # --- Cloud Plus section (advanced) ---
         # Cloud Plus instructions
         ConfigEntry(
             key="label_cloud_plus",
@@ -285,72 +286,10 @@ async def get_config_entries(
             label=cloud_plus_label,
             depends_on=CONF_CONNECTION_TYPE,
             depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
+            advanced=True,
+            category="Cloud Plus Setup",
         ),
-        # Webhook URL — copyable (shown in cloud_plus after registration)
-        ConfigEntry(
-            key="webhook_url",
-            type=ConfigEntryType.STRING,
-            label="Backend URL (set in 'Basic info' section)",
-            description="Copy and paste into your private skill's Backend URL field.",
-            required=False,
-            value=webhook_url if webhook_url else None,
-            hidden=not webhook_url,
-            depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
-        ),
-        # --- Account linking fields (Связка аккаунтов) ---
-        # Client ID — copyable (shown after registration in cloud_plus)
-        ConfigEntry(
-            key="skill_client_id",
-            type=ConfigEntryType.STRING,
-            label="Client ID (Идентификатор приложения)",
-            description="Copy to 'Account linking' → 'Client identifier' field.",
-            required=False,
-            value=client_id if client_id else None,
-            hidden=not client_id,
-            depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
-        ),
-        # Client Secret — copyable
-        ConfigEntry(
-            key="skill_client_secret",
-            type=ConfigEntryType.STRING,
-            label="Client Secret (Секрет приложения)",
-            description="Copy to 'Account linking' → 'Client secret' field.",
-            required=False,
-            default_value=CLOUD_SKILL_CLIENT_SECRET,
-            hidden=not is_registered,
-            depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
-        ),
-        # Authorization URL — copyable
-        ConfigEntry(
-            key="skill_auth_url",
-            type=ConfigEntryType.STRING,
-            label="Authorization URL (URL авторизации)",
-            description="Copy to 'Account linking' → 'Authorization URL' field.",
-            required=False,
-            default_value=CLOUD_OAUTH_AUTHORIZE_URL,
-            hidden=not is_registered,
-            depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
-        ),
-        # Token URL — copyable
-        ConfigEntry(
-            key="skill_token_url",
-            type=ConfigEntryType.STRING,
-            label="Token URL (URL для получения/обновления токена)",
-            description=(
-                "Copy to both 'Token endpoint' and 'Refresh token URL' fields "
-                "in the 'Account linking' section."
-            ),
-            required=False,
-            default_value=CLOUD_OAUTH_TOKEN_URL,
-            hidden=not is_registered,
-            depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
-        ),
-        # Yandex Dialogs developer console link — copyable
+        # Yandex Dialogs developer console link
         ConfigEntry(
             key="dialogs_url",
             type=ConfigEntryType.STRING,
@@ -360,20 +299,99 @@ async def get_config_entries(
             help_link=YANDEX_DIALOGS_DEVELOPER_URL,
             depends_on=CONF_CONNECTION_TYPE,
             depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
+            advanced=True,
+            category="Cloud Plus Setup",
         ),
-        # OAuth URL — copyable (shown after registration in cloud_plus mode)
+        # --- Copy to Yandex.Dialogs ---
+        # Webhook URL
+        ConfigEntry(
+            key="webhook_url",
+            type=ConfigEntryType.STRING,
+            label="Backend URL (→ Basic info)",
+            description="Copy and paste into your private skill's Backend URL field.",
+            required=False,
+            value=webhook_url if webhook_url else None,
+            hidden=not webhook_url,
+            depends_on=CONF_CONNECTION_TYPE,
+            depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
+            advanced=True,
+            category="Copy to Yandex.Dialogs skill",
+        ),
+        # Client ID
+        ConfigEntry(
+            key="skill_client_id",
+            type=ConfigEntryType.STRING,
+            label="Client ID (→ Account linking)",
+            description="Copy to 'Account linking' → 'Client identifier' field.",
+            required=False,
+            value=client_id if client_id else None,
+            hidden=not client_id,
+            depends_on=CONF_CONNECTION_TYPE,
+            depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
+            advanced=True,
+            category="Copy to Yandex.Dialogs skill",
+        ),
+        # Client Secret
+        ConfigEntry(
+            key="skill_client_secret",
+            type=ConfigEntryType.STRING,
+            label="Client Secret (→ Account linking)",
+            description="Copy to 'Account linking' → 'Client secret' field.",
+            required=False,
+            default_value=CLOUD_SKILL_CLIENT_SECRET,
+            hidden=not is_registered,
+            depends_on=CONF_CONNECTION_TYPE,
+            depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
+            advanced=True,
+            category="Copy to Yandex.Dialogs skill",
+        ),
+        # Authorization URL
+        ConfigEntry(
+            key="skill_auth_url",
+            type=ConfigEntryType.STRING,
+            label="Authorization URL (→ Account linking)",
+            description="Copy to 'Account linking' → 'Authorization URL' field.",
+            required=False,
+            default_value=CLOUD_OAUTH_AUTHORIZE_URL,
+            hidden=not is_registered,
+            depends_on=CONF_CONNECTION_TYPE,
+            depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
+            advanced=True,
+            category="Copy to Yandex.Dialogs skill",
+        ),
+        # Token URL
+        ConfigEntry(
+            key="skill_token_url",
+            type=ConfigEntryType.STRING,
+            label="Token URL (→ Account linking, both fields)",
+            description=(
+                "Copy to both 'Token endpoint' and 'Refresh token URL' fields "
+                "in the 'Account linking' section."
+            ),
+            required=False,
+            default_value=CLOUD_OAUTH_TOKEN_URL,
+            hidden=not is_registered,
+            depends_on=CONF_CONNECTION_TYPE,
+            depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
+            advanced=True,
+            category="Copy to Yandex.Dialogs skill",
+        ),
+        # --- Fill in from Yandex.Dialogs ---
+        # OAuth URL — link to get token
         ConfigEntry(
             key="oauth_url",
             type=ConfigEntryType.STRING,
-            label="OAuth URL (get token here)",
+            label="OAuth URL (open to get token)",
             required=False,
             default_value=YANDEX_OAUTH_URL,
             help_link=YANDEX_OAUTH_URL,
             hidden=not is_registered,
             depends_on=CONF_CONNECTION_TYPE,
             depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
+            advanced=True,
+            category="Fill in from Yandex.Dialogs",
         ),
-        # Skill ID — user input
+        # Skill ID
         ConfigEntry(
             key=CONF_SKILL_ID,
             type=ConfigEntryType.STRING,
@@ -385,8 +403,10 @@ async def get_config_entries(
             required=False,
             depends_on=CONF_CONNECTION_TYPE,
             depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
+            advanced=True,
+            category="Fill in from Yandex.Dialogs",
         ),
-        # Skill OAuth Token — user input
+        # Skill OAuth Token
         ConfigEntry(
             key=CONF_SKILL_TOKEN,
             type=ConfigEntryType.SECURE_STRING,
@@ -395,6 +415,8 @@ async def get_config_entries(
             required=False,
             depends_on=CONF_CONNECTION_TYPE,
             depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
+            advanced=True,
+            category="Fill in from Yandex.Dialogs",
         ),
         # --- Player filter ---
         ConfigEntry(
