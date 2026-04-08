@@ -149,32 +149,25 @@ class YandexSmartHomePlugin(PluginProvider):
         # Normalize action path — relay may send with or without /v1.0 prefix
         normalized = action.removeprefix("/v1.0")
 
-        self.logger.info(
-            "Cloud request: action=%s, request_id=%s, message_keys=%s",
-            action, request_id, list(message.keys()) if message else [],
+        self.logger.debug(
+            "Cloud request: action=%s, request_id=%s",
+            action, request_id,
         )
 
         try:
             if normalized == "/user/devices":
                 payload = await handle_device_list(self.mass, self._cloud_instance_id)
-                resp = build_response(request_id, asdict(payload))
-                self.logger.info("Response /user/devices: %s", resp)
-                return resp
+                return build_response(request_id, asdict(payload))
 
             if normalized == "/user/devices/query":
                 device_ids = [d["id"] for d in message.get("devices", [])]
                 payload = await handle_devices_query(self.mass, device_ids)
-                resp = build_response(request_id, asdict(payload))
-                self.logger.info("Response /user/devices/query: %s", resp)
-                return resp
+                return build_response(request_id, asdict(payload))
 
             if normalized == "/user/devices/action":
                 action_payload = parse_action_payload(message)
-                self.logger.info("Action payload: %s", message)
                 payload = await handle_devices_action(self.mass, action_payload)
-                resp = build_response(request_id, asdict(payload))
-                self.logger.info("Response /user/devices/action: %s", resp)
-                return resp
+                return build_response(request_id, asdict(payload))
 
             if normalized == "/user/unlink":
                 payload = await handle_user_unlink()
