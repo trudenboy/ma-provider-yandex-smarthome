@@ -59,7 +59,7 @@ def test_cloud_plus_constants() -> None:
     assert "dialogs.yandex.net" in YANDEX_DIALOGS_CALLBACK_BASE
     assert "dialogs.yandex.ru" in YANDEX_DIALOGS_DEVELOPER_URL
     assert "oauth.yandex.ru" in YANDEX_OAUTH_URL
-    assert "{instance_id}" in CLOUD_SKILL_WEBHOOK_TEMPLATE
+    assert "yaha-cloud.ru" in CLOUD_SKILL_WEBHOOK_TEMPLATE
 
 
 def test_constants_capability_types() -> None:
