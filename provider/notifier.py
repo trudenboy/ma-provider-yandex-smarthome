@@ -194,10 +194,14 @@ class StateNotifier:
     async def _send_discovery(self) -> None:
         """POST discovery notification to Yandex."""
         discovery_url = self._callback_url.replace("/state", "/discovery")
+        payload = {
+            "ts": time.time(),
+            "payload": {"user_id": self._user_id},
+        }
         try:
             async with self._session.post(
                 discovery_url,
-                json={"ts": time.time()},
+                json=payload,
                 headers=self._auth_header,
             ) as resp:
                 if resp.status not in (200, 202):

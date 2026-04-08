@@ -146,24 +146,27 @@ class YandexSmartHomePlugin(PluginProvider):
         request_id = request.request_id
         message = request.message or {}
 
+        # Normalize action path — relay may send with or without /v1.0 prefix
+        normalized = action.removeprefix("/v1.0")
+
         self.logger.debug("Cloud request: action=%s, request_id=%s", action, request_id)
 
         try:
-            if action == "/v1.0/user/devices":
-                payload = await handle_device_list(self.mass)
+            if normalized == "/user/devices":
+                payload = await handle_device_list(self.mass, self._cloud_instance_id)
                 return build_response(request_id, asdict(payload))
 
-            if action == "/v1.0/user/devices/query":
+            if normalized == "/user/devices/query":
                 device_ids = [d["id"] for d in message.get("devices", [])]
                 payload = await handle_devices_query(self.mass, device_ids)
                 return build_response(request_id, asdict(payload))
 
-            if action == "/v1.0/user/devices/action":
+            if normalized == "/user/devices/action":
                 action_payload = parse_action_payload(message)
                 payload = await handle_devices_action(self.mass, action_payload)
                 return build_response(request_id, asdict(payload))
 
-            if action == "/v1.0/user/unlink":
+            if normalized == "/user/unlink":
                 payload = await handle_user_unlink()
                 return build_response(request_id, payload)
 
