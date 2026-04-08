@@ -13,7 +13,7 @@ body:
       label: Версия провайдера
       description: |
         Найдите в `manifest.json` → поле `version`, или в теге последнего GitHub Release.
-      placeholder: "e.g. 0.1.0"
+      placeholder: "e.g. 2.1.0"
     validations:
       required: true
 

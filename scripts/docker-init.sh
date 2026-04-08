@@ -9,7 +9,7 @@ echo "==> Setting up Yandex Smart Home provider..."
 PROVIDERS_DIR=$(/app/venv/bin/python3 -c \
     "import music_assistant.providers, os; print(os.path.dirname(music_assistant.providers.__file__))")
 
-# Remove any existing provider, then symlink ours
+# Remove any existing yandex_music provider (image may bundle one), then symlink ours
 rm -rf "${PROVIDERS_DIR}/yandex_smarthome"
 ln -s /tmp/provider "${PROVIDERS_DIR}/yandex_smarthome"
 echo "==> Provider linked: ${PROVIDERS_DIR}/yandex_smarthome"
@@ -35,14 +35,7 @@ PYEOF
 )
 if [ -n "$DEPS" ]; then
     echo "==> Installing provider dependencies: $DEPS"
-    # Try uv first (newer MA images), fall back to pip
-    if [ -x /app/venv/bin/uv ]; then
-        /app/venv/bin/uv pip install --quiet $DEPS
-    elif [ -x /app/venv/bin/pip ]; then
-        /app/venv/bin/pip install --quiet $DEPS
-    else
-        pip install --quiet $DEPS
-    fi
+    /app/venv/bin/pip install --quiet $DEPS
 fi
 
 echo "==> Starting Music Assistant..."
