@@ -134,14 +134,18 @@ class CloudManager:
 
 async def register_cloud_instance(
     session: aiohttp.ClientSession,
+    platform: str | None = None,
 ) -> dict[str, str]:
     """Register a new cloud instance on yaha-cloud.ru.
 
     Returns dict with 'id', 'password', 'connection_token'.
     No authentication is required — the relay auto-generates credentials.
-    Standard cloud mode — no platform parameter (compatible with yaha-cloud.ru).
+
+    For Cloud Plus mode, pass platform="yandex" so the relay can validate
+    the client_id during OAuth account linking.
     """
-    async with session.post(CLOUD_REGISTER_URL) as resp:
+    json_body = {"platform": platform} if platform else None
+    async with session.post(CLOUD_REGISTER_URL, json=json_body) as resp:
         resp.raise_for_status()
         # yaha-cloud.ru may return text/plain content-type for JSON
         data = await resp.json(content_type=None)

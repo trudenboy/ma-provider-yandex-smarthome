@@ -135,8 +135,9 @@ async def get_config_entries(
     # --- Handle register action ---
     if action == CONF_ACTION_REGISTER:
         try:
+            platform = "yandex" if is_cloud_plus else None
             async with aiohttp.ClientSession() as session:
-                data = await register_cloud_instance(session)
+                data = await register_cloud_instance(session, platform=platform)
             values[CONF_CLOUD_INSTANCE_ID] = data["id"]
             values[CONF_CLOUD_INSTANCE_PASSWORD] = data["password"]
             values[CONF_CLOUD_CONNECTION_TOKEN] = data["connection_token"]
