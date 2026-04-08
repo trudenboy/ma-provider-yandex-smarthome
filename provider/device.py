@@ -129,7 +129,14 @@ async def execute_capability_action(
     try:
         if action.type == YandexCapabilityType.ON_OFF:
             if value:
-                await mass.players.cmd_play(player_id)
+                try:
+                    await mass.players.cmd_play(player_id)
+                except Exception as play_err:
+                    if "empty" in str(play_err).lower():
+                        _LOGGER.info("Queue empty for %s, powering on only", player_id)
+                        await mass.players.cmd_power(player_id, powered=True)
+                    else:
+                        raise
             else:
                 await mass.players.cmd_stop(player_id)
 
