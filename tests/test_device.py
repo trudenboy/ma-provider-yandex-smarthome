@@ -73,11 +73,12 @@ class MockPlayers:
         self.cmd_play = AsyncMock()
         self.cmd_stop = AsyncMock()
         self.cmd_pause = AsyncMock()
+        self.cmd_power = AsyncMock()
         self.cmd_volume_set = AsyncMock()
         self.cmd_volume_mute = AsyncMock()
         self.cmd_next_track = AsyncMock()
         self.cmd_previous_track = AsyncMock()
-        self.cmd_select_source = AsyncMock()
+        self.select_source = AsyncMock()
         self._players: dict[str, MockPlayer] = {}
 
     def get_player(self, player_id: str) -> MockPlayer | None:
@@ -147,7 +148,7 @@ class TestGetDeviceState:
         assert state.id == "test_player_1"
 
         by_instance = {c.state.instance: c.state.value for c in state.capabilities}
-        assert by_instance[INSTANCE_ON] is False  # idle → not on
+        assert by_instance[INSTANCE_ON] is True  # always on while available
         assert by_instance[INSTANCE_VOLUME] == 30
         assert by_instance[INSTANCE_MUTE] is False
         assert by_instance[INSTANCE_PAUSE] is False
@@ -445,7 +446,7 @@ class TestInputSourceCapability:
             MockPlayerSource(id="hdmi1", name="HDMI 1"),
             MockPlayerSource(id="optical", name="Optical"),
         ]
-        player = MockPlayer(source_list=sources)
+        player = MockPlayer(source_list=sources, supported_features={"select_source"})
         desc = get_device_description(player)
         mode_caps = [c for c in desc.capabilities if c.type == YandexCapabilityType.MODE]
         assert len(mode_caps) == 1
@@ -459,7 +460,7 @@ class TestInputSourceCapability:
     def test_max_10_sources(self):
         """Only the first 10 sources should be mapped."""
         sources = [MockPlayerSource(id=f"s{i}", name=f"Source {i}") for i in range(15)]
-        player = MockPlayer(source_list=sources)
+        player = MockPlayer(source_list=sources, supported_features={"select_source"})
         desc = get_device_description(player)
         mode_caps = [c for c in desc.capabilities if c.type == YandexCapabilityType.MODE]
         assert len(mode_caps[0].parameters.modes) == 10
@@ -474,6 +475,7 @@ class TestInputSourceCapability:
             source_list=sources,
             active_source="Optical",
             playback_state=PlaybackState.PLAYING,
+            supported_features={"select_source"},
         )
         state = get_device_state(player)
         mode_states = [
@@ -486,7 +488,7 @@ class TestInputSourceCapability:
     def test_state_no_active_source(self):
         """No active source → no input_source state reported."""
         sources = [MockPlayerSource(id="hdmi1", name="HDMI 1")]
-        player = MockPlayer(source_list=sources, active_source=None)
+        player = MockPlayer(source_list=sources, active_source=None, supported_features={"select_source"})
         state = get_device_state(player)
         mode_states = [
             c for c in state.capabilities
@@ -496,12 +498,12 @@ class TestInputSourceCapability:
 
     @pytest.mark.asyncio
     async def test_select_source_action(self):
-        """Mode action should call cmd_select_source with resolved source name."""
+        """Mode action should call select_source with resolved source name."""
         sources = [
             MockPlayerSource(id="hdmi1", name="HDMI 1"),
             MockPlayerSource(id="optical", name="Optical"),
         ]
-        player = MockPlayer(player_id="p1", source_list=sources)
+        player = MockPlayer(player_id="p1", source_list=sources, supported_features={"select_source"})
         mass = MockMass()
         mass.players._players["p1"] = player
         mass.players.get_player = lambda pid: mass.players._players.get(pid)
@@ -511,7 +513,7 @@ class TestInputSourceCapability:
             state=CapabilityActionState(instance="input_source", value="two"),
         )
         result = await execute_capability_action(mass, "p1", action)
-        mass.players.cmd_select_source.assert_awaited_once_with("p1", "Optical")
+        mass.players.select_source.assert_awaited_once_with("p1", "Optical")
         assert result.state.action_result.status == "DONE"
 
     @pytest.mark.asyncio

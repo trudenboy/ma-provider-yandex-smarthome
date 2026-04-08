@@ -51,8 +51,19 @@ _LOGGER = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
+def _supports_select_source(player: Player) -> bool:
+    """Check if player natively supports source selection."""
+    features = getattr(player, "supported_features", None)
+    if not features:
+        return False
+    # PlayerFeature.SELECT_SOURCE == "select_source"
+    return any(str(f) == "select_source" or getattr(f, "value", None) == "select_source" for f in features)
+
+
 def _get_source_list(player: Player) -> list:
     """Get the source list from a player, or empty list if not available."""
+    if not _supports_select_source(player):
+        return []
     source_list = getattr(player, "source_list", None)
     if source_list:
         return list(source_list)
@@ -168,7 +179,7 @@ def get_device_state(player: Player) -> DeviceState:
     capabilities = [
         CapabilityState(
             type=YandexCapabilityType.ON_OFF,
-            state=CapabilityInstanceState(instance=INSTANCE_ON, value=is_playing),
+            state=CapabilityInstanceState(instance=INSTANCE_ON, value=True),
         ),
         CapabilityState(
             type=YandexCapabilityType.RANGE,
@@ -222,14 +233,7 @@ async def execute_capability_action(
     try:
         if action.type == YandexCapabilityType.ON_OFF:
             if value:
-                try:
-                    await mass.players.cmd_play(player_id)
-                except Exception as play_err:
-                    if "empty" in str(play_err).lower():
-                        _LOGGER.info("Queue empty for %s, powering on only", player_id)
-                        await mass.players.cmd_power(player_id, powered=True)
-                    else:
-                        raise
+                await mass.players.cmd_play(player_id)
             else:
                 await mass.players.cmd_stop(player_id)
 
@@ -264,7 +268,7 @@ async def execute_capability_action(
             source_list = _get_source_list(p_state)
             source = _mode_to_source(str(value), source_list)
             if source:
-                await mass.players.cmd_select_source(player_id, source)
+                await mass.players.select_source(player_id, source)
             else:
                 return CapabilityActionResult(
                     type=action.type,

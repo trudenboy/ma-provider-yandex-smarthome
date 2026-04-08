@@ -221,7 +221,7 @@ async def get_config_entries(
                 'Alice will use this name for voice commands, e.g. '
                 '"Алиса, включи музыку на [имя]".'
             ),
-            required=True,
+            required=False,
             default_value="Music Assistant",
         ),
         # Connection type selector
@@ -234,7 +234,7 @@ async def get_config_entries(
                 '"cloud_plus" — private skill (use if you already have Yaha Cloud '
                 "linked to Home Assistant on the same Yandex account)."
             ),
-            required=True,
+            required=False,
             default_value=CONNECTION_TYPE_CLOUD,
             options=[
                 ConfigValueOption(title="Cloud (public Yaha Cloud skill)", value="cloud"),
@@ -407,6 +407,7 @@ async def get_config_entries(
             ),
             required=False,
             multi_value=True,
+            default_value=[],
             options=tuple(player_options) if player_options else None,
         ),
         # --- Auto-managed fields (hidden, populated by actions) ---

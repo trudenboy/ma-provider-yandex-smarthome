@@ -49,6 +49,7 @@ def _make_mass(players: list[MockPlayer]) -> MagicMock:
     mass.players.cmd_play = AsyncMock()
     mass.players.cmd_stop = AsyncMock()
     mass.players.cmd_pause = AsyncMock()
+    mass.players.cmd_power = AsyncMock()
     mass.players.cmd_volume_set = AsyncMock()
     mass.players.cmd_volume_mute = AsyncMock()
     return mass
