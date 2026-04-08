@@ -194,9 +194,7 @@ async def get_config_entries(
     webhook_url = ""
     client_id = ""
     if is_cloud_plus and is_registered:
-        webhook_url = CLOUD_SKILL_WEBHOOK_TEMPLATE.format(
-            instance_id=cloud_instance_id
-        )
+        webhook_url = CLOUD_SKILL_WEBHOOK_TEMPLATE
         client_id = CLOUD_SKILL_CLIENT_ID_TEMPLATE.format(
             instance_id=cloud_instance_id
         )

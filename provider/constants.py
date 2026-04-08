@@ -51,9 +51,7 @@ YANDEX_DIALOGS_DEVELOPER_URL = "https://dialogs.yandex.ru/developer/smart-home"
 YANDEX_OAUTH_URL = "https://oauth.yandex.ru/authorize?response_type=token&client_id=c473ca268cd749d3a8371351a8f2bcbd"
 
 # Webhook URL template for yaha-cloud relay (private skill points here)
-CLOUD_SKILL_WEBHOOK_TEMPLATE = (
-    "https://yaha-cloud.ru/api/home_assistant/v1/skill/{instance_id}"
-)
+CLOUD_SKILL_WEBHOOK_TEMPLATE = "https://yaha-cloud.ru/api/yandex_smart_home"
 
 # ---------------------------------------------------------------------------
 # Timing (seconds)
