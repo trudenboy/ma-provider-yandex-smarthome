@@ -1,0 +1,20 @@
+[project]
+name = "ma-provider-yandex-smarthome"
+version = "0.0.1"
+requires-python = ">=3.12"
+dependencies = [
+    "aiohttp>=3.9.0",
+]
+
+[tool.codespell]
+skip = "*.min.js,docs-site/package-lock.json"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = [
+  "integration: integration tests requiring a real MA server instance",
+]
+filterwarnings = [
+  "ignore:coroutine.*was never awaited:RuntimeWarning",
+]
