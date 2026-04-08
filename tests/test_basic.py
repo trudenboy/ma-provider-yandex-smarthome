@@ -35,12 +35,12 @@ def test_constants_defined() -> None:
     from music_assistant.providers.yandex_smarthome.constants import (
         CONF_CLOUD_TOKEN,
         CONF_INSTANCE_NAME,
-        YANDEX_SMARTHOME_DEVICE_TYPE,
+        YANDEX_DEVICE_TYPE_RECEIVER,
     )
 
     assert CONF_INSTANCE_NAME
     assert CONF_CLOUD_TOKEN
-    assert YANDEX_SMARTHOME_DEVICE_TYPE
+    assert YANDEX_DEVICE_TYPE_RECEIVER
 
 
 def test_constants_capability_types() -> None:

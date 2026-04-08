@@ -21,7 +21,15 @@ from typing import TYPE_CHECKING
 from music_assistant_models.config_entries import ConfigEntry
 from music_assistant_models.enums import ConfigEntryType, ProviderFeature
 
-from .constants import CONF_CLOUD_TOKEN, CONF_INSTANCE_NAME
+from .constants import (
+    CONF_CLOUD_CONNECTION_TOKEN,
+    CONF_CLOUD_INSTANCE_ID,
+    CONF_CLOUD_TOKEN,
+    CONF_CONNECTION_TYPE,
+    CONF_INSTANCE_NAME,
+    CONNECTION_TYPE_CLOUD,
+    CONNECTION_TYPE_DIRECT,
+)
 from .plugin import YandexSmartHomePlugin
 
 if TYPE_CHECKING:
@@ -68,6 +76,18 @@ async def get_config_entries(
             default_value="Music Assistant",
         ),
         ConfigEntry(
+            key=CONF_CONNECTION_TYPE,
+            type=ConfigEntryType.STRING,
+            label="Connection Type",
+            description=(
+                "How to connect to Yandex Smart Home API. "
+                '"cloud" uses the yaha-cloud.ru relay (no public URL needed). '
+                '"direct" requires a publicly accessible URL and a registered Yandex Dialogs skill.'
+            ),
+            required=True,
+            default_value=CONNECTION_TYPE_CLOUD,
+        ),
+        ConfigEntry(
             key=CONF_CLOUD_TOKEN,
             type=ConfigEntryType.SECURE_STRING,
             label="Cloud Token",
@@ -76,5 +96,26 @@ async def get_config_entries(
                 "Required for registering devices with Yandex."
             ),
             required=True,
+        ),
+        ConfigEntry(
+            key=CONF_CLOUD_INSTANCE_ID,
+            type=ConfigEntryType.STRING,
+            label="Cloud Instance ID",
+            description=(
+                "Instance ID from yaha-cloud.ru registration. "
+                "Leave empty for auto-registration (not yet implemented)."
+            ),
+            required=False,
+            default_value="",
+        ),
+        ConfigEntry(
+            key=CONF_CLOUD_CONNECTION_TOKEN,
+            type=ConfigEntryType.SECURE_STRING,
+            label="Cloud Connection Token",
+            description=(
+                "Connection token from yaha-cloud.ru registration. "
+                "Required for cloud mode WebSocket connection."
+            ),
+            required=False,
         ),
     )

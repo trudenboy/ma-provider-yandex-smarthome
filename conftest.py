@@ -1,4 +1,4 @@
-"""Root conftest: ensure provider/ is importable as music_assistant.providers.yandex_smarthome."""
+"""Root conftest: ensure provider/ is importable and mock MA dependencies for tests."""
 
 from __future__ import annotations
 
@@ -6,13 +6,147 @@ import contextlib
 import importlib.util
 import sys
 import types
+from enum import Enum
 from pathlib import Path
+from unittest.mock import MagicMock
 
-# Make the provider/ directory importable as music_assistant.providers.yandex_smarthome
+# ---------------------------------------------------------------------------
+# 1. Mock music_assistant_models so provider imports don't fail
+# ---------------------------------------------------------------------------
+
+# StrEnum shim for Python < 3.11
+try:
+    from enum import StrEnum as _StrEnum
+except ImportError:
+
+    class _StrEnum(str, Enum):  # type: ignore[no-redef]
+        """Backport of StrEnum for Python < 3.11."""
+
+
+def _ensure_module(name: str, attrs: dict | None = None) -> types.ModuleType:
+    """Create and register a stub module if not already present."""
+    if name in sys.modules:
+        return sys.modules[name]
+    mod = types.ModuleType(name)
+    mod.__package__ = name
+    if attrs:
+        for k, v in attrs.items():
+            setattr(mod, k, v)
+    # Set __path__ for packages (allows sub-imports)
+    mod.__path__ = []  # type: ignore[attr-defined]
+    sys.modules[name] = mod
+    return mod
+
+
+# Create music_assistant_models namespace
+_ensure_module("music_assistant_models")
+
+# music_assistant_models.enums
+class _PlaybackState(_StrEnum):
+    IDLE = "idle"
+    PAUSED = "paused"
+    PLAYING = "playing"
+    UNKNOWN = "unknown"
+
+
+class _EventType(_StrEnum):
+    PLAYER_ADDED = "player_added"
+    PLAYER_UPDATED = "player_updated"
+    PLAYER_REMOVED = "player_removed"
+
+
+class _ConfigEntryType(_StrEnum):
+    STRING = "string"
+    SECURE_STRING = "secure_string"
+    BOOLEAN = "boolean"
+    INTEGER = "integer"
+
+
+class _ProviderFeature(_StrEnum):
+    pass
+
+
+_ensure_module(
+    "music_assistant_models.enums",
+    {
+        "PlaybackState": _PlaybackState,
+        "EventType": _EventType,
+        "ConfigEntryType": _ConfigEntryType,
+        "ProviderFeature": _ProviderFeature,
+    },
+)
+
+# music_assistant_models.config_entries
+class _ConfigEntry:
+    def __init__(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+
+_ensure_module(
+    "music_assistant_models.config_entries",
+    {"ConfigEntry": _ConfigEntry, "ConfigValueType": str},
+)
+
+# music_assistant_models.provider
+_ensure_module(
+    "music_assistant_models.provider",
+    {"ProviderManifest": MagicMock},
+)
+
+# music_assistant_models.player
+_ensure_module("music_assistant_models.player", {"Player": MagicMock})
+
+# music_assistant_models.event
+class _MassEvent:
+    def __init__(self, event=None, data=None):
+        self.event = event
+        self.data = data
+
+
+_ensure_module("music_assistant_models.event", {"MassEvent": _MassEvent})
+
+# ---------------------------------------------------------------------------
+# 2. Mock music_assistant server modules
+# ---------------------------------------------------------------------------
+
+_ensure_module("music_assistant")
+_ensure_module("music_assistant.models")
+_ensure_module("music_assistant.mass", {"MusicAssistant": MagicMock})
+
+
+class _PluginProvider:
+    """Minimal stub of music_assistant.models.plugin.PluginProvider."""
+
+    def __init__(self, mass=None, manifest=None, config=None, supported_features=None):
+        self.mass = mass
+        self.manifest = manifest
+        self.config = config or MagicMock()
+        self.supported_features = supported_features or set()
+        self.logger = MagicMock()
+
+    async def handle_async_init(self):
+        pass
+
+    async def loaded_in_mass(self):
+        pass
+
+    async def unload(self, is_removed=False):
+        pass
+
+
+_ensure_module("music_assistant.models.plugin", {"PluginProvider": _PluginProvider})
+_ensure_module("music_assistant.models", {"ProviderInstanceType": MagicMock})
+
+# ---------------------------------------------------------------------------
+# 3. Make provider/ importable as both 'provider' and
+#    'music_assistant.providers.yandex_smarthome'
+# ---------------------------------------------------------------------------
+
 _provider_path = Path(__file__).parent / "provider"
 
 # Ensure parent namespace packages exist
-for _pkg in ("music_assistant", "music_assistant.providers"):
+for _pkg in ("music_assistant.providers",):
     if _pkg not in sys.modules:
         _mod = types.ModuleType(_pkg)
         _mod.__path__ = []  # type: ignore[attr-defined]
