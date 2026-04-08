@@ -116,7 +116,7 @@ async def setup(
 
 async def get_config_entries(
     mass: MusicAssistant,
-    instance_id: str | None = None,  # noqa: ARG001
+    instance_id: str | None = None,
     action: str | None = None,
     values: dict[str, ConfigValueType] | None = None,
 ) -> tuple[ConfigEntry, ...]:
@@ -128,6 +128,14 @@ async def get_config_entries(
     """
     if values is None:
         values = {}
+
+    # For SECURE_STRING fields, values dict contains 'this_value_is_encrypted'.
+    # Get the real decrypted values from the saved provider config if available.
+    saved_config = None
+    if instance_id:
+        prov = mass.get_provider(instance_id)
+        if prov:
+            saved_config = prov.config
 
     connection_type = str(values.get(CONF_CONNECTION_TYPE, CONNECTION_TYPE_CLOUD))
     is_cloud_plus = connection_type == CONNECTION_TYPE_CLOUD_PLUS
@@ -149,22 +157,13 @@ async def get_config_entries(
     otp_code: str | None = None
     if action == CONF_ACTION_GET_OTP:
         cloud_id = str(values.get(CONF_CLOUD_INSTANCE_ID, ""))
-        cloud_token = str(values.get(CONF_CLOUD_CONNECTION_TOKEN, ""))
-        _LOGGER.debug(
-            "Get OTP: instance_id=%s, has_token=%s, values_keys=%s",
-            cloud_id[:8] if cloud_id else "EMPTY",
-            bool(cloud_token and cloud_token != "None"),
-            list(values.keys()),
-        )
-        if not cloud_id or not cloud_token or cloud_token == "None":
-            _LOGGER.warning(
-                "Cannot get OTP: missing credentials in config values "
-                "(instance_id=%s, token_present=%s). "
-                "Try re-registering the cloud instance.",
-                bool(cloud_id),
-                bool(cloud_token and cloud_token != "None"),
-            )
-        else:
+        # Prefer decrypted token from saved config over masked value from form
+        cloud_token = ""
+        if saved_config:
+            cloud_token = str(saved_config.get_value(CONF_CLOUD_CONNECTION_TOKEN) or "")
+        if not cloud_token:
+            cloud_token = str(values.get(CONF_CLOUD_CONNECTION_TOKEN, ""))
+        if cloud_id and cloud_token:
             try:
                 async with aiohttp.ClientSession() as session:
                     otp_code = await get_cloud_otp(session, cloud_id, cloud_token)
