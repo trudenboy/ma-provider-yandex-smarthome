@@ -150,7 +150,21 @@ async def get_config_entries(
     if action == CONF_ACTION_GET_OTP:
         cloud_id = str(values.get(CONF_CLOUD_INSTANCE_ID, ""))
         cloud_token = str(values.get(CONF_CLOUD_CONNECTION_TOKEN, ""))
-        if cloud_id and cloud_token:
+        _LOGGER.debug(
+            "Get OTP: instance_id=%s, has_token=%s, values_keys=%s",
+            cloud_id[:8] if cloud_id else "EMPTY",
+            bool(cloud_token and cloud_token != "None"),
+            list(values.keys()),
+        )
+        if not cloud_id or not cloud_token or cloud_token == "None":
+            _LOGGER.warning(
+                "Cannot get OTP: missing credentials in config values "
+                "(instance_id=%s, token_present=%s). "
+                "Try re-registering the cloud instance.",
+                bool(cloud_id),
+                bool(cloud_token and cloud_token != "None"),
+            )
+        else:
             try:
                 async with aiohttp.ClientSession() as session:
                     otp_code = await get_cloud_otp(session, cloud_id, cloud_token)
