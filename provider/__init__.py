@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, cast
 import aiohttp
 from music_assistant_models.config_entries import ConfigEntry, ConfigValueOption
 from music_assistant_models.enums import ConfigEntryType, ProviderFeature
+from ya_passport_auth import SecretStr
 
 from .cloud import get_cloud_otp, register_cloud_instance
 from .constants import (
@@ -149,7 +150,7 @@ async def _handle_config_actions(
         if cloud_id and cloud_token:
             try:
                 async with aiohttp.ClientSession() as session:
-                    otp_code = await get_cloud_otp(session, cloud_id, cloud_token)
+                    otp_code = await get_cloud_otp(session, cloud_id, SecretStr(cloud_token))
             except Exception:
                 _LOGGER.exception("Failed to get OTP code")
 
@@ -159,7 +160,7 @@ async def _handle_config_actions(
         if cloud_id and cloud_token:
             try:
                 async with aiohttp.ClientSession() as session:
-                    otp_code = await get_cloud_otp(session, cloud_id, cloud_token)
+                    otp_code = await get_cloud_otp(session, cloud_id, SecretStr(cloud_token))
             except Exception:
                 _LOGGER.exception("Failed to get OTP after registration")
 
