@@ -61,8 +61,8 @@ DIRECT_API_BASE_PATH = "/api/yandex_smarthome/v1.0"
 DIRECT_AUTH_BASE_PATH = "/api/yandex_smarthome/auth"
 DIRECT_HEALTH_RESPONSE = "Yandex Smart Home for Music Assistant"
 CONF_DIRECT_ACCESS_TOKEN = "direct_access_token"
+CONF_DIRECT_CLIENT_SECRET = "direct_client_secret"
 DIRECT_OAUTH_CLIENT_ID = "https://social.yandex.net/"
-DIRECT_OAUTH_CLIENT_SECRET = "secret"
 OAUTH_CODE_EXPIRY = 300  # pending authorization codes expire after 5 minutes
 
 # ---------------------------------------------------------------------------

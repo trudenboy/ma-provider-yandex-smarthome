@@ -17,6 +17,7 @@ Reference: https://github.com/dext0r/yandex_smart_home
 from __future__ import annotations
 
 import logging
+import uuid
 from typing import TYPE_CHECKING, cast
 
 import aiohttp
@@ -38,6 +39,7 @@ from .constants import (
     CONF_CLOUD_INSTANCE_PASSWORD,
     CONF_CONNECTION_TYPE,
     CONF_DIRECT_ACCESS_TOKEN,
+    CONF_DIRECT_CLIENT_SECRET,
     CONF_EXPOSED_PLAYERS,
     CONF_INSTANCE_NAME,
     CONF_SKILL_ID,
@@ -48,7 +50,6 @@ from .constants import (
     DIRECT_API_BASE_PATH,
     DIRECT_AUTH_BASE_PATH,
     DIRECT_OAUTH_CLIENT_ID,
-    DIRECT_OAUTH_CLIENT_SECRET,
     YANDEX_DIALOGS_DEVELOPER_URL,
     YANDEX_OAUTH_URL,
 )
@@ -210,7 +211,7 @@ async def get_config_entries(
     direct_token_url = ""
     if is_direct:
         try:
-            ma_base_url = mass.webserver.base_url
+            ma_base_url = mass.webserver.base_url.rstrip("/")
         except Exception:
             ma_base_url = "https://<YOUR_MA_HOST>"
         direct_base_url = f"{ma_base_url}{DIRECT_API_BASE_PATH}"
@@ -372,14 +373,20 @@ async def get_config_entries(
             depends_on_value=CONNECTION_TYPE_DIRECT,
             category="Copy to Yandex.Dialogs skill",
         ),
-        # Client Secret (direct — always the same)
+        # Client Secret (direct — auto-generated per install)
         ConfigEntry(
-            key="direct_client_secret",
-            type=ConfigEntryType.STRING,
+            key=CONF_DIRECT_CLIENT_SECRET,
+            type=ConfigEntryType.SECURE_STRING,
             label="Client Secret (→ Account linking)",
-            description="Copy to 'Account linking' → 'Client secret' field.",
+            description=(
+                "Copy to 'Account linking' → 'Client secret' field. Auto-generated on first setup."
+            ),
             required=False,
-            default_value=DIRECT_OAUTH_CLIENT_SECRET,
+            default_value=(
+                cast("str", values.get(CONF_DIRECT_CLIENT_SECRET))
+                if values and values.get(CONF_DIRECT_CLIENT_SECRET)
+                else uuid.uuid4().hex
+            ),
             depends_on=CONF_CONNECTION_TYPE,
             depends_on_value=CONNECTION_TYPE_DIRECT,
             category="Copy to Yandex.Dialogs skill",
@@ -578,5 +585,14 @@ async def get_config_entries(
             label="Direct Access Token",
             hidden=True,
             required=False,
+            value=(cast("str", values.get(CONF_DIRECT_ACCESS_TOKEN)) if values else None),
+        ),
+        ConfigEntry(
+            key=CONF_DIRECT_CLIENT_SECRET,
+            type=ConfigEntryType.SECURE_STRING,
+            label="Direct Client Secret",
+            hidden=True,
+            required=False,
+            value=(cast("str", values.get(CONF_DIRECT_CLIENT_SECRET)) if values else None),
         ),
     )

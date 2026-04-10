@@ -16,7 +16,6 @@ from provider.constants import (
     DIRECT_AUTH_BASE_PATH,
     DIRECT_HEALTH_RESPONSE,
     DIRECT_OAUTH_CLIENT_ID,
-    DIRECT_OAUTH_CLIENT_SECRET,
     OAUTH_CODE_EXPIRY,
 )
 from provider.direct import DirectConnectionHandler
@@ -24,6 +23,8 @@ from provider.plugin import YandexSmartHomePlugin
 
 if TYPE_CHECKING:
     from aiohttp import web
+
+TEST_CLIENT_SECRET = "test-client-secret-abc123"
 
 
 # ---------------------------------------------------------------------------
@@ -54,6 +55,7 @@ def handler(mock_mass):
         mass=mock_mass,
         user_id="test_user",
         access_token="test-token-abc",
+        client_secret=TEST_CLIENT_SECRET,
         exposed_ids=None,
         on_token_created=on_token,
     )
@@ -73,6 +75,7 @@ def handler_no_token(mock_mass):
         mass=mock_mass,
         user_id="test_user",
         access_token="",
+        client_secret=TEST_CLIENT_SECRET,
         exposed_ids=None,
         on_token_created=on_token,
     )
@@ -145,7 +148,6 @@ def test_health_response() -> None:
 def test_oauth_constants() -> None:
     """OAuth constants should match Yandex Smart Home spec."""
     assert DIRECT_OAUTH_CLIENT_ID == "https://social.yandex.net/"
-    assert DIRECT_OAUTH_CLIENT_SECRET == "secret"
     assert OAUTH_CODE_EXPIRY == 300
 
 
@@ -396,11 +398,67 @@ async def test_authorize_creates_pending_code(handler) -> None:
     req = _make_request(
         method="GET",
         path="/auth/authorize",
-        query={"redirect_uri": "https://example.com/cb", "state": "s1"},
+        query={
+            "client_id": DIRECT_OAUTH_CLIENT_ID,
+            "redirect_uri": "https://social.yandex.net/broker/redirect",
+            "state": "s1",
+            "response_type": "code",
+        },
     )
     assert len(handler._pending_codes) == 0
     await handler._handle_oauth_authorize(req)
     assert len(handler._pending_codes) == 1
+
+
+@pytest.mark.asyncio
+async def test_authorize_invalid_client_id(handler) -> None:
+    """GET /auth/authorize with wrong client_id should return 400."""
+    req = _make_request(
+        method="GET",
+        path="/auth/authorize",
+        query={
+            "client_id": "wrong-client-id",
+            "redirect_uri": "https://social.yandex.net/broker/redirect",
+            "state": "s1",
+            "response_type": "code",
+        },
+    )
+    resp = await handler._handle_oauth_authorize(req)
+    assert resp.status == 400
+
+
+@pytest.mark.asyncio
+async def test_authorize_invalid_response_type(handler) -> None:
+    """GET /auth/authorize with wrong response_type should return 400."""
+    req = _make_request(
+        method="GET",
+        path="/auth/authorize",
+        query={
+            "client_id": DIRECT_OAUTH_CLIENT_ID,
+            "redirect_uri": "https://social.yandex.net/broker/redirect",
+            "state": "s1",
+            "response_type": "token",
+        },
+    )
+    resp = await handler._handle_oauth_authorize(req)
+    assert resp.status == 400
+
+
+@pytest.mark.asyncio
+async def test_authorize_invalid_redirect_uri_domain(handler) -> None:
+    """GET /auth/authorize with non-Yandex redirect_uri should return 400."""
+    req = _make_request(
+        method="GET",
+        path="/auth/authorize",
+        query={
+            "client_id": DIRECT_OAUTH_CLIENT_ID,
+            "redirect_uri": "https://evil.example.com/steal",
+            "state": "s1",
+            "response_type": "code",
+        },
+    )
+    resp = await handler._handle_oauth_authorize(req)
+    assert resp.status == 400
 
 
 # ---------------------------------------------------------------------------
@@ -414,7 +472,12 @@ async def test_token_exchange_valid_code(handler) -> None:
     req_auth = _make_request(
         method="GET",
         path="/auth/authorize",
-        query={"redirect_uri": "https://example.com/cb", "state": "s1"},
+        query={
+            "client_id": DIRECT_OAUTH_CLIENT_ID,
+            "redirect_uri": "https://social.yandex.net/broker/redirect",
+            "state": "s1",
+            "response_type": "code",
+        },
     )
     await handler._handle_oauth_authorize(req_auth)
     code = _get_pending_code(handler)
@@ -426,7 +489,7 @@ async def test_token_exchange_valid_code(handler) -> None:
             "grant_type": "authorization_code",
             "code": code,
             "client_id": DIRECT_OAUTH_CLIENT_ID,
-            "client_secret": DIRECT_OAUTH_CLIENT_SECRET,
+            "client_secret": TEST_CLIENT_SECRET,
         },
     )
     resp = await handler._handle_oauth_token(req_token)
@@ -443,7 +506,12 @@ async def test_token_exchange_generates_new_token(handler_no_token) -> None:
     req_auth = _make_request(
         method="GET",
         path="/auth/authorize",
-        query={"redirect_uri": "https://example.com/cb", "state": "s1"},
+        query={
+            "client_id": DIRECT_OAUTH_CLIENT_ID,
+            "redirect_uri": "https://social.yandex.net/broker/redirect",
+            "state": "s1",
+            "response_type": "code",
+        },
     )
     await handler_no_token._handle_oauth_authorize(req_auth)
     code = _get_pending_code(handler_no_token)
@@ -451,7 +519,12 @@ async def test_token_exchange_generates_new_token(handler_no_token) -> None:
     req_token = _make_request(
         method="POST",
         path="/auth/token",
-        post_data={"grant_type": "authorization_code", "code": code},
+        post_data={
+            "grant_type": "authorization_code",
+            "code": code,
+            "client_id": DIRECT_OAUTH_CLIENT_ID,
+            "client_secret": TEST_CLIENT_SECRET,
+        },
     )
     resp = await handler_no_token._handle_oauth_token(req_token)
     assert resp.status == 200
@@ -463,12 +536,55 @@ async def test_token_exchange_generates_new_token(handler_no_token) -> None:
 
 
 @pytest.mark.asyncio
+async def test_token_exchange_invalid_client_secret(handler) -> None:
+    """Token exchange with wrong client_secret should return 401."""
+    req = _make_request(
+        method="POST",
+        path="/auth/token",
+        post_data={
+            "grant_type": "authorization_code",
+            "code": "any",
+            "client_id": DIRECT_OAUTH_CLIENT_ID,
+            "client_secret": "wrong-secret",
+        },
+    )
+    resp = await handler._handle_oauth_token(req)
+    assert resp.status == 401
+    body = json.loads(resp.body)
+    assert body["error"] == "invalid_client"
+
+
+@pytest.mark.asyncio
+async def test_token_exchange_invalid_client_id(handler) -> None:
+    """Token exchange with wrong client_id should return 401."""
+    req = _make_request(
+        method="POST",
+        path="/auth/token",
+        post_data={
+            "grant_type": "authorization_code",
+            "code": "any",
+            "client_id": "wrong-client-id",
+            "client_secret": TEST_CLIENT_SECRET,
+        },
+    )
+    resp = await handler._handle_oauth_token(req)
+    assert resp.status == 401
+    body = json.loads(resp.body)
+    assert body["error"] == "invalid_client"
+
+
+@pytest.mark.asyncio
 async def test_token_exchange_invalid_code(handler) -> None:
     """Token exchange with invalid code should return 400."""
     req = _make_request(
         method="POST",
         path="/auth/token",
-        post_data={"grant_type": "authorization_code", "code": "nonexistent"},
+        post_data={
+            "grant_type": "authorization_code",
+            "code": "nonexistent",
+            "client_id": DIRECT_OAUTH_CLIENT_ID,
+            "client_secret": TEST_CLIENT_SECRET,
+        },
     )
     resp = await handler._handle_oauth_token(req)
     assert resp.status == 400
@@ -483,7 +599,12 @@ async def test_token_exchange_expired_code(handler) -> None:
     req = _make_request(
         method="POST",
         path="/auth/token",
-        post_data={"grant_type": "authorization_code", "code": "expired-code"},
+        post_data={
+            "grant_type": "authorization_code",
+            "code": "expired-code",
+            "client_id": DIRECT_OAUTH_CLIENT_ID,
+            "client_secret": TEST_CLIENT_SECRET,
+        },
     )
     resp = await handler._handle_oauth_token(req)
     assert resp.status == 400
@@ -495,7 +616,12 @@ async def test_refresh_token_valid(handler) -> None:
     req = _make_request(
         method="POST",
         path="/auth/token",
-        post_data={"grant_type": "refresh_token", "refresh_token": "test-token-abc"},
+        post_data={
+            "grant_type": "refresh_token",
+            "refresh_token": "test-token-abc",
+            "client_id": DIRECT_OAUTH_CLIENT_ID,
+            "client_secret": TEST_CLIENT_SECRET,
+        },
     )
     resp = await handler._handle_oauth_token(req)
     assert resp.status == 200
@@ -509,7 +635,12 @@ async def test_refresh_token_invalid(handler) -> None:
     req = _make_request(
         method="POST",
         path="/auth/token",
-        post_data={"grant_type": "refresh_token", "refresh_token": "wrong"},
+        post_data={
+            "grant_type": "refresh_token",
+            "refresh_token": "wrong",
+            "client_id": DIRECT_OAUTH_CLIENT_ID,
+            "client_secret": TEST_CLIENT_SECRET,
+        },
     )
     resp = await handler._handle_oauth_token(req)
     assert resp.status == 400
@@ -521,7 +652,11 @@ async def test_unsupported_grant_type(handler) -> None:
     req = _make_request(
         method="POST",
         path="/auth/token",
-        post_data={"grant_type": "client_credentials"},
+        post_data={
+            "grant_type": "client_credentials",
+            "client_id": DIRECT_OAUTH_CLIENT_ID,
+            "client_secret": TEST_CLIENT_SECRET,
+        },
     )
     resp = await handler._handle_oauth_token(req)
     assert resp.status == 400
@@ -535,26 +670,30 @@ async def test_code_consumed_after_use(handler) -> None:
     req_auth = _make_request(
         method="GET",
         path="/auth/authorize",
-        query={"redirect_uri": "https://example.com/cb", "state": "s1"},
+        query={
+            "client_id": DIRECT_OAUTH_CLIENT_ID,
+            "redirect_uri": "https://social.yandex.net/broker/redirect",
+            "state": "s1",
+            "response_type": "code",
+        },
     )
     await handler._handle_oauth_authorize(req_auth)
     code = _get_pending_code(handler)
 
+    token_post = {
+        "grant_type": "authorization_code",
+        "code": code,
+        "client_id": DIRECT_OAUTH_CLIENT_ID,
+        "client_secret": TEST_CLIENT_SECRET,
+    }
+
     # First exchange — success
-    req1 = _make_request(
-        method="POST",
-        path="/auth/token",
-        post_data={"grant_type": "authorization_code", "code": code},
-    )
+    req1 = _make_request(method="POST", path="/auth/token", post_data=token_post)
     resp1 = await handler._handle_oauth_token(req1)
     assert resp1.status == 200
 
     # Second exchange — code consumed, should fail
-    req2 = _make_request(
-        method="POST",
-        path="/auth/token",
-        post_data={"grant_type": "authorization_code", "code": code},
-    )
+    req2 = _make_request(method="POST", path="/auth/token", post_data=token_post)
     resp2 = await handler._handle_oauth_token(req2)
     assert resp2.status == 400
 
@@ -572,6 +711,7 @@ def _make_direct_config(**overrides: str) -> MagicMock:
         "skill_id": "test-skill-id",
         "skill_token": "test-skill-token",
         "direct_access_token": "existing-token",
+        "direct_client_secret": TEST_CLIENT_SECRET,
         "exposed_players": None,
         "cloud_instance_id": "",
         "cloud_instance_password": "",

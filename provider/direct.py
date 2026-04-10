@@ -21,6 +21,7 @@ Routes:
 
 from __future__ import annotations
 
+import html as html_module
 import logging
 import time
 import urllib.parse
@@ -35,6 +36,7 @@ from .constants import (
     DIRECT_API_BASE_PATH,
     DIRECT_AUTH_BASE_PATH,
     DIRECT_HEALTH_RESPONSE,
+    DIRECT_OAUTH_CLIENT_ID,
     OAUTH_CODE_EXPIRY,
 )
 from .handlers import (
@@ -91,6 +93,7 @@ class DirectConnectionHandler:
         mass: MusicAssistant,
         user_id: str,
         access_token: str,
+        client_secret: str,
         exposed_ids: set[str] | None = None,
         logger: logging.Logger | None = None,
         on_token_created: Callable[[str], None] | None = None,
@@ -101,6 +104,7 @@ class DirectConnectionHandler:
             mass: MusicAssistant instance.
             user_id: User identifier for Yandex API responses.
             access_token: Current Bearer access token (may be empty on first run).
+            client_secret: OAuth client secret for account linking validation.
             exposed_ids: Set of player IDs to expose, or None for all.
             logger: Optional logger instance.
             on_token_created: Callback invoked with new access token when generated
@@ -109,6 +113,7 @@ class DirectConnectionHandler:
         self._mass = mass
         self._user_id = user_id
         self._access_token = access_token
+        self._client_secret = client_secret
         self._exposed_ids = exposed_ids
         self._logger = logger or _LOGGER
         self._on_token_created = on_token_created
@@ -280,11 +285,23 @@ class DirectConnectionHandler:
         Yandex opens this URL in the user's browser during account linking.
         Parameters: client_id, redirect_uri, state, response_type=code
         """
+        client_id = request.query.get("client_id", "")
+        response_type = request.query.get("response_type", "")
         redirect_uri = request.query.get("redirect_uri", "")
         state = request.query.get("state", "")
 
+        # Validate required OAuth parameters
+        if client_id != DIRECT_OAUTH_CLIENT_ID:
+            return web.Response(text="Invalid client_id", status=400)
+        if response_type != "code":
+            return web.Response(text="Invalid response_type", status=400)
         if not redirect_uri:
             return web.Response(text="Missing redirect_uri", status=400)
+
+        # Validate redirect_uri is a Yandex domain (prevent open redirect)
+        parsed = urllib.parse.urlparse(redirect_uri)
+        if not parsed.hostname or not parsed.hostname.endswith(".yandex.net"):
+            return web.Response(text="Invalid redirect_uri", status=400)
 
         # Generate authorization code
         code = uuid.uuid4().hex
@@ -298,7 +315,7 @@ class DirectConnectionHandler:
         separator = "&" if "?" in redirect_uri else "?"
         redirect_url = f"{redirect_uri}{separator}{urllib.parse.urlencode(params)}"
 
-        html = _AUTHORIZE_HTML.format(redirect_url=redirect_url)
+        html = _AUTHORIZE_HTML.format(redirect_url=html_module.escape(redirect_url, quote=True))
         return web.Response(text=html, content_type="text/html", status=200)
 
     async def _handle_oauth_token(self, request: web.Request) -> web.Response:
@@ -312,6 +329,12 @@ class DirectConnectionHandler:
             data = await request.post()
         except Exception:
             return web.json_response({"error": "invalid_request"}, status=400)
+
+        # Validate client credentials
+        client_id = str(data.get("client_id", ""))
+        client_secret = str(data.get("client_secret", ""))
+        if client_id != DIRECT_OAUTH_CLIENT_ID or client_secret != self._client_secret:
+            return web.json_response({"error": "invalid_client"}, status=401)
 
         grant_type = str(data.get("grant_type", ""))
 

@@ -33,6 +33,7 @@ from .constants import (
     CONF_CLOUD_INSTANCE_PASSWORD,
     CONF_CONNECTION_TYPE,
     CONF_DIRECT_ACCESS_TOKEN,
+    CONF_DIRECT_CLIENT_SECRET,
     CONF_EXPOSED_PLAYERS,
     CONF_INSTANCE_NAME,
     CONF_SKILL_ID,
@@ -90,6 +91,7 @@ class YandexSmartHomePlugin(PluginProvider):
             SecretStr(skill_token_raw) if skill_token_raw else None
         )
         self._direct_access_token = str(self.config.get_value(CONF_DIRECT_ACCESS_TOKEN) or "")
+        self._direct_client_secret = str(self.config.get_value(CONF_DIRECT_CLIENT_SECRET) or "")
 
         # Parse exposed players filter
         exposed_raw = self.config.get_value(CONF_EXPOSED_PLAYERS) or []
@@ -204,6 +206,7 @@ class YandexSmartHomePlugin(PluginProvider):
             mass=self.mass,
             user_id=self._user_id,
             access_token=self._direct_access_token,
+            client_secret=self._direct_client_secret,
             exposed_ids=self._exposed_ids,
             logger=self.logger,
             on_token_created=_on_token_created,

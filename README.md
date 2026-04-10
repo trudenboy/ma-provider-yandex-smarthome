@@ -69,11 +69,12 @@ Alice voice command
    - **Cloud** — uses public Yaha Cloud skill (simplest setup)
    - **Cloud Plus** — uses a private skill (required if Yaha Cloud is already linked to Home Assistant on the same Yandex account)
    - **Direct** — Yandex calls your MA server directly via HTTPS (requires public URL, no relay needed)
-5. Click **Register with cloud** — this creates an instance on the yaha-cloud.ru relay
-6. Copy the OTP code and enter it in the Yandex app:
-   - Yandex app → Devices → Add device → Smart Home → find the skill → enter OTP
-7. (Cloud Plus only) Create a private skill in [Yandex.Dialogs](https://dialogs.yandex.ru/developer/smart-home) — the config flow provides all required values to copy
-8. (Direct only) Create a private skill in [Yandex.Dialogs](https://dialogs.yandex.ru/developer/smart-home), configure Backend URL / Account Linking from the config flow, publish, then link account in Yandex app
+5. **Cloud / Cloud Plus setup:**
+   - Click **Register with cloud** — creates an instance on the yaha-cloud.ru relay
+   - Copy the OTP code and enter it in the Yandex app: Devices → Add device → Smart Home → find the skill → enter OTP
+   - (Cloud Plus only) Create a private skill in [Yandex.Dialogs](https://dialogs.yandex.ru/developer/smart-home) — the config flow provides all required values to copy
+6. **Direct setup:**
+   - Create a private skill in [Yandex.Dialogs](https://dialogs.yandex.ru/developer/smart-home), configure Backend URL / Account Linking from the config flow, publish, then link account in Yandex app
 
 ### Development
 
