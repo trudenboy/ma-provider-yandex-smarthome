@@ -16,6 +16,3 @@ Music Assistant поддерживает [Yandex Smart Home](https://yandex.ru/d
 
 
 Инструкция по подключению — на странице [Настройка](configuration/).
-
-
-
