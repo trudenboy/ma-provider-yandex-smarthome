@@ -68,10 +68,12 @@ Alice voice command
 4. Choose connection type:
    - **Cloud** — uses public Yaha Cloud skill (simplest setup)
    - **Cloud Plus** — uses a private skill (required if Yaha Cloud is already linked to Home Assistant on the same Yandex account)
+   - **Direct** — Yandex calls your MA server directly via HTTPS (requires public URL, no relay needed)
 5. Click **Register with cloud** — this creates an instance on the yaha-cloud.ru relay
 6. Copy the OTP code and enter it in the Yandex app:
    - Yandex app → Devices → Add device → Smart Home → find the skill → enter OTP
 7. (Cloud Plus only) Create a private skill in [Yandex.Dialogs](https://dialogs.yandex.ru/developer/smart-home) — the config flow provides all required values to copy
+8. (Direct only) Create a private skill in [Yandex.Dialogs](https://dialogs.yandex.ru/developer/smart-home), configure Backend URL / Account Linking from the config flow, publish, then link account in Yandex app
 
 ### Development
 
@@ -93,10 +95,12 @@ pytest
 | Parameter | Description |
 |---|---|
 | **Instance Name** | How this MA instance appears in Yandex Smart Home. Alice uses this name. |
-| **Connection Type** | `cloud` (public skill) or `cloud_plus` (private skill). |
+| **Connection Type** | `cloud` (public skill), `cloud_plus` (private skill via relay), or `direct` (no relay, requires public URL). |
 | **Exposed Players** | Select which MA players to expose to Alice. Empty = all players. |
 
 Cloud Plus mode additionally requires **Skill ID** and **Skill OAuth Token** from Yandex.Dialogs.
+
+Direct mode requires a publicly accessible HTTPS URL for your MA server. The config flow shows all URLs to paste into Yandex.Dialogs skill settings. Requires **Skill ID** and **Skill OAuth Token**.
 
 ## Limitations
 
@@ -117,7 +121,7 @@ Cloud Plus mode additionally requires **Skill ID** and **Skill OAuth Token** fro
 - [x] Capability: input source selection (mode)
 - [x] Player filter (expose selected players only)
 - [x] State reporting to Yandex (debounced + heartbeat)
-- [ ] Direct webhook mode (no relay needed, requires public URL)
+- [x] Direct connection mode (HTTP endpoints on MA webserver, no relay)
 - [ ] Smart on_off (resume YaMusic playback when queue is empty)
 
 ## Related Projects

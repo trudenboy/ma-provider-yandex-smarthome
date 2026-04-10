@@ -13,9 +13,14 @@ Alice → Yandex Cloud → Smart Home API callback → this plugin → MA Player
                                                               ← MA Player state → Yandex state reports
 ```
 
+**Connection modes:**
+- **Cloud / Cloud Plus**: Alice → Yandex Cloud → yaha-cloud.ru WebSocket relay → plugin
+- **Direct**: Alice → Yandex Cloud → HTTPS → MA Webserver (dynamic routes) → plugin
+
 **Provider** (`provider/`): MA Plugin Provider with Smart Home API bridge.
 - `__init__.py` — `setup()`, `get_config_entries()` (instance_name, cloud_token)
 - `plugin.py` — `YandexSmartHomePlugin(PluginProvider)`: main plugin class, event subscriptions, device lifecycle
+- `direct.py` — `DirectConnectionHandler`: HTTP endpoints for direct connection mode (routes registered on MA webserver)
 - `constants.py` — Yandex Smart Home API constants (device types, capabilities, API URLs)
 - `manifest.json` — provider metadata (type: plugin, domain: yandex_smarthome)
 
@@ -73,3 +78,6 @@ pytest
 - **Device types**: Use `devices.types.media_device` for MA players in Yandex.
 - **Capabilities limited**: Only on_off, range(volume), toggle(mute/pause), mode(input_source). No seek, no track info push.
 - **This is a plugin, not a player provider**: It does NOT create MA players. It controls existing ones.
+- **Don't name files `http.py`**: Shadows Python's stdlib `http` module. The direct connection handler is in `direct.py`.
+- **Direct mode uses `mass.webserver.register_dynamic_route()`**: MA's built-in mechanism for adding HTTP endpoints. Returns an unregister callback.
+- **OAuth is minimal**: Single access token (UUID) stored in config. Pending authorization codes kept in memory with 5-min TTL.
