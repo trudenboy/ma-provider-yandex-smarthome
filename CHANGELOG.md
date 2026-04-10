@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-04-10
+
+### Added
+- **Direct connection mode** — Yandex calls MA server directly via HTTPS, no yaha-cloud.ru relay needed
+- **HTTP endpoint registration** on MA webserver (`/api/yandex_smarthome/v1.0/*`, `/api/yandex_smarthome/auth/*`)
+- **OAuth account linking** — authorize + token exchange endpoints for Yandex.Dialogs skill setup
+- **Per-install OAuth client secret** — auto-generated random secret stored in config (replaces hardcoded value)
+
+### Changed
+- **Tokens wrapped in SecretStr** via `ya-passport-auth` — cloud_token, connection_token, skill_token no longer stored as plain strings in memory
+- **README restructured** — installation steps clearly separated for Cloud vs Direct setup
+
+### Security
+- **XSS fix** in OAuth authorize page — `redirect_uri` is now HTML-escaped and validated against `*.yandex.net` domain
+- **OAuth credential validation** — `client_id` and `client_secret` are strictly validated on both authorize and token endpoints
+- **URL normalization** — `base_url.rstrip("/")` prevents double-slash issues in generated endpoint URLs
+- **Config token preservation** — hidden access token and client secret values are properly preserved across config saves
+
 ## [1.0.0] — 2025-04-08
 
 ### Added
