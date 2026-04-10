@@ -15,6 +15,7 @@ dev = [
     "pytest>=7.0.0",
     "pytest-asyncio>=0.21.0",
     "ruff>=0.4.0",
+    "ya-passport-auth>=1.0.0",
 ]
 
 [tool.codespell]

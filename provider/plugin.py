@@ -18,7 +18,7 @@ Connection modes:
 from __future__ import annotations
 
 from dataclasses import asdict
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from music_assistant.models.plugin import PluginProvider
 
@@ -48,6 +48,9 @@ from .handlers import (
 from .notifier import StateNotifier
 from .schema import CloudRequest
 
+if TYPE_CHECKING:
+    from ya_passport_auth import SecretStr
+
 
 class YandexSmartHomePlugin(PluginProvider):
     """Plugin provider that exposes MA players to Yandex Alice via Smart Home API.
@@ -64,15 +67,21 @@ class YandexSmartHomePlugin(PluginProvider):
 
     async def handle_async_init(self) -> None:
         """Handle async initialization of the plugin."""
+        from ya_passport_auth import SecretStr
+
         self._connection_type = str(
             self.config.get_value(CONF_CONNECTION_TYPE) or CONNECTION_TYPE_CLOUD
         )
         self._instance_name = str(self.config.get_value(CONF_INSTANCE_NAME) or "Music Assistant")
-        self._cloud_token = str(self.config.get_value(CONF_CLOUD_INSTANCE_PASSWORD) or "")
-        self._connection_token = str(self.config.get_value(CONF_CLOUD_CONNECTION_TOKEN) or "")
+        self._cloud_token: SecretStr = SecretStr(
+            str(self.config.get_value(CONF_CLOUD_INSTANCE_PASSWORD) or "")
+        )
+        self._connection_token: SecretStr = SecretStr(
+            str(self.config.get_value(CONF_CLOUD_CONNECTION_TOKEN) or "")
+        )
         self._cloud_instance_id = str(self.config.get_value(CONF_CLOUD_INSTANCE_ID) or "")
         self._skill_id = str(self.config.get_value(CONF_SKILL_ID) or "")
-        self._skill_token = str(self.config.get_value(CONF_SKILL_TOKEN) or "")
+        self._skill_token: SecretStr = SecretStr(str(self.config.get_value(CONF_SKILL_TOKEN) or ""))
 
         # Parse exposed players filter
         exposed_raw = self.config.get_value(CONF_EXPOSED_PLAYERS) or []
@@ -104,7 +113,7 @@ class YandexSmartHomePlugin(PluginProvider):
 
     async def _start_cloud_mode(self) -> None:
         """Initialize and start cloud relay connection + state notifier."""
-        if not self._connection_token:
+        if not self._connection_token.get_secret():
             self.logger.error(
                 "Cloud connection token not configured — "
                 "register an instance at yaha-cloud.ru and set the connection token"
@@ -113,12 +122,12 @@ class YandexSmartHomePlugin(PluginProvider):
 
         # Validate Cloud Plus credentials before starting any tasks
         if self._connection_type == CONNECTION_TYPE_CLOUD_PLUS:
-            if not self._skill_id or not self._skill_token:
+            if not self._skill_id or not self._skill_token.get_secret():
                 self.logger.error("Cloud Plus mode requires skill_id and skill_token")
                 return
 
         # Validate cloud password (used for callback auth in basic cloud mode)
-        if self._connection_type == CONNECTION_TYPE_CLOUD and not self._cloud_token:
+        if self._connection_type == CONNECTION_TYPE_CLOUD and not self._cloud_token.get_secret():
             self.logger.error(
                 "Cloud instance password not configured — "
                 "set the password from yaha-cloud.ru instance settings"
@@ -145,10 +154,10 @@ class YandexSmartHomePlugin(PluginProvider):
         # State notifier — different callback URL/auth for cloud_plus
         if self._connection_type == CONNECTION_TYPE_CLOUD_PLUS:
             callback_url = f"{YANDEX_DIALOGS_CALLBACK_BASE}/{self._skill_id}/callback/state"
-            auth_header = {"Authorization": f"OAuth {self._skill_token}"}
+            auth_header = {"Authorization": f"OAuth {self._skill_token.get_secret()}"}
         else:
             callback_url = f"{CLOUD_CALLBACK_URL}/state"
-            auth_header = {"Authorization": f"Bearer {self._cloud_token}"}
+            auth_header = {"Authorization": f"Bearer {self._cloud_token.get_secret()}"}
 
         self._state_notifier = StateNotifier(
             mass=self.mass,

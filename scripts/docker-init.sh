@@ -45,5 +45,27 @@ if [ -n "$DEPS" ]; then
     fi
 fi
 
+# Install manifest.json requirements (e.g. ya-passport-auth)
+MANIFEST_DEPS=$(/app/venv/bin/python3 - <<'PYEOF'
+import json
+try:
+    with open("/tmp/provider/manifest.json") as f:
+        m = json.load(f)
+    print(" ".join(m.get("requirements", [])))
+except Exception:
+    pass
+PYEOF
+)
+if [ -n "$MANIFEST_DEPS" ]; then
+    echo "==> Installing manifest requirements: $MANIFEST_DEPS"
+    if [ -x /app/venv/bin/uv ]; then
+        /app/venv/bin/uv pip install --quiet $MANIFEST_DEPS
+    elif [ -x /app/venv/bin/pip ]; then
+        /app/venv/bin/pip install --quiet $MANIFEST_DEPS
+    else
+        pip install --quiet $MANIFEST_DEPS
+    fi
+fi
+
 echo "==> Starting Music Assistant..."
 exec /usr/local/bin/entrypoint.sh --data-dir /data --cache-dir /data/.cache

@@ -356,6 +356,7 @@ dev = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "ruff" },
+    { name = "ya-passport-auth" },
 ]
 
 [package.metadata]
@@ -370,6 +371,7 @@ dev = [
     { name = "pytest", specifier = ">=7.0.0" },
     { name = "pytest-asyncio", specifier = ">=0.21.0" },
     { name = "ruff", specifier = ">=0.4.0" },
+    { name = "ya-passport-auth", specifier = ">=1.0.0" },
 ]
 
 [[package]]
@@ -833,6 +835,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/aa/92/58199fe10049f9703c2666e809c4f686c54ef0a68b0f6afccf518c0b1eb9/virtualenv-21.2.0.tar.gz", hash = "sha256:1720dc3a62ef5b443092e3f499228599045d7fea4c79199770499df8becf9098", size = 5840618, upload-time = "2026-03-09T17:24:38.013Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c6/59/7d02447a55b2e55755011a647479041bc92a82e143f96a8195cb33bd0a1c/virtualenv-21.2.0-py3-none-any.whl", hash = "sha256:1bd755b504931164a5a496d217c014d098426cddc79363ad66ac78125f9d908f", size = 5825084, upload-time = "2026-03-09T17:24:35.378Z" },
+]
+
+[[package]]
+name = "ya-passport-auth"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "aiohttp" },
+    { name = "yarl" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/71/a8/89800739db20a0e9b10ce278c50c6f3004ac58254cf945972ddbab60ec33/ya_passport_auth-1.0.0.tar.gz", hash = "sha256:57ec04acf523c66405abed4dd03a68a5dc45cd0a81ce8cf0706f51b5f5d11f6e", size = 40226, upload-time = "2026-04-10T16:46:38.816Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bc/a0/b2b94b46dcb9ad03cc23fbb4ae113d5fad04a5f2022741b08c0859329eb2/ya_passport_auth-1.0.0-py3-none-any.whl", hash = "sha256:1045664fd1f80b9bdb1d477ffd2ed0abdf392ae39841204e5fb447d04222ee93", size = 28983, upload-time = "2026-04-10T16:46:37.707Z" },
 ]
 
 [[package]]
