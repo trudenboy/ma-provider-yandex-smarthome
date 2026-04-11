@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-04-11
+
+### Changed
+- **Stage → beta** in manifest
+- **on/off reflects player power state** — `is_on` uses `player.powered` (fallback to `available`), not playback state
+- **Pause toggle shows ▶ when not playing** — IDLE/STOPPED players report `pause=true` so Yandex shows the play button
+- **Device type → `media_device`** instead of `receiver` for better Yandex UI phrasing
+- **Player name normalization** — strips non-Russian/English characters, adds space between letters and digits
+
+### Fixed
+- **Group player support** — volume/mute display and control now uses `group_volume`/`group_volume_muted` and `cmd_group_volume`/`cmd_group_volume_mute` APIs
+- **Mute toggle conditional** — only exposed when player supports `VOLUME_MUTE` feature or is a group
+- **State reporting race condition** — notifier reads fresh player state at flush time (1s debounce), not at event time, preventing transient volume=0 reports
+- **Child→group event propagation** — child player state changes mark parent group as dirty for state reporting
+- **Player deduplication** — uses `all_players()` to filter out PROTOCOL sub-players and disabled players
+- **Defensive parsing** — `parse_action_payload` and `_handle_query` validate all intermediate types before iteration
+- **JSON parse errors → 400** — malformed request bodies in direct mode return HTTP 400 instead of 500
+- **Pending OAuth codes DoS cap** — `MAX_PENDING_CODES=20` with HTTP 429 on overflow
+- **Input source selection** — `select_source` passes `source.id` instead of `source.name`
+
+### Security
+- **`secrets.compare_digest`** for OAuth refresh_token and client_secret comparisons
+- **Redirect URI restricted** to `https://social.yandex.net` only
+- **Best-effort error response** in cloud.py with `isinstance(data, dict)` guard
+
 ## [1.1.0] — 2026-04-10
 
 ### Added
