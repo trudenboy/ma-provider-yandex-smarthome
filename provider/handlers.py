@@ -46,12 +46,8 @@ async def handle_device_list(
 ) -> DeviceListPayload:
     """Handle /user/devices — return list of all MA players as Yandex devices."""
     devices = []
-    seen: set[str] = set()
-    for player in mass.players:
-        state = player.state if hasattr(player, "state") else player
-        if state.player_id in seen:
-            continue
-        seen.add(state.player_id)
+    for player in mass.players.all_players():
+        state = player.state
         if not is_player_exposable(state, exposed_ids=exposed_ids):  # type: ignore[arg-type]
             continue
         devices.append(get_device_description(state))  # type: ignore[arg-type]
