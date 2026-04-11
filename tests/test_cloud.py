@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import aiohttp
 import pytest
-from ya_passport_auth import SecretStr
 
+from provider import SecretStr
 from provider.cloud import (
     CloudManager,
     get_cloud_otp,
