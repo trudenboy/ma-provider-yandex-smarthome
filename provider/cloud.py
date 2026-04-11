@@ -72,7 +72,7 @@ class CloudManager:
                     "Cloud connection error, reconnecting in %ds", self._reconnect_delay
                 )
             if not self._running:
-                break
+                break  # type: ignore[unreachable]
             # Backoff before reconnect (both after errors and clean disconnects)
             await asyncio.sleep(self._reconnect_delay)
             self._reconnect_delay = min(self._reconnect_delay * 2, CLOUD_RECONNECT_MAX)
