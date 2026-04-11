@@ -48,7 +48,7 @@ Alice voice command
 |---|---|---|
 | `on_off` | `play()` / `stop()` | "включи" resumes queue, "выключи" stops |
 | `range(volume)` | `volume_set()` | Absolute and relative (±) |
-| `toggle(mute)` | `volume_mute()` | |
+| `toggle(mute)` | `volume_mute()` | Only if player supports VOLUME_MUTE |
 | `toggle(pause)` | `play()` / `pause()` | |
 | `range(channel)` | `next_track()` / `previous_track()` | Relative only: +1=next, -1=prev |
 | `mode(input_source)` | `select_source()` | Maps source_list by index (max 10) |
