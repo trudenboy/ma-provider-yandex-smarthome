@@ -4,7 +4,7 @@ name = "ma-provider-yandex-smarthome"
 description = "Yandex Smart Home provider for Music Assistant"
 requires-python = ">=3.12"
 dynamic = ["version"]
-dependencies = ["ya-passport-auth>=1.0.0"]
+dependencies = ["ya-passport-auth>=1.2.3"]
 
 [dependency-groups]
 dev = [
@@ -15,7 +15,7 @@ dev = [
     "pytest>=7.0.0",
     "pytest-asyncio>=0.21.0",
     "ruff>=0.4.0",
-    "ya-passport-auth>=1.0.0",
+    "ya-passport-auth>=1.2.3",
 ]
 
 [build-system]
