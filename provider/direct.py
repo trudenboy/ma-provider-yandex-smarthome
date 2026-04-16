@@ -155,9 +155,7 @@ class DirectConnectionHandler:
             try:
                 unregister = register(path, handler, method)
             except RuntimeError:
-                self._logger.error(
-                    "Failed to register route %s %s; rolling back", method, path
-                )
+                self._logger.error("Failed to register route %s %s; rolling back", method, path)
                 self.unregister_routes()
                 raise
             self._unregister_callbacks.append(unregister)

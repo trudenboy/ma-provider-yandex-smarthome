@@ -307,9 +307,7 @@ async def _execute_input_source(
     )
 
 
-def _invalid_bool_result(
-    cap_type: str, instance: str, value: Any
-) -> CapabilityActionResult:
+def _invalid_bool_result(cap_type: str, instance: str, value: Any) -> CapabilityActionResult:
     """Build an INVALID_ACTION result for a capability that requires a boolean value."""
     return CapabilityActionResult(
         type=cap_type,
@@ -319,8 +317,7 @@ def _invalid_bool_result(
                 status="ERROR",
                 error_code=ERROR_INVALID_ACTION,
                 error_message=(
-                    f"Expected boolean value for {cap_type}/{instance}, got "
-                    f"{type(value).__name__}"
+                    f"Expected boolean value for {cap_type}/{instance}, got {type(value).__name__}"
                 ),
             ),
         ),
@@ -359,8 +356,7 @@ async def execute_capability_action(  # noqa: PLR0915
     # Bool-typed capabilities: reject non-bool payloads up-front so truthiness
     # on strings like "false"/"0" can't trigger the wrong command.
     requires_bool = action.type == YandexCapabilityType.ON_OFF or (
-        action.type == YandexCapabilityType.TOGGLE
-        and instance in (INSTANCE_MUTE, INSTANCE_PAUSE)
+        action.type == YandexCapabilityType.TOGGLE and instance in (INSTANCE_MUTE, INSTANCE_PAUSE)
     )
     if requires_bool and not isinstance(value, bool):
         return _invalid_bool_result(action.type, instance, value)
