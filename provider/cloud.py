@@ -97,9 +97,7 @@ class CloudManager:
                     try:
                         data = json.loads(msg.data)
                     except json.JSONDecodeError:
-                        self._logger.warning(
-                            "Received invalid JSON from cloud relay: %r", msg.data
-                        )
+                        self._logger.warning("Received invalid JSON from cloud relay: %r", msg.data)
                         continue
                     await self._handle_message(ws, data)
                 elif msg.type == aiohttp.WSMsgType.ERROR:
