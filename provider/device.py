@@ -324,9 +324,7 @@ def _invalid_bool_result(cap_type: str, instance: str, value: Any) -> Capability
     )
 
 
-def _invalid_numeric_result(
-    cap_type: str, instance: str, value: Any
-) -> CapabilityActionResult:
+def _invalid_numeric_result(cap_type: str, instance: str, value: Any) -> CapabilityActionResult:
     """Build an INVALID_ACTION result for a capability that requires a numeric value."""
     return CapabilityActionResult(
         type=cap_type,
@@ -336,8 +334,7 @@ def _invalid_numeric_result(
                 status="ERROR",
                 error_code=ERROR_INVALID_ACTION,
                 error_message=(
-                    f"Expected numeric value for {cap_type}/{instance}, got "
-                    f"{type(value).__name__}"
+                    f"Expected numeric value for {cap_type}/{instance}, got {type(value).__name__}"
                 ),
             ),
         ),
