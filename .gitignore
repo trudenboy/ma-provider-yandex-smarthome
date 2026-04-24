@@ -66,9 +66,10 @@ secrets.yaml
 # Virtual env
 .venv/
 
-# Screenshots (keep docs/skill_icon.png)
+# Screenshots (keep bundled assets)
 *.png
 !docs/skill_icon.png
+!provider/auto_skill_logo.png
 
 # Internal planning docs
 docs/IMPLEMENTATION_PLAN.md

@@ -23,6 +23,7 @@ from music_assistant.providers.yandex_smarthome.auto_skill import (
     derive_auth_urls,
     derive_backend_uri,
     derive_client_id,
+    load_default_logo_bytes,
 )
 from music_assistant.providers.yandex_smarthome.auto_skill_state import (
     SkillCreationArtifacts,
@@ -918,4 +919,18 @@ class TestAutoCreateSkillDirectMode:
         assert (
             oauth_call.kwargs["authorize_url"]
             == "https://ma.example.com/api/yandex_smarthome/auth/authorize"
+        )
+
+
+class TestLoadDefaultLogoBytes:
+    """load_default_logo_bytes reads the bundled PNG from disk."""
+
+    def test_returns_real_png(self) -> None:
+        """Bundled provider/auto_skill_logo.png exists and has a PNG magic header."""
+        data = load_default_logo_bytes()
+        # PNG magic: 89 50 4E 47 0D 0A 1A 0A
+        assert data[:8] == bytes.fromhex("89504e470d0a1a0a")
+        # Sanity: the bundled asset is non-trivial, not the 1x1 fallback.
+        assert len(data) > 1000, (
+            f"expected real logo asset, got {len(data)} bytes (fallback?)"
         )
