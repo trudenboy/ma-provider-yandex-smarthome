@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Experimental auto-create skill** — opt-in feature for `cloud_plus` and `direct` modes that creates the private Yandex Dialogs skill for the user via an undocumented `dialogs.yandex.ru/developer/app-store-api` endpoint sequence. Covers: device-flow login against Yandex Passport, CSRF extraction, skill creation, logo upload, draft update with account-linking, and publish. Runs only when `experimental_auto_create_skill` is toggled on; falls back cleanly to the manual Skill ID / Skill OAuth Token flow on any failure. Partial failures are resumable — a retry picks up from the last completed step without duplicating work.
+
 ## [1.3.0] — 2026-04-20
 
 ### Changed

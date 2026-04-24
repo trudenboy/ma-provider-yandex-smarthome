@@ -103,6 +103,22 @@ Cloud Plus mode additionally requires **Skill ID** and **Skill OAuth Token** fro
 
 Direct mode requires a publicly accessible HTTPS URL for your MA server. The config flow shows all URLs to paste into Yandex.Dialogs skill settings. Requires **Skill ID** and **Skill OAuth Token**.
 
+### Experimental: auto-create skill
+
+> ⚠️ **EXPERIMENTAL** — this feature uses an undocumented Yandex Dialogs API. It may stop working at any time. If it fails, fall back to the manual **Skill ID** / **Skill OAuth Token** flow above.
+
+For `cloud_plus` and `direct` modes, the provider can create and publish the private skill for you instead of you clicking through `dialogs.yandex.ru/developer`.
+
+1. In the provider settings, expand **Advanced** → find **Auto-create skill (experimental)**.
+2. Toggle **Enable automatic skill creation (experimental)**. A warning label and an action button appear.
+3. For `cloud_plus`: first click **Register with cloud** and complete the OTP pairing in the Yandex app so a cloud instance exists.
+   For `direct`: make sure MA is reachable from the public internet over **HTTPS** (reverse proxy with a real certificate — self-signed will not work).
+4. Click **Create skill automatically**. The frontend opens a popup on `ya.ru/device`; log in with your Yandex account and confirm the pre-filled device code.
+5. The provider creates the skill, uploads the logo, wires up account linking, and publishes the draft. On success **Skill ID** is populated automatically.
+6. Open the **OAuth URL** link in the form, copy the token from the resulting URL, and paste it into **Skill OAuth Token**. Save the provider config.
+
+If anything fails mid-flow, the status label shows the exact Yandex error and you can either retry from the last successful step or finish the setup manually by pasting the skill UUID (found in the skill URL at `dialogs.yandex.ru/developer/skills/{skill_id}/`) into **Skill ID**.
+
 ## Limitations
 
 - **No play_media** — Alice cannot start a specific song/playlist. "Включи музыку" only resumes the current MA queue.
