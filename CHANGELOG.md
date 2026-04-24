@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.4.4] — 2026-04-24
+
+### Fixed
+- **`asyncio.CancelledError` now propagates through the auto-create pipeline and config-action handler** — both broad `except Exception` clauses (`auto_skill.py` orchestrator and `_run_auto_create_action` in `__init__.py`) re-raise `CancelledError` explicitly before the generic handler, so HA shutdown / config-flow abort no longer gets absorbed into a `FAILED` artifact.
+
 ## [1.4.3] — 2026-04-24
 
 ### Fixed
