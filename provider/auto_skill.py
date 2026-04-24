@@ -716,7 +716,15 @@ DEVICE_FLOW_TIMEOUT_SECONDS = 300.0
 """Hard cap on how long we'll wait for the user to enter the code."""
 
 _DEVICE_CODE_PAGE_PATH = "/yandex_smarthome/device_code"
-_POST_AUTH_GRACE_SECONDS = 3
+# Keep the intermediate HTML page alive long enough for one more poll
+# after state flips to done/failed — ~1s is plenty, the page polls
+# every 2s so we're just covering the in-flight window.
+_POST_AUTH_GRACE_SECONDS = 1
+# Server-suggested interval from Yandex is 5s (RFC 8628) but after the
+# user has confirmed the code we want to detect it promptly; 2s is the
+# RFC-recommended minimum. If Yandex ever returns SLOW_DOWN, the library
+# bumps the interval automatically.
+_DEVICE_FLOW_POLL_INTERVAL = 2.0
 _SAFE_SESSION_ID_RE = re.compile(r"\A[A-Za-z0-9_-]{1,64}\Z")
 
 
@@ -953,6 +961,7 @@ async def _default_authenticator(
                     creds = await client.poll_device_until_confirmed(
                         device_session,
                         total_timeout=timeout,
+                        poll_interval=_DEVICE_FLOW_POLL_INTERVAL,
                     )
                 except asyncio.CancelledError:
                     raise
@@ -1086,7 +1095,9 @@ async def _run_pipeline_with_recovery(
             await progress_cb(a)
 
     try:
+        _LOGGER.info("auto-skill: fetching CSRF from dialogs.yandex.ru")
         csrf = await creator.fetch_csrf()
+        _LOGGER.info("auto-skill: CSRF acquired, starting skill pipeline")
         return await _execute_pipeline(
             creator=creator,
             csrf=csrf,
@@ -1128,6 +1139,7 @@ async def _execute_pipeline(  # noqa: PLR0913
 
     # -- Step 3: create app --
     if state in (SkillCreationState.NONE, SkillCreationState.FAILED):
+        _LOGGER.info("auto-skill: [1/5] creating skill app")
         new_skill_id = await creator.create_app(csrf, skill_name)
         artifacts = dataclasses.replace(
             artifacts,
@@ -1147,6 +1159,7 @@ async def _execute_pipeline(  # noqa: PLR0913
     if state == SkillCreationState.APP_CREATED:
         logo_id = artifacts.logo_id
         if logo_id is None:
+            _LOGGER.info("auto-skill: [2/5] uploading logo")
             logo_id = await creator.upload_logo(csrf, skill_id, logo_bytes)
             artifacts = dataclasses.replace(artifacts, logo_id=logo_id)
 
@@ -1158,6 +1171,7 @@ async def _execute_pipeline(  # noqa: PLR0913
             logo_id=logo_id,
             developer_name=developer_name,
         )
+        _LOGGER.info("auto-skill: [3/5] updating draft with settings")
         await creator.update_draft(csrf, skill_id, draft)
         artifacts = dataclasses.replace(
             artifacts, state=SkillCreationState.DRAFT_UPDATED
@@ -1174,6 +1188,7 @@ async def _execute_pipeline(  # noqa: PLR0913
             else direct_client_secret
         )
         authorize_url, token_url = derive_auth_urls(mass, connection_type)
+        _LOGGER.info("auto-skill: [4/5] creating OAuth app + attaching")
         oauth_app_id = await creator.create_oauth_app(
             csrf,
             name=skill_name,
@@ -1210,6 +1225,7 @@ async def _execute_pipeline(  # noqa: PLR0913
         SkillCreationState.OAUTH_ATTACHED,
         SkillCreationState.DEPLOY_REQUESTED,
     ):
+        _LOGGER.info("auto-skill: [5/5] publishing skill")
         await creator.request_deploy(csrf, skill_id)
         artifacts = dataclasses.replace(
             artifacts, state=SkillCreationState.DONE
