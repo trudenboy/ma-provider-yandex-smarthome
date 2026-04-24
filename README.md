@@ -101,23 +101,25 @@ pytest
 
 Cloud Plus mode additionally requires **Skill ID** and **Skill OAuth Token** from Yandex.Dialogs.
 
-Direct mode requires a publicly accessible HTTPS URL for your MA server. The config flow shows all URLs to paste into Yandex.Dialogs skill settings. Requires **Skill ID** and **Skill OAuth Token**.
+### Setup flow per mode
 
-### Experimental: auto-create skill
+Auto-create is the default path for `cloud_plus` and `direct`. The config form shows the single next step you need to complete; later steps only appear after you finish the current one.
 
-> ⚠️ **EXPERIMENTAL** — this feature uses an undocumented Yandex Dialogs API. It may stop working at any time. If it fails, fall back to the manual **Skill ID** / **Skill OAuth Token** flow above.
+> **Note:** Auto-create uses an undocumented Yandex Dialogs API — if it fails, the form automatically shows copy-paste fields so you can create the skill by hand in `dialogs.yandex.ru/developer` without leaving MA settings.
 
-For `cloud_plus` and `direct` modes, the provider can create and publish the private skill for you instead of you clicking through `dialogs.yandex.ru/developer`.
+#### Cloud Plus (3 steps)
 
-1. In the provider settings, expand **Advanced** → find **Auto-create skill (experimental)**.
-2. Toggle **Enable automatic skill creation (experimental)**. A warning label and an action button appear.
-3. For `cloud_plus`: first click **Register with cloud** and complete the OTP pairing in the Yandex app so a cloud instance exists.
-   For `direct`: make sure MA is reachable from the public internet over **HTTPS** (reverse proxy with a real certificate — self-signed will not work).
-4. Click **Create skill automatically**. The frontend opens a popup on `ya.ru/device`; log in with your Yandex account and confirm the pre-filled device code.
-5. The provider creates the skill, uploads the logo, wires up account linking, and publishes the draft. On success **Skill ID** is populated automatically.
-6. Open the **OAuth URL** link in the form, copy the token from the resulting URL, and paste it into **Skill OAuth Token**. Save the provider config.
+1. **Register cloud instance** — click **Register with cloud**. The provider creates a yaha-cloud.ru relay instance. (Step 2 becomes visible afterwards.)
+2. **Create Smart Home skill** — click **Create skill automatically**. A popup opens showing your short Device Flow code; open `ya.ru/device` from the popup's link, log in to your Yandex account, and confirm the code. The provider creates the private skill, uploads the logo, wires up account linking, and publishes. On success **Skill ID** is filled in automatically; open the **OAuth URL** link and paste the resulting token into **Skill OAuth Token**. On failure, the form unfolds copy-paste fields for manual setup.
+3. **Link skill to Yandex** — click **Get OTP code**. Open the Yandex app → Devices → Add device → Smart Home → find your private skill → enter the OTP. Save provider config.
 
-If anything fails mid-flow, the status label shows the exact Yandex error and you can either retry from the last successful step or finish the setup manually by pasting the skill UUID (found in the skill URL at `dialogs.yandex.ru/developer/skills/{skill_id}/`) into **Skill ID**.
+#### Direct (1 step)
+
+1. **Create Smart Home skill** — same as Step 2 above. Requires MA to be reachable from the public internet over **HTTPS** (reverse proxy with a real certificate — self-signed won't work). Linking happens via Yandex.Dialogs' own Account linking UI after the skill exists, so there's no Step 3.
+
+#### Cloud (unchanged)
+
+Public Yaha Cloud skill — just **Register** then **Get OTP** and enter it in the Yandex app.
 
 ## Limitations
 

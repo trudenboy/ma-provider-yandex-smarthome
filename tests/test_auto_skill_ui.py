@@ -8,11 +8,17 @@ from music_assistant.providers.yandex_smarthome.auto_skill_state import (
 )
 from music_assistant.providers.yandex_smarthome.auto_skill_ui import (
     auto_create_entries,
+    build_cloud_plus_entries,
+    build_direct_entries,
     should_show_button,
 )
 from music_assistant.providers.yandex_smarthome.constants import (
     CONF_ACTION_AUTO_CREATE,
+    CONF_ACTION_GET_OTP,
+    CONF_ACTION_REGISTER,
     CONF_AUTO_CREATE_ARTIFACTS,
+    CONF_SKILL_ID,
+    CONF_SKILL_TOKEN,
     CONNECTION_TYPE_CLOUD,
     CONNECTION_TYPE_CLOUD_PLUS,
     CONNECTION_TYPE_DIRECT,
@@ -183,3 +189,180 @@ class TestAutoCreateEntries:
         status = _find(list(entries), "label_auto_create_status")
         assert status is not None
         assert "401" in status.label
+
+
+# ---------------------------------------------------------------------------
+# build_cloud_plus_entries — 3-step structure
+# ---------------------------------------------------------------------------
+
+
+class TestBuildCloudPlusEntries:
+    """cloud_plus entries render as numbered steps with proper gating."""
+
+    def _call(
+        self,
+        *,
+        is_registered: bool = False,
+        state: SkillCreationState = SkillCreationState.NONE,
+        otp_code: str | None = None,
+    ):  # type: ignore[no-untyped-def]
+        return build_cloud_plus_entries(
+            otp_code=otp_code,
+            is_registered=is_registered,
+            cloud_instance_id="inst-1" if is_registered else "",
+            artifacts=SkillCreationArtifacts(state=state),
+            session_id=None,
+            user_code=None,
+            verification_url=None,
+            existing_artifacts_raw=None,
+            base_url="https://ma.example.com",
+        )
+
+    def test_step1_register_always_visible(self) -> None:
+        """Step 1 (Register) is always rendered — even before first registration."""
+        entries = self._call(is_registered=False)
+        keys = [e.key for e in entries]
+        assert CONF_ACTION_REGISTER in keys
+
+    def test_step2_hidden_until_registered(self) -> None:
+        """Step 2 (Create skill) does not appear until Step 1 completes."""
+        entries = self._call(is_registered=False)
+        keys = [e.key for e in entries]
+        assert CONF_ACTION_AUTO_CREATE not in keys
+        assert CONF_SKILL_TOKEN not in keys
+
+    def test_step2_visible_after_register(self) -> None:
+        """After register, Step 2 renders the auto-create action."""
+        entries = self._call(is_registered=True)
+        keys = [e.key for e in entries]
+        assert CONF_ACTION_AUTO_CREATE in keys
+
+    def test_step3_hidden_until_registered(self) -> None:
+        """Step 3 (Get OTP) likewise needs Step 1 done."""
+        entries = self._call(is_registered=False)
+        keys = [e.key for e in entries]
+        assert CONF_ACTION_GET_OTP not in keys
+
+    def test_step3_visible_after_register(self) -> None:
+        """After register, Step 3 renders the Get-OTP action."""
+        entries = self._call(is_registered=True)
+        keys = [e.key for e in entries]
+        assert CONF_ACTION_GET_OTP in keys
+
+    def test_register_action_hidden_once_registered(self) -> None:
+        """The Register button disappears after a cloud instance exists."""
+        entries = self._call(is_registered=True)
+        register = _find(list(entries), CONF_ACTION_REGISTER)
+        assert register is not None
+        assert register.hidden is True
+
+    def test_skill_token_shown_on_done(self) -> None:
+        """Skill OAuth Token input is revealed on DONE (happy path)."""
+        entries = self._call(is_registered=True, state=SkillCreationState.DONE)
+        token = _find(list(entries), CONF_SKILL_TOKEN)
+        assert token is not None
+        assert token.hidden is False
+
+    def test_skill_token_shown_on_failed(self) -> None:
+        """Skill OAuth Token input is also revealed on FAILED for manual entry."""
+        entries = self._call(is_registered=True, state=SkillCreationState.FAILED)
+        token = _find(list(entries), CONF_SKILL_TOKEN)
+        assert token is not None
+        assert token.hidden is False
+
+    def test_skill_token_hidden_on_none(self) -> None:
+        """Before user interacts, the token field is hidden."""
+        entries = self._call(is_registered=True, state=SkillCreationState.NONE)
+        token = _find(list(entries), CONF_SKILL_TOKEN)
+        assert token is not None
+        assert token.hidden is True
+
+    def test_manual_fallback_appears_on_failed(self) -> None:
+        """FAILED renders manual copy-paste fields inline."""
+        entries = self._call(is_registered=True, state=SkillCreationState.FAILED)
+        keys = [e.key for e in entries]
+        assert "manual_backend_url" in keys
+        assert "manual_client_id" in keys
+        assert "manual_auth_url" in keys
+        assert "manual_token_url" in keys
+
+    def test_manual_fallback_absent_on_done(self) -> None:
+        """Happy path does not show the manual fallback block."""
+        entries = self._call(is_registered=True, state=SkillCreationState.DONE)
+        keys = [e.key for e in entries]
+        assert "manual_backend_url" not in keys
+
+    def test_otp_code_appears_when_present(self) -> None:
+        """OTP code field is visible once an OTP has been fetched."""
+        entries = self._call(is_registered=True, otp_code="ABC123")
+        otp = _find(list(entries), "otp_code")
+        assert otp is not None
+        assert otp.hidden is False
+
+
+# ---------------------------------------------------------------------------
+# build_direct_entries — 1-step structure (no register, no OTP)
+# ---------------------------------------------------------------------------
+
+
+class TestBuildDirectEntries:
+    """direct mode renders a single Create-Skill step (no yaha, no OTP)."""
+
+    def _call(
+        self,
+        *,
+        state: SkillCreationState = SkillCreationState.NONE,
+        base_url: str = "https://ma.example.com",
+        direct_client_secret: str = "secret-123",  # noqa: S107
+    ):  # type: ignore[no-untyped-def]
+        return build_direct_entries(
+            artifacts=SkillCreationArtifacts(state=state),
+            session_id=None,
+            user_code=None,
+            verification_url=None,
+            existing_artifacts_raw=None,
+            base_url=base_url,
+            direct_client_secret=direct_client_secret,
+        )
+
+    def test_no_register_action(self) -> None:
+        """Direct mode has no yaha registration step."""
+        entries = self._call()
+        keys = [e.key for e in entries]
+        assert CONF_ACTION_REGISTER not in keys
+
+    def test_no_get_otp_action(self) -> None:
+        """Direct mode has no OTP linking step."""
+        entries = self._call()
+        keys = [e.key for e in entries]
+        assert CONF_ACTION_GET_OTP not in keys
+
+    def test_has_create_skill_action(self) -> None:
+        """Direct mode renders the Create-Skill action."""
+        entries = self._call()
+        keys = [e.key for e in entries]
+        assert CONF_ACTION_AUTO_CREATE in keys
+
+    def test_create_hidden_when_base_url_not_https(self) -> None:
+        """Non-HTTPS base URL disables the create button (Yandex rejects)."""
+        entries = self._call(base_url="http://ma.local:8095")
+        action = _find(list(entries), CONF_ACTION_AUTO_CREATE)
+        assert action is not None
+        assert action.hidden is True
+
+    def test_manual_fallback_includes_per_install_secret(self) -> None:
+        """FAILED fallback for direct shows the per-install client_secret."""
+        entries = self._call(state=SkillCreationState.FAILED)
+        # The fallback block surfaces the generated secret in a visible
+        # field, plus the Backend URL with the MA base URL.
+        backend = _find(list(entries), "manual_backend_url")
+        assert backend is not None
+        assert "ma.example.com" in str(backend.value)
+        assert "/api/yandex_smarthome/v1.0" in str(backend.value)
+
+    def test_skill_id_field_shown_on_done(self) -> None:
+        """Skill ID input field is unhidden on DONE so user can verify/edit."""
+        entries = self._call(state=SkillCreationState.DONE)
+        skill_id = _find(list(entries), CONF_SKILL_ID)
+        assert skill_id is not None
+        assert skill_id.hidden is False
