@@ -284,7 +284,7 @@ async def get_config_entries(
             key="label_connection_type_notice",
             type=ConfigEntryType.LABEL,
             label=(
-                "ℹ️ After changing Connection Type below, click Save and "
+                "💡 After changing Connection Type below, click Save and "
                 "reopen this settings page to see the fields for the new mode."
             ),
         ),
