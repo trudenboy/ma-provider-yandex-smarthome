@@ -35,11 +35,15 @@ from .constants import (
     CONF_AUTO_CREATE_ARTIFACTS,
     CONF_AUTO_CREATE_SESSION_ID,
     CONF_CONNECTION_TYPE,
+    CONF_DIRECT_CLIENT_SECRET,
     CONF_SKILL_ID,
     CONF_SKILL_TOKEN,
     CONNECTION_TYPE_CLOUD,
     CONNECTION_TYPE_CLOUD_PLUS,
     CONNECTION_TYPE_DIRECT,
+    DIRECT_API_BASE_PATH,
+    DIRECT_AUTH_BASE_PATH,
+    DIRECT_OAUTH_CLIENT_ID,
     YANDEX_DIALOGS_DEVELOPER_URL,
     YANDEX_OAUTH_URL,
 )
@@ -319,10 +323,17 @@ def _create_skill_step_entries(
     user_code: str | None,
     verification_url: str | None,
     base_url: str,
+    direct_client_secret: str = "",
 ) -> list[ConfigEntry]:
     """Shared builder for the Create-Skill step.
 
     Used by both cloud_plus Step 2 and direct single-step mode.
+
+    Skill ID / Skill OAuth Token are shown after DONE (happy path) or
+    FAILED (so the user can finish manually). FAILED additionally shows
+    manual copy-paste fields (Backend URL / Client ID / Secret / Auth
+    URLs / Dialogs console link) so the user can create the skill by
+    hand in Yandex.Dialogs without leaving the form.
     """
     entries: list[ConfigEntry] = []
 
@@ -380,53 +391,201 @@ def _create_skill_step_entries(
         )
     )
 
-    show_token_fields = artifacts.state == SkillCreationState.DONE
-    entries.extend([
-        ConfigEntry(
-            key="oauth_url",
-            type=ConfigEntryType.STRING,
-            label="OAuth URL (open to get token)",
-            description=(
-                "Open this URL in your browser, approve, and copy the "
-                "access_token from the resulting URL into the field below."
+    # Manual-fallback copy-paste fields — shown on FAILED so the user
+    # can create the skill in Yandex.Dialogs by hand without leaving
+    # the form. Hidden on every other state.
+    if artifacts.state == SkillCreationState.FAILED:
+        entries.extend(
+            _manual_fallback_entries(
+                connection_type=connection_type,
+                category=category,
+                cloud_instance_id=cloud_instance_id,
+                base_url=base_url,
+                direct_client_secret=direct_client_secret,
+            )
+        )
+
+    show_token_fields = artifacts.state in (
+        SkillCreationState.DONE,
+        SkillCreationState.FAILED,
+    )
+    entries.extend(
+        [
+            ConfigEntry(
+                key="oauth_url",
+                type=ConfigEntryType.STRING,
+                label="OAuth URL (open to get token)",
+                description=(
+                    "Open this URL in your browser, approve, and copy the "
+                    "access_token from the resulting URL into the field below."
+                ),
+                required=False,
+                default_value=YANDEX_OAUTH_URL,
+                help_link=YANDEX_OAUTH_URL,
+                hidden=not show_token_fields,
+                depends_on=CONF_CONNECTION_TYPE,
+                depends_on_value=connection_type,
+                category=category,
             ),
-            required=False,
-            default_value=YANDEX_OAUTH_URL,
-            help_link=YANDEX_OAUTH_URL,
-            hidden=not show_token_fields,
-            depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value=connection_type,
-            category=category,
-        ),
-        ConfigEntry(
-            key=CONF_SKILL_TOKEN,
-            type=ConfigEntryType.SECURE_STRING,
-            label="Skill OAuth Token",
-            description="Paste the OAuth token obtained from the URL above.",
-            required=False,
-            hidden=not show_token_fields,
-            depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value=connection_type,
-            category=category,
-        ),
-        ConfigEntry(
-            key=CONF_SKILL_ID,
-            type=ConfigEntryType.STRING,
-            label="Skill ID",
-            description=(
-                "UUID of your private Smart Home skill. Set automatically "
-                "when auto-create succeeds; you can paste it manually if "
-                "you created the skill by hand."
+            ConfigEntry(
+                key=CONF_SKILL_TOKEN,
+                type=ConfigEntryType.SECURE_STRING,
+                label="Skill OAuth Token",
+                description="Paste the OAuth token obtained from the URL above.",
+                required=False,
+                hidden=not show_token_fields,
+                depends_on=CONF_CONNECTION_TYPE,
+                depends_on_value=connection_type,
+                category=category,
             ),
-            required=False,
-            hidden=not show_token_fields,
-            depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value=connection_type,
-            category=category,
-        ),
-    ])
+            ConfigEntry(
+                key=CONF_SKILL_ID,
+                type=ConfigEntryType.STRING,
+                label="Skill ID",
+                description=(
+                    "UUID of your private Smart Home skill. Set automatically "
+                    "when auto-create succeeds; you can paste it manually if "
+                    "you created the skill by hand."
+                ),
+                required=False,
+                hidden=not show_token_fields,
+                depends_on=CONF_CONNECTION_TYPE,
+                depends_on_value=connection_type,
+                category=category,
+            ),
+        ]
+    )
 
     return entries
+
+
+def _manual_fallback_entries(
+    *,
+    connection_type: str,
+    category: str,
+    cloud_instance_id: str,
+    base_url: str,
+    direct_client_secret: str,
+) -> list[ConfigEntry]:
+    """Copy-paste fields for creating the skill by hand when auto-create fails."""
+    if connection_type == CONNECTION_TYPE_CLOUD_PLUS:
+        backend_uri = CLOUD_SKILL_WEBHOOK_TEMPLATE
+        client_id = CLOUD_SKILL_CLIENT_ID_TEMPLATE.format(
+            instance_id=cloud_instance_id
+        )
+        client_secret = CLOUD_SKILL_CLIENT_SECRET
+        auth_url = CLOUD_OAUTH_AUTHORIZE_URL
+        token_url = CLOUD_OAUTH_TOKEN_URL
+    elif connection_type == CONNECTION_TYPE_DIRECT:
+        base = base_url.rstrip("/") or "https://<YOUR_MA_HOST>"
+        backend_uri = f"{base}{DIRECT_API_BASE_PATH}"
+        client_id = DIRECT_OAUTH_CLIENT_ID
+        client_secret = direct_client_secret or "(auto-generated on save)"
+        auth_url = f"{base}{DIRECT_AUTH_BASE_PATH}/authorize"
+        token_url = f"{base}{DIRECT_AUTH_BASE_PATH}/token"
+    else:
+        return []
+
+    # For direct mode, also surface the hidden generated secret as an
+    # editable field so user can copy it.
+    extra: list[ConfigEntry] = []
+    if connection_type == CONNECTION_TYPE_DIRECT and direct_client_secret:
+        extra.append(
+            ConfigEntry(
+                key=CONF_DIRECT_CLIENT_SECRET,
+                type=ConfigEntryType.SECURE_STRING,
+                label="Client Secret (→ Account linking)",
+                description="Copy to 'Account linking' → 'Client secret' field.",
+                required=False,
+                default_value=direct_client_secret,
+                depends_on=CONF_CONNECTION_TYPE,
+                depends_on_value=connection_type,
+                category=category,
+            )
+        )
+
+    return [
+        ConfigEntry(
+            key="manual_fallback_label",
+            type=ConfigEntryType.LABEL,
+            label=(
+                "Auto-create failed — you can create the skill by hand instead. "
+                "Open Yandex.Dialogs (link below), create a private Smart Home "
+                "skill, paste the values below into the skill's Basic info and "
+                "Account linking tabs, then put the skill UUID in the Skill ID "
+                "field below."
+            ),
+            depends_on=CONF_CONNECTION_TYPE,
+            depends_on_value=connection_type,
+            category=category,
+        ),
+        ConfigEntry(
+            key="manual_dialogs_url",
+            type=ConfigEntryType.STRING,
+            label="Yandex.Dialogs Console",
+            required=False,
+            default_value=YANDEX_DIALOGS_DEVELOPER_URL,
+            help_link=YANDEX_DIALOGS_DEVELOPER_URL,
+            depends_on=CONF_CONNECTION_TYPE,
+            depends_on_value=connection_type,
+            category=category,
+        ),
+        ConfigEntry(
+            key="manual_backend_url",
+            type=ConfigEntryType.STRING,
+            label="Backend URL (→ Basic info)",
+            description="Copy to 'Basic info' → 'Backend URL' in your skill.",
+            required=False,
+            value=backend_uri,
+            depends_on=CONF_CONNECTION_TYPE,
+            depends_on_value=connection_type,
+            category=category,
+        ),
+        ConfigEntry(
+            key="manual_client_id",
+            type=ConfigEntryType.STRING,
+            label="Client ID (→ Account linking)",
+            description="Copy to 'Account linking' → 'Client identifier' field.",
+            required=False,
+            value=client_id,
+            depends_on=CONF_CONNECTION_TYPE,
+            depends_on_value=connection_type,
+            category=category,
+        ),
+        *extra,
+        ConfigEntry(
+            key="manual_client_secret",
+            type=ConfigEntryType.STRING,
+            label="Client Secret value (for reference)",
+            description="Copy this string into 'Account linking' → 'Client secret'.",
+            required=False,
+            value=client_secret,
+            depends_on=CONF_CONNECTION_TYPE,
+            depends_on_value=connection_type,
+            category=category,
+        ),
+        ConfigEntry(
+            key="manual_auth_url",
+            type=ConfigEntryType.STRING,
+            label="Authorization URL (→ Account linking)",
+            required=False,
+            value=auth_url,
+            depends_on=CONF_CONNECTION_TYPE,
+            depends_on_value=connection_type,
+            category=category,
+        ),
+        ConfigEntry(
+            key="manual_token_url",
+            type=ConfigEntryType.STRING,
+            label="Token URL (→ Account linking, both fields)",
+            description="Paste into BOTH 'Token endpoint' and 'Refresh token URL'.",
+            required=False,
+            value=token_url,
+            depends_on=CONF_CONNECTION_TYPE,
+            depends_on_value=connection_type,
+            category=category,
+        ),
+    ]
 
 
 def _step2_create_skill_entries(
@@ -516,6 +675,7 @@ def build_direct_entries(
     verification_url: str | None,
     existing_artifacts_raw: str | None,
     base_url: str,
+    direct_client_secret: str = "",
 ) -> list[ConfigEntry]:
     """Return the direct-mode config entries as a single Create-Skill step.
 
@@ -531,18 +691,7 @@ def build_direct_entries(
         user_code=user_code,
         verification_url=verification_url,
         base_url=base_url,
+        direct_client_secret=direct_client_secret,
     )
     entries.extend(_hidden_state_entries(existing_artifacts_raw, session_id))
     return entries
-
-
-# Reference constants imported but unused at top-level are required by
-# future manual-fallback entries (Task 11: auto-show on FAILED).
-_ = (
-    CLOUD_OAUTH_AUTHORIZE_URL,
-    CLOUD_OAUTH_TOKEN_URL,
-    CLOUD_SKILL_CLIENT_ID_TEMPLATE,
-    CLOUD_SKILL_CLIENT_SECRET,
-    CLOUD_SKILL_WEBHOOK_TEMPLATE,
-    YANDEX_DIALOGS_DEVELOPER_URL,
-)

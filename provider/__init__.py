@@ -320,9 +320,10 @@ async def get_config_entries(
         )
     elif is_direct:
         # Pre-generate the per-install direct client secret once so it
-        # survives round-trips (auto-skill pipeline will read it later).
+        # survives round-trips (auto-skill pipeline reads it later).
         if not values.get(CONF_DIRECT_CLIENT_SECRET):
             values[CONF_DIRECT_CLIENT_SECRET] = uuid.uuid4().hex
+        direct_secret = str(values[CONF_DIRECT_CLIENT_SECRET])
         entries.extend(
             build_direct_entries(
                 artifacts=artifacts,
@@ -331,19 +332,22 @@ async def get_config_entries(
                 verification_url=None,
                 existing_artifacts_raw=artifacts_str,
                 base_url=ma_base_url_for_ui,
+                direct_client_secret=direct_secret,
             )
         )
-        # Keep the direct client secret in the config as a hidden field.
-        entries.append(
-            ConfigEntry(
-                key=CONF_DIRECT_CLIENT_SECRET,
-                type=ConfigEntryType.SECURE_STRING,
-                label="Direct Client Secret (internal)",
-                hidden=True,
-                required=False,
-                default_value=cast("str", values[CONF_DIRECT_CLIENT_SECRET]),
+        # Keep the direct client secret in the config as a hidden field
+        # unless it's already surfaced via the manual fallback block.
+        if artifacts.state != SkillCreationState.FAILED:
+            entries.append(
+                ConfigEntry(
+                    key=CONF_DIRECT_CLIENT_SECRET,
+                    type=ConfigEntryType.SECURE_STRING,
+                    label="Direct Client Secret (internal)",
+                    hidden=True,
+                    required=False,
+                    default_value=direct_secret,
+                )
             )
-        )
 
     # -- Tail: player filter + hidden round-trip fields (all modes) --
     entries.extend(_common_tail_entries(player_options, values))
