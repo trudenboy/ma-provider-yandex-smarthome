@@ -238,7 +238,7 @@ def _hidden_state_entries(
 # ---------------------------------------------------------------------------
 
 
-def build_cloud_plus_entries(
+def build_cloud_plus_entries(  # noqa: PLR0913
     *,
     otp_code: str | None,
     is_registered: bool,
@@ -249,7 +249,8 @@ def build_cloud_plus_entries(
     verification_url: str | None,
     existing_artifacts_raw: str | None,
     base_url: str,
-    skill_id_set: bool = False,
+    skill_id: str = "",
+    skill_token_set: bool = False,
 ) -> list[ConfigEntry]:
     """Return the cloud_plus-mode config entries as three visible steps.
 
@@ -257,6 +258,9 @@ def build_cloud_plus_entries(
     Step 2 (Create skill)   — visible once cloud instance is registered.
     Step 3 (Link via OTP)   — visible once the skill (id + token) is set.
     """
+    skill_id_set = bool(skill_id)
+    fully_configured = skill_id_set and skill_token_set
+
     entries: list[ConfigEntry] = []
     entries.extend(_step1_register_entries(is_registered, cloud_instance_id))
     entries.extend(
@@ -267,6 +271,8 @@ def build_cloud_plus_entries(
             user_code=user_code,
             verification_url=verification_url,
             base_url=base_url,
+            skill_id=skill_id,
+            fully_configured=fully_configured,
         )
     )
     entries.extend(
@@ -325,6 +331,8 @@ def _create_skill_step_entries(
     verification_url: str | None,
     base_url: str,
     direct_client_secret: str = "",
+    skill_id: str = "",
+    fully_configured: bool = False,
 ) -> list[ConfigEntry]:
     """Shared builder for the Create-Skill step.
 
@@ -410,8 +418,9 @@ def _create_skill_step_entries(
 
     # Skill ID / Skill OAuth Token / OAuth URL — the actual fields the
     # provider needs at runtime. Auto-shown once auto-create reached
-    # DONE or FAILED; always available for advanced users.
-    token_fields_advanced = artifacts.state not in (
+    # DONE or FAILED; hidden under Advanced once the user has fully
+    # configured them (so a clean default view stays clean after setup).
+    token_fields_advanced = fully_configured or artifacts.state not in (
         SkillCreationState.DONE,
         SkillCreationState.FAILED,
     )
@@ -461,6 +470,27 @@ def _create_skill_step_entries(
             ),
         ]
     )
+
+    # Once setup is complete, replace the cluster of edit fields with
+    # a single non-editable link to the skill in Yandex.Dialogs so the
+    # user can quickly open it (the fields are still available under
+    # Advanced if they need to re-edit).
+    if fully_configured and skill_id:
+        skill_url = f"https://dialogs.yandex.ru/developer/skills/{skill_id}/"
+        entries.append(
+            ConfigEntry(
+                key="skill_dialogs_link",
+                type=ConfigEntryType.STRING,
+                label="Open skill in Yandex.Dialogs",
+                description="Click the link to open the skill's page.",
+                required=False,
+                default_value=skill_url,
+                help_link=skill_url,
+                depends_on=CONF_CONNECTION_TYPE,
+                depends_on_value=connection_type,
+                category=category,
+            )
+        )
 
     return entries
 
@@ -632,6 +662,8 @@ def _step2_create_skill_entries(
     user_code: str | None,
     verification_url: str | None,
     base_url: str,
+    skill_id: str = "",
+    fully_configured: bool = False,
 ) -> list[ConfigEntry]:
     """cloud_plus Step 2 — always emitted.
 
@@ -649,6 +681,8 @@ def _step2_create_skill_entries(
         user_code=user_code,
         verification_url=verification_url,
         base_url=base_url,
+        skill_id=skill_id,
+        fully_configured=fully_configured,
     )
 
 
@@ -723,6 +757,8 @@ def build_direct_entries(
     existing_artifacts_raw: str | None,
     base_url: str,
     direct_client_secret: str = "",
+    skill_id: str = "",
+    skill_token_set: bool = False,
 ) -> list[ConfigEntry]:
     """Return the direct-mode config entries as a single Create-Skill step.
 
@@ -730,6 +766,7 @@ def build_direct_entries(
     linking (Step 3) — Yandex Dialogs' account-linking UI handles that
     once the skill exists.
     """
+    fully_configured = bool(skill_id) and skill_token_set
     entries = _create_skill_step_entries(
         connection_type=CONNECTION_TYPE_DIRECT,
         category=_CAT_STEP_DIRECT_CREATE,
@@ -739,6 +776,8 @@ def build_direct_entries(
         verification_url=verification_url,
         base_url=base_url,
         direct_client_secret=direct_client_secret,
+        skill_id=skill_id,
+        fully_configured=fully_configured,
     )
     entries.extend(_hidden_state_entries(existing_artifacts_raw, session_id))
     return entries

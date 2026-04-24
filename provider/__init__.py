@@ -53,6 +53,7 @@ from .constants import (
     CONF_EXPOSED_PLAYERS,
     CONF_INSTANCE_NAME,
     CONF_SKILL_ID,
+    CONF_SKILL_TOKEN,
     CONNECTION_TYPE_CLOUD,
     CONNECTION_TYPE_CLOUD_PLUS,
     CONNECTION_TYPE_DIRECT,
@@ -311,7 +312,8 @@ async def get_config_entries(
                 verification_url=None,
                 existing_artifacts_raw=artifacts_str,
                 base_url=ma_base_url_for_ui,
-                skill_id_set=bool(values.get(CONF_SKILL_ID)),
+                skill_id=str(values.get(CONF_SKILL_ID) or ""),
+                skill_token_set=bool(values.get(CONF_SKILL_TOKEN)),
             )
         )
     elif is_direct:
@@ -329,6 +331,8 @@ async def get_config_entries(
                 existing_artifacts_raw=artifacts_str,
                 base_url=ma_base_url_for_ui,
                 direct_client_secret=direct_secret,
+                skill_id=str(values.get(CONF_SKILL_ID) or ""),
+                skill_token_set=bool(values.get(CONF_SKILL_TOKEN)),
             )
         )
         # NB: CONF_DIRECT_CLIENT_SECRET is now emitted by the manual
