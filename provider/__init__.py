@@ -55,7 +55,6 @@ from .constants import (
     CONF_CONNECTION_TYPE,
     CONF_DIRECT_ACCESS_TOKEN,
     CONF_DIRECT_CLIENT_SECRET,
-    CONF_EXPERIMENTAL_AUTO_CREATE_SKILL,
     CONF_EXPOSED_PLAYERS,
     CONF_INSTANCE_NAME,
     CONF_SKILL_ID,
@@ -267,9 +266,8 @@ async def get_config_entries(
         mass, action, values, instance_id, is_cloud_plus, connection_type
     )
 
-    # Experimental auto-create-skill section — built separately and
-    # appended at the end of the returned tuple.
-    experimental_enabled = bool(values.get(CONF_EXPERIMENTAL_AUTO_CREATE_SKILL))
+    # Auto-create-skill section — built separately and appended at the
+    # end of the returned tuple.
     artifacts_raw = values.get(CONF_AUTO_CREATE_ARTIFACTS)
     artifacts_str = str(artifacts_raw) if artifacts_raw else None
     artifacts = load_artifacts(artifacts_str)
@@ -279,7 +277,6 @@ async def get_config_entries(
         ma_base_url_for_ui = str(mass.webserver.base_url)
     auto_create_section = auto_create_entries(
         connection_type=connection_type,
-        experimental_enabled=experimental_enabled,
         artifacts=artifacts,
         cloud_instance_id=str(values.get(CONF_CLOUD_INSTANCE_ID, "")),
         base_url=ma_base_url_for_ui,

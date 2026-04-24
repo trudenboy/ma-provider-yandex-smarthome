@@ -14,8 +14,7 @@ CONF_SKILL_ID = "skill_id"
 CONF_SKILL_TOKEN = "skill_token"
 CONF_EXPOSED_PLAYERS = "exposed_players"
 
-# Experimental auto-create-skill feature
-CONF_EXPERIMENTAL_AUTO_CREATE_SKILL = "experimental_auto_create_skill"
+# Auto-create-skill feature state (round-trips through the config form)
 CONF_AUTO_CREATE_ARTIFACTS = "auto_create_artifacts"
 CONF_AUTO_CREATE_SESSION_ID = "auto_create_session_id"
 

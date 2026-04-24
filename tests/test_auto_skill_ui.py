@@ -13,7 +13,6 @@ from music_assistant.providers.yandex_smarthome.auto_skill_ui import (
 from music_assistant.providers.yandex_smarthome.constants import (
     CONF_ACTION_AUTO_CREATE,
     CONF_AUTO_CREATE_ARTIFACTS,
-    CONF_EXPERIMENTAL_AUTO_CREATE_SKILL,
     CONNECTION_TYPE_CLOUD,
     CONNECTION_TYPE_CLOUD_PLUS,
     CONNECTION_TYPE_DIRECT,
@@ -35,20 +34,9 @@ def _find(entries, key):  # type: ignore[no-untyped-def]
 class TestShouldShowButton:
     """should_show_button captures the full visibility truth table."""
 
-    def test_hidden_when_experimental_off(self) -> None:
-        """Master flag off → button hidden regardless of everything else."""
-        assert not should_show_button(
-            experimental_enabled=False,
-            connection_type=CONNECTION_TYPE_CLOUD_PLUS,
-            state=SkillCreationState.NONE,
-            cloud_instance_id="abc",
-            base_url="https://x",
-        )
-
     def test_hidden_in_cloud_mode(self) -> None:
         """Plain cloud has no custom skill — button hidden."""
         assert not should_show_button(
-            experimental_enabled=True,
             connection_type=CONNECTION_TYPE_CLOUD,
             state=SkillCreationState.NONE,
             cloud_instance_id="abc",
@@ -58,7 +46,6 @@ class TestShouldShowButton:
     def test_hidden_when_state_done(self) -> None:
         """DONE means skill already created — don't offer re-creation."""
         assert not should_show_button(
-            experimental_enabled=True,
             connection_type=CONNECTION_TYPE_CLOUD_PLUS,
             state=SkillCreationState.DONE,
             cloud_instance_id="abc",
@@ -68,7 +55,6 @@ class TestShouldShowButton:
     def test_hidden_cloud_plus_no_instance(self) -> None:
         """cloud_plus requires a registered cloud instance first."""
         assert not should_show_button(
-            experimental_enabled=True,
             connection_type=CONNECTION_TYPE_CLOUD_PLUS,
             state=SkillCreationState.NONE,
             cloud_instance_id="",
@@ -78,7 +64,6 @@ class TestShouldShowButton:
     def test_hidden_direct_non_https(self) -> None:
         """Direct needs an HTTPS base URL or Yandex will reject the skill."""
         assert not should_show_button(
-            experimental_enabled=True,
             connection_type=CONNECTION_TYPE_DIRECT,
             state=SkillCreationState.NONE,
             cloud_instance_id="",
@@ -88,7 +73,6 @@ class TestShouldShowButton:
     def test_shown_cloud_plus_ready(self) -> None:
         """All gates satisfied for cloud_plus → button visible."""
         assert should_show_button(
-            experimental_enabled=True,
             connection_type=CONNECTION_TYPE_CLOUD_PLUS,
             state=SkillCreationState.NONE,
             cloud_instance_id="abc",
@@ -98,7 +82,6 @@ class TestShouldShowButton:
     def test_shown_direct_ready(self) -> None:
         """All gates satisfied for direct → button visible."""
         assert should_show_button(
-            experimental_enabled=True,
             connection_type=CONNECTION_TYPE_DIRECT,
             state=SkillCreationState.NONE,
             cloud_instance_id="",
@@ -108,7 +91,6 @@ class TestShouldShowButton:
     def test_shown_after_failed(self) -> None:
         """FAILED state keeps the button visible for retry."""
         assert should_show_button(
-            experimental_enabled=True,
             connection_type=CONNECTION_TYPE_CLOUD_PLUS,
             state=SkillCreationState.FAILED,
             cloud_instance_id="abc",
@@ -128,14 +110,12 @@ class TestAutoCreateEntries:
         self,
         *,
         connection_type: str = CONNECTION_TYPE_CLOUD_PLUS,
-        experimental_enabled: bool = True,
         state: SkillCreationState = SkillCreationState.NONE,
         cloud_instance_id: str = "abc",
         base_url: str = "https://ma.example.com",
     ):  # type: ignore[no-untyped-def]
         return auto_create_entries(
             connection_type=connection_type,
-            experimental_enabled=experimental_enabled,
             artifacts=SkillCreationArtifacts(state=state),
             cloud_instance_id=cloud_instance_id,
             base_url=base_url,
@@ -148,22 +128,6 @@ class TestAutoCreateEntries:
     def test_empty_for_cloud_mode(self) -> None:
         """Plain cloud returns no entries — the section is meaningless."""
         assert self._entries(connection_type=CONNECTION_TYPE_CLOUD) == ()
-
-    def test_only_toggle_when_flag_off(self) -> None:
-        """Master toggle is visible even when flag is off; rest is hidden."""
-        entries = list(self._entries(experimental_enabled=False))
-        keys = [e.key for e in entries]
-        assert CONF_EXPERIMENTAL_AUTO_CREATE_SKILL in keys
-        # Action and warning must NOT appear unless flag is on
-        assert CONF_ACTION_AUTO_CREATE not in keys
-        assert "label_auto_create_warning" not in keys
-
-    def test_warning_present_when_flag_on(self) -> None:
-        """Warning label is rendered once the master toggle is on."""
-        entries = list(self._entries(experimental_enabled=True))
-        warning = _find(entries, "label_auto_create_warning")
-        assert warning is not None
-        assert "EXPERIMENTAL" in warning.label
 
     def test_action_shown_and_enabled_when_ready(self) -> None:
         """In the ready-to-create state, action is present and not hidden."""
@@ -196,8 +160,7 @@ class TestAutoCreateEntries:
 
     def test_hidden_artifacts_always_round_tripped(self) -> None:
         """Artifacts blob is included even when the section is mostly empty."""
-        entries = list(self._entries(experimental_enabled=False))
-        # Even with flag off, the hidden artifacts entry must exist
+        entries = list(self._entries())
         artifacts_entry = _find(entries, CONF_AUTO_CREATE_ARTIFACTS)
         assert artifacts_entry is not None
         assert artifacts_entry.hidden is True
@@ -206,7 +169,6 @@ class TestAutoCreateEntries:
         """The status LABEL carries the last_error text for user visibility."""
         entries = auto_create_entries(
             connection_type=CONNECTION_TYPE_CLOUD_PLUS,
-            experimental_enabled=True,
             artifacts=SkillCreationArtifacts(
                 state=SkillCreationState.FAILED,
                 last_error="HTTP 401: session expired",

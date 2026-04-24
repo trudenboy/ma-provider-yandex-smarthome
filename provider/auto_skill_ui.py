@@ -1,4 +1,4 @@
-"""ConfigEntry builder for the experimental auto-create-skill section.
+"""ConfigEntry builder for the auto-create-skill section.
 
 Kept separate from ``__init__.py`` so the long field list doesn't bloat
 ``get_config_entries`` and so it can be unit-tested in isolation from
@@ -18,7 +18,6 @@ from .constants import (
     CONF_AUTO_CREATE_ARTIFACTS,
     CONF_AUTO_CREATE_SESSION_ID,
     CONF_CONNECTION_TYPE,
-    CONF_EXPERIMENTAL_AUTO_CREATE_SKILL,
     CONNECTION_TYPE_CLOUD,
     CONNECTION_TYPE_CLOUD_PLUS,
     CONNECTION_TYPE_DIRECT,
@@ -33,13 +32,7 @@ __all__ = [
     "should_show_button",
 ]
 
-AUTO_CREATE_CATEGORY = "Auto-create skill (experimental)"
-
-_WARNING_TEXT = (
-    "⚠️ EXPERIMENTAL — automatic skill creation uses a private, undocumented "
-    "Yandex Dialogs API. It may stop working without notice. If anything goes "
-    "wrong, fill in Skill ID and Skill OAuth Token below manually as before."
-)
+AUTO_CREATE_CATEGORY = "Auto-create skill"
 
 
 def _status_label(state: SkillCreationState, last_error: str | None) -> str:
@@ -73,7 +66,6 @@ def _action_label(state: SkillCreationState) -> str:
 
 def should_show_button(
     *,
-    experimental_enabled: bool,
     connection_type: str,
     state: SkillCreationState,
     cloud_instance_id: str,
@@ -82,14 +74,11 @@ def should_show_button(
     """Return True iff the auto-create action button is actionable now.
 
     Hides the button when:
-    - Master flag is off.
     - Mode is plain ``cloud`` (no custom skill exists there).
     - Skill creation already reached DONE.
     - cloud_plus is selected but no cloud instance has been registered.
     - direct is selected but MA base_url is not HTTPS.
     """
-    if not experimental_enabled:
-        return False
     if connection_type == CONNECTION_TYPE_CLOUD:
         return False
     if state == SkillCreationState.DONE:
@@ -105,7 +94,6 @@ def should_show_button(
 def auto_create_entries(
     *,
     connection_type: str,
-    experimental_enabled: bool,
     artifacts: SkillCreationArtifacts,
     cloud_instance_id: str,
     base_url: str,
@@ -114,7 +102,7 @@ def auto_create_entries(
     verification_url: str | None,
     existing_artifacts_raw: str | None,
 ) -> Sequence[ConfigEntry]:
-    """Build the experimental-auto-create section of the config form.
+    """Build the auto-create section of the config form.
 
     Empty list for ``cloud`` mode — the feature is meaningless without
     a custom skill.
@@ -122,43 +110,7 @@ def auto_create_entries(
     if connection_type == CONNECTION_TYPE_CLOUD:
         return ()
 
-    entries: list[ConfigEntry] = [
-        # Master toggle — shown unconditionally so the user can find it.
-        ConfigEntry(
-            key=CONF_EXPERIMENTAL_AUTO_CREATE_SKILL,
-            type=ConfigEntryType.BOOLEAN,
-            label="Enable automatic skill creation (experimental)",
-            description=(
-                "Uses an undocumented Yandex Dialogs API to create the "
-                "private skill for you. Falls back to the manual flow below "
-                "if anything fails."
-            ),
-            default_value=False,
-            required=False,
-            advanced=True,
-            depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value_not=CONNECTION_TYPE_CLOUD,
-            category=AUTO_CREATE_CATEGORY,
-        ),
-    ]
-
-    if not experimental_enabled:
-        # Still include the hidden artifacts blob so it round-trips.
-        entries.extend(_hidden_state_entries(existing_artifacts_raw, session_id))
-        return entries
-
-    # Visible warning label once the master toggle is on.
-    entries.append(
-        ConfigEntry(
-            key="label_auto_create_warning",
-            type=ConfigEntryType.LABEL,
-            label=_WARNING_TEXT,
-            advanced=True,
-            depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value_not=CONNECTION_TYPE_CLOUD,
-            category=AUTO_CREATE_CATEGORY,
-        )
-    )
+    entries: list[ConfigEntry] = []
 
     # Device-flow user code — shown when the flow obtained one this round.
     if user_code:
@@ -173,7 +125,6 @@ def auto_create_entries(
                 ),
                 value=user_code,
                 required=False,
-                advanced=True,
                 help_link=verification_url or "https://ya.ru/device",
                 depends_on=CONF_CONNECTION_TYPE,
                 depends_on_value_not=CONNECTION_TYPE_CLOUD,
@@ -187,7 +138,6 @@ def auto_create_entries(
             key="label_auto_create_status",
             type=ConfigEntryType.LABEL,
             label=_status_label(artifacts.state, artifacts.last_error),
-            advanced=True,
             depends_on=CONF_CONNECTION_TYPE,
             depends_on_value_not=CONNECTION_TYPE_CLOUD,
             category=AUTO_CREATE_CATEGORY,
@@ -196,7 +146,6 @@ def auto_create_entries(
 
     # The action button — hidden in states where it can't run.
     show_button = should_show_button(
-        experimental_enabled=experimental_enabled,
         connection_type=connection_type,
         state=artifacts.state,
         cloud_instance_id=cloud_instance_id,
@@ -215,7 +164,6 @@ def auto_create_entries(
             action=CONF_ACTION_AUTO_CREATE,
             action_label=_action_label(artifacts.state),
             hidden=not show_button,
-            advanced=True,
             depends_on=CONF_CONNECTION_TYPE,
             depends_on_value_not=CONNECTION_TYPE_CLOUD,
             category=AUTO_CREATE_CATEGORY,
