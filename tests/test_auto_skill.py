@@ -668,24 +668,20 @@ def _make_creator_mock() -> AsyncMock:
 def _fake_authenticator_factory(
     *,
     session: MagicMock | None = None,
-    fire_device_code: bool = True,
+    session_id_captor: list[str] | None = None,
 ) -> Any:
     """Build an async-generator authenticator usable as *authenticator*.
 
-    ``fire_device_code=True`` causes the authenticator to synchronously
-    invoke ``on_device_code`` with a stub DeviceCodeSession so tests
-    can assert the signal-event callback is fired.
+    If *session_id_captor* is given, the session_id passed in by the
+    orchestrator is appended to it so tests can assert it was forwarded.
     """
     if session is None:
         session = MagicMock(spec=aiohttp.ClientSession)
 
-    async def _auth(on_device_code, timeout):  # type: ignore[no-untyped-def]
-        if fire_device_code:
-            stub = MagicMock()
-            stub.user_code = "ABCD-1234"
-            stub.verification_url = "https://ya.ru/device"
-            on_device_code(stub)
-        _ = timeout
+    async def _auth(mass, session_id, timeout):  # type: ignore[no-untyped-def]
+        if session_id_captor is not None:
+            session_id_captor.append(session_id)
+        _ = (mass, timeout)
         yield session
 
     return _auth
@@ -699,7 +695,7 @@ async def _run_orch(
     base_url: str = "https://ma.example.com",
     cloud_instance_id: str = "inst-1",
     direct_client_secret: str = "",
-    on_device_code: Any = None,
+    session_id: str = "test-session-id",
     progress_cb: Any = None,
 ) -> SkillCreationArtifacts:
     """Run auto_create_skill with sensible test defaults.
@@ -716,7 +712,7 @@ async def _run_orch(
         cloud_instance_id=cloud_instance_id,
         direct_client_secret=direct_client_secret,
         logo_bytes=b"\x89PNG",
-        on_device_code=on_device_code or (lambda _s: None),
+        session_id=session_id,
         authenticator=_fake_authenticator_factory(),
         creator_factory=lambda _s: creator,
         progress_cb=progress_cb,
@@ -730,9 +726,8 @@ class TestAutoCreateSkillHappyPath:
     async def test_fresh_artifact_reaches_done(self) -> None:
         """A NONE-state artifact runs the full pipeline to DONE."""
         creator = _make_creator_mock()
-        on_code_calls: list[Any] = []
 
-        result = await _run_orch(creator=creator, on_device_code=on_code_calls.append)
+        result = await _run_orch(creator=creator)
 
         assert result.state == SkillCreationState.DONE
         assert result.skill_id == "skill-uuid"
@@ -750,9 +745,6 @@ class TestAutoCreateSkillHappyPath:
             creator.request_deploy,
         ):
             method.assert_awaited_once()
-
-        assert len(on_code_calls) == 1
-        assert on_code_calls[0].user_code == "ABCD-1234"
 
     @pytest.mark.asyncio
     async def test_progress_cb_invoked_after_each_step(self) -> None:

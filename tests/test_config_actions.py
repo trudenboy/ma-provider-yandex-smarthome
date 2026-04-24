@@ -219,23 +219,26 @@ async def test_auto_create_non_action_is_noop(monkeypatch) -> None:  # type: ign
 
 
 @pytest.mark.asyncio
-async def test_device_code_signals_event_to_mass(monkeypatch) -> None:  # type: ignore[no-untyped-def]
-    """on_device_code wiring fires mass.signal_event with the verification URL."""
-    captured_callback: dict[str, Any] = {}
+async def test_session_id_forwarded_from_frontend(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """Frontend-supplied ``values['session_id']`` is forwarded to the orchestrator.
 
-    async def _capture_on_code(**kwargs: Any) -> SkillCreationArtifacts:
-        captured_callback["cb"] = kwargs["on_device_code"]
+    The session_id is what AuthenticationHelper listens on — if the
+    wiring drops it and generates a local uuid instead, MA's popup
+    never opens (silent failure the user won't see).
+    """
+    captured: dict[str, Any] = {}
+
+    async def _capture(**kwargs: Any) -> SkillCreationArtifacts:
+        captured["session_id"] = kwargs.get("session_id")
         return SkillCreationArtifacts(state=SkillCreationState.DONE, skill_id="s")
 
-    monkeypatch.setattr(
-        provider_module, "auto_create_skill",
-        _capture_on_code,
-    )
+    monkeypatch.setattr(provider_module, "auto_create_skill", _capture)
 
     mass = _make_mass()
     values: dict[str, Any] = {
         CONF_INSTANCE_NAME: "X",
         CONF_CLOUD_INSTANCE_ID: "inst-1",
+        "session_id": "frontend-supplied-id-123",
     }
 
     await _handle_config_actions(
@@ -247,18 +250,7 @@ async def test_device_code_signals_event_to_mass(monkeypatch) -> None:  # type: 
         connection_type=CONNECTION_TYPE_CLOUD_PLUS,
     )
 
-    # Simulate the orchestrator obtaining a device code and calling back
-    cb = captured_callback["cb"]
-    stub = MagicMock()
-    stub.user_code = "ABCD-1234"
-    stub.verification_url = "https://ya.ru/device"
-    cb(stub)
-
-    mass.signal_event.assert_called_once()
-    args = mass.signal_event.call_args.args
-    # 2nd positional is session_id, 3rd is the URL — URL must include the code
-    assert "ABCD-1234" in args[2]
-    assert "ya.ru/device" in args[2]
+    assert captured["session_id"] == "frontend-supplied-id-123"
 
 
 @pytest.mark.asyncio

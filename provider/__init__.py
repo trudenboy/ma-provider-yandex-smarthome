@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, cast
 
 import aiohttp
 from music_assistant_models.config_entries import ConfigEntry, ConfigValueOption
-from music_assistant_models.enums import ConfigEntryType, EventType, ProviderFeature
+from music_assistant_models.enums import ConfigEntryType, ProviderFeature
 
 from ._compat import SecretStr
 from .auto_skill import (
@@ -205,28 +205,15 @@ async def _run_auto_create_action(
     the UI can show a FAILED state on the next render rather than
     crashing the config form.
     """
-    session_id = str(values.get(CONF_AUTO_CREATE_SESSION_ID) or uuid.uuid4().hex)
+    # MA's frontend supplies ``values["session_id"]`` when it triggers an
+    # action — AuthenticationHelper listens on that exact id to open
+    # and later close the popup. If we roll our own id nothing listens
+    # and the popup never appears. Fall back to a local uuid only if the
+    # frontend happened not to pass one (shouldn't happen in practice).
+    session_id = str(values.get("session_id") or uuid.uuid4().hex)
     values[CONF_AUTO_CREATE_SESSION_ID] = session_id
     artifacts_raw = values.get(CONF_AUTO_CREATE_ARTIFACTS)
     artifacts = load_artifacts(str(artifacts_raw) if artifacts_raw else None)
-
-    def _on_device_code(device_session: object) -> None:
-        # ya-passport-auth's DeviceCodeSession exposes user_code and
-        # verification_url; we push a URL with the code embedded so the
-        # popup in the MA frontend pre-fills it for the user.
-        user_code = getattr(device_session, "user_code", "")
-        verification_url = getattr(
-            device_session, "verification_url", "https://ya.ru/device"
-        )
-        full_url = (
-            f"{verification_url}?user_code={user_code}"
-            if user_code
-            else verification_url
-        )
-        try:
-            mass.signal_event(EventType.AUTH_SESSION, session_id, full_url)
-        except Exception:
-            _LOGGER.exception("signal_event for auto-create popup failed")
 
     try:
         new_artifacts = await auto_create_skill(
@@ -237,7 +224,7 @@ async def _run_auto_create_action(
             cloud_instance_id=str(values.get(CONF_CLOUD_INSTANCE_ID, "")),
             direct_client_secret=str(values.get(CONF_DIRECT_CLIENT_SECRET, "")),
             logo_bytes=load_default_logo_bytes(),
-            on_device_code=_on_device_code,
+            session_id=session_id,
         )
     except ValueError as exc:
         # Precondition failures come back here — surface as FAILED.

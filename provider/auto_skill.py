@@ -715,38 +715,249 @@ def check_preconditions(
 DEVICE_FLOW_TIMEOUT_SECONDS = 300.0
 """Hard cap on how long we'll wait for the user to enter the code."""
 
+_DEVICE_CODE_PAGE_PATH = "/yandex_smarthome/device_code"
+_POST_AUTH_GRACE_SECONDS = 3
+_SAFE_SESSION_ID_RE = re.compile(r"\A[A-Za-z0-9_-]{1,64}\Z")
+
+
+def _build_device_code_page(
+    user_code: str, verification_url: str, status_url: str
+) -> str:
+    """Render the HTML page shown during Device Flow login.
+
+    Yandex's ya.ru/device page does not pre-fill from query params and
+    strips them on redirect-to-login, so the only reliable way to show
+    the code is to host our own page in MA's webserver that displays
+    the code prominently and opens ya.ru/device in a new tab.
+
+    Pattern copied from ``ma-provider-yandex-station/provider/auth.py``.
+    """
+    import html  # noqa: PLC0415
+
+    safe_code = html.escape(user_code)
+    safe_url = html.escape(verification_url, quote=True)
+    safe_status_url = json.dumps(status_url).replace("</", "<\\/")
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Yandex Smart Home — Device Code</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        :root {{ color-scheme: light; }}
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0; padding: 2rem 1rem;
+            display: flex; align-items: center; justify-content: center;
+            min-height: 100vh; box-sizing: border-box;
+            background: #f5f5f7; color: #1d1d1f;
+        }}
+        .card {{
+            background: #ffffff; color: #1d1d1f;
+            border-radius: 14px; padding: 2rem;
+            max-width: 28rem; width: 100%;
+            box-shadow: 0 4px 20px rgba(0,0,0,.08);
+            text-align: center;
+        }}
+        h1 {{ margin: 0 0 .5rem; font-size: 1.25rem; }}
+        p {{ margin: .5rem 0 1.25rem; color: #4a4a52; line-height: 1.45; }}
+        #code {{
+            display: inline-block;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 2rem; font-weight: 600; letter-spacing: .15em;
+            padding: .75rem 1.25rem; border-radius: 10px;
+            background: #f2f2f7; color: #1d1d1f;
+            user-select: all;
+        }}
+        button, .btn {{
+            display: inline-block; margin-top: 1.5rem; padding: .75rem 1.5rem;
+            font-size: 1rem; font-weight: 600; text-decoration: none;
+            border: none; border-radius: 10px; cursor: pointer;
+            background: #ffcc00; color: #1d1d1f;
+        }}
+        button:hover, .btn:hover {{ background: #ffd633; }}
+        #copy {{
+            margin-top: .75rem; background: transparent; color: #1d1d1f;
+            border: 1px solid #c8c8cd; padding: .4rem 1rem;
+            font-size: .85rem; font-weight: 400;
+        }}
+        #copy:hover {{ background: #f2f2f7; }}
+    </style>
+</head>
+<body>
+    <div class="card" id="card">
+        <h1>Authorise Music Assistant for skill creation</h1>
+        <p>Open the link below, log in to your Yandex account, and enter this code.</p>
+        <div id="code">{safe_code}</div>
+        <div>
+            <button id="copy" type="button">Copy code</button>
+        </div>
+        <a class="btn" href="{safe_url}" target="_blank" rel="noopener">Continue to Yandex</a>
+    </div>
+    <script>
+        const copyButton = document.getElementById('copy');
+        const codeElement = document.getElementById('code');
+        const card = document.getElementById('card');
+        const statusUrl = {safe_status_url};
+
+        function selectCodeForManualCopy() {{
+            if (!codeElement) return;
+            const selection = window.getSelection();
+            if (!selection) return;
+            const range = document.createRange();
+            range.selectNodeContents(codeElement);
+            selection.removeAllRanges();
+            selection.addRange(range);
+            if (copyButton) copyButton.textContent = 'Press Ctrl/Cmd+C';
+        }}
+
+        copyButton?.addEventListener('click', async function() {{
+            const code = codeElement?.textContent?.trim();
+            if (!code) return;
+            if (!navigator.clipboard?.writeText) {{
+                selectCodeForManualCopy();
+                return;
+            }}
+            try {{
+                await navigator.clipboard.writeText(code);
+                this.textContent = 'Copied';
+            }} catch {{
+                selectCodeForManualCopy();
+            }}
+        }});
+
+        function showResult(title, message) {{
+            card.innerHTML = '<h1>' + title + '</h1><p>' + message + '</p>';
+        }}
+
+        async function pollStatus() {{
+            try {{
+                const r = await fetch(statusUrl, {{ cache: 'no-store' }});
+                if (r.ok) {{
+                    const data = await r.json();
+                    if (data.state === 'done') {{
+                        showResult('Authorisation successful', 'You can close this window.');
+                        setTimeout(() => {{ try {{ window.close(); }} catch (e) {{}} }}, 300);
+                        return;
+                    }}
+                    if (data.state === 'failed') {{
+                        showResult(
+                            'Authorisation failed',
+                            'Return to Music Assistant and try again.'
+                        );
+                        return;
+                    }}
+                }}
+            }} catch (e) {{ /* network hiccup — retry */ }}
+            setTimeout(pollStatus, 2000);
+        }}
+        setTimeout(pollStatus, 2000);
+    </script>
+</body>
+</html>"""
+
 
 async def _default_authenticator(
     *,
-    on_device_code: Callable[[Any], None],
+    mass: MusicAssistant,
+    session_id: str,
     timeout: float,
 ) -> AsyncIterator[aiohttp.ClientSession]:
     """Real-world authentication path — runs Device Flow and yields a session.
 
-    Extracted as a function so tests can swap in a fake authenticator
-    without touching production network code. The import of
-    ``ya_passport_auth`` happens lazily inside the function so unit
-    tests that inject their own authenticator don't need the library
-    installed.
+    Serves an intermediate HTML page through MA's webserver so the user
+    sees the short ``user_code`` (Yandex's ya.ru/device does not pre-fill
+    from query params). The popup is opened via
+    :class:`AuthenticationHelper` using the frontend-provided
+    ``session_id`` — that's how MA's UI knows which popup session to
+    render and later close.
+
+    Pattern copied from ``ma-provider-yandex-station/provider/auth.py``.
     """
+    import asyncio  # noqa: PLC0415
+
+    from aiohttp import web  # noqa: PLC0415
     from ya_passport_auth import ClientConfig, PassportClient  # noqa: PLC0415
     from ya_passport_auth.config import DEFAULT_ALLOWED_HOSTS  # noqa: PLC0415
+
+    from music_assistant.helpers.auth import AuthenticationHelper  # noqa: PLC0415
+
+    if not _SAFE_SESSION_ID_RE.match(session_id):
+        msg = "invalid session_id for device authentication"
+        raise ValueError(msg)
 
     allowed = DEFAULT_ALLOWED_HOSTS | frozenset({"dialogs.yandex.ru"})
     config = ClientConfig(allowed_hosts=allowed)
 
     async with PassportClient.create(config=config) as client:
-        creds = await client.login_device_code(
-            on_code=on_device_code,
-            total_timeout=timeout,
+        device_session = await client.start_device_login()
+        _LOGGER.info(
+            "device flow started — verification_url=%s, user_code=%s",
+            device_session.verification_url,
+            device_session.user_code,
         )
+
+        page_path = f"{_DEVICE_CODE_PAGE_PATH}/{session_id}"
+        status_path = f"{page_path}/status"
+        base_url = str(mass.webserver.base_url).rstrip("/")
+        status_url = f"{base_url}{status_path}"
+        state = {"value": "pending"}
+
+        page_html = _build_device_code_page(
+            device_session.user_code,
+            device_session.verification_url,
+            status_url,
+        )
+
+        async def _serve_page(_request: web.Request) -> web.Response:
+            return web.Response(
+                text=page_html,
+                content_type="text/html",
+                charset="utf-8",
+                headers={
+                    "Cache-Control": "no-store",
+                    "Pragma": "no-cache",
+                    "Expires": "0",
+                },
+            )
+
+        async def _serve_status(_request: web.Request) -> web.Response:
+            return web.json_response(
+                {"state": state["value"]},
+                headers={"Cache-Control": "no-store"},
+            )
+
+        mass.webserver.register_dynamic_route(page_path, _serve_page, "GET")
+        mass.webserver.register_dynamic_route(status_path, _serve_status, "GET")
+        try:
+            async with AuthenticationHelper(mass, session_id) as auth_helper:
+                auth_helper.send_url(f"{base_url}{page_path}")
+                try:
+                    creds = await client.poll_device_until_confirmed(
+                        device_session,
+                        total_timeout=timeout,
+                    )
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    state["value"] = "failed"
+                    await asyncio.sleep(_POST_AUTH_GRACE_SECONDS)
+                    raise
+                state["value"] = "done"
+                await asyncio.sleep(_POST_AUTH_GRACE_SECONDS)
+        finally:
+            mass.webserver.unregister_dynamic_route(page_path, "GET")
+            mass.webserver.unregister_dynamic_route(status_path, "GET")
+
         await client.refresh_passport_cookies(creds.x_token)
         yield client._session
 
 
 def _build_authenticator_cm(
     authenticator: Callable[..., AsyncIterator[aiohttp.ClientSession]],
-    on_device_code: Callable[[Any], None],
+    *,
+    mass: MusicAssistant,
+    session_id: str,
     timeout: float,
 ) -> Any:
     """Wrap *authenticator* so it supports ``async with`` uniformly.
@@ -757,7 +968,7 @@ def _build_authenticator_cm(
     an already-decorated callable, so we wrap unconditionally.
     """
     cm_factory = asynccontextmanager(authenticator)
-    return cm_factory(on_device_code=on_device_code, timeout=timeout)
+    return cm_factory(mass=mass, session_id=session_id, timeout=timeout)
 
 
 async def auto_create_skill(  # noqa: PLR0913
@@ -769,7 +980,7 @@ async def auto_create_skill(  # noqa: PLR0913
     cloud_instance_id: str,
     direct_client_secret: str,
     logo_bytes: bytes,
-    on_device_code: Callable[[Any], None],
+    session_id: str,
     progress_cb: Callable[[SkillCreationArtifacts], Awaitable[None]] | None = None,
     authenticator: Callable[..., AsyncIterator[aiohttp.ClientSession]] | None = None,
     creator_factory: Callable[[aiohttp.ClientSession], DialogsSkillCreator] | None = None,
@@ -805,7 +1016,7 @@ async def auto_create_skill(  # noqa: PLR0913
 
     try:
         async with _build_authenticator_cm(
-            auth_fn, on_device_code, timeout
+            auth_fn, mass=mass, session_id=session_id, timeout=timeout
         ) as session:
             creator = creator_fn(session)
             return await _run_pipeline_with_recovery(
