@@ -54,6 +54,7 @@ class _EventType(_StrEnum):
     PLAYER_ADDED = "player_added"
     PLAYER_UPDATED = "player_updated"
     PLAYER_REMOVED = "player_removed"
+    AUTH_SESSION = "auth_session"
 
 
 class _ConfigEntryType(_StrEnum):

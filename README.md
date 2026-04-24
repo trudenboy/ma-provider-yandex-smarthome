@@ -101,7 +101,25 @@ pytest
 
 Cloud Plus mode additionally requires **Skill ID** and **Skill OAuth Token** from Yandex.Dialogs.
 
-Direct mode requires a publicly accessible HTTPS URL for your MA server. The config flow shows all URLs to paste into Yandex.Dialogs skill settings. Requires **Skill ID** and **Skill OAuth Token**.
+### Setup flow per mode
+
+Auto-create is the default path for `cloud_plus` and `direct`. The config form shows the single next step you need to complete; later steps only appear after you finish the current one.
+
+> **Note:** Auto-create uses an undocumented Yandex Dialogs API — if it fails, the form automatically shows copy-paste fields so you can create the skill by hand in `dialogs.yandex.ru/developer` without leaving MA settings.
+
+#### Cloud Plus (3 steps)
+
+1. **Register cloud instance** — click **Register with cloud**. The provider creates a yaha-cloud.ru relay instance. (Step 2 becomes visible afterwards.)
+2. **Create Smart Home skill** — click **Create skill automatically**. A popup opens showing your short Device Flow code; open `ya.ru/device` from the popup's link, log in to your Yandex account, and confirm the code. The provider creates the private skill, uploads the logo, wires up account linking, and publishes. On success **Skill ID** is filled in automatically; open the **OAuth URL** link and paste the resulting token into **Skill OAuth Token**. On failure, the form unfolds copy-paste fields for manual setup.
+3. **Link skill to Yandex** — click **Get OTP code**. Open the Yandex app → Devices → Add device → Smart Home → find your private skill → enter the OTP. Save provider config.
+
+#### Direct (1 step)
+
+1. **Create Smart Home skill** — same as Step 2 above. Requires MA to be reachable from the public internet over **HTTPS** (reverse proxy with a real certificate — self-signed won't work). Linking happens via Yandex.Dialogs' own Account linking UI after the skill exists, so there's no Step 3.
+
+#### Cloud (unchanged)
+
+Public Yaha Cloud skill — just **Register** then **Get OTP** and enter it in the Yandex app.
 
 ## Limitations
 
