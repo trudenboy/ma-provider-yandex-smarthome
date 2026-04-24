@@ -376,6 +376,49 @@ def _create_skill_step_entries(
         )
     )
 
+    # direct mode prerequisite: Yandex Dialogs only accepts HTTPS
+    # backends. If MA's Base URL is not HTTPS, show the user what's
+    # wrong (and what URL we'd have used) so they can fix it in
+    # Settings → Core → Webserver → Base URL.
+    direct_https_missing = (
+        connection_type == CONNECTION_TYPE_DIRECT
+        and not base_url.startswith("https://")
+    )
+    if direct_https_missing:
+        entries.append(
+            ConfigEntry(
+                key="label_direct_https_warning",
+                type=ConfigEntryType.LABEL,
+                label=(
+                    f"⚠️ MA's Base URL is {base_url or '<unset>'}. "
+                    "Direct mode requires a **publicly reachable HTTPS URL** — "
+                    "Yandex refuses to talk to a non-HTTPS backend. "
+                    "Set a reverse proxy with a real certificate and "
+                    "update Settings → Core → Webserver → Base URL, then "
+                    "reopen these settings."
+                ),
+                depends_on=CONF_CONNECTION_TYPE,
+                depends_on_value=connection_type,
+                category=category,
+            )
+        )
+        entries.append(
+            ConfigEntry(
+                key="current_ma_base_url",
+                type=ConfigEntryType.STRING,
+                label="Current MA Base URL (read-only)",
+                description=(
+                    "For reference. Change it in Settings → Core → Webserver "
+                    "→ Base URL; provider doesn't own this setting."
+                ),
+                required=False,
+                default_value=base_url or "",
+                depends_on=CONF_CONNECTION_TYPE,
+                depends_on_value=connection_type,
+                category=category,
+            )
+        )
+
     show_button = should_show_button(
         connection_type=connection_type,
         state=artifacts.state,
