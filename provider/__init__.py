@@ -36,7 +36,7 @@ from .auto_skill_state import (
     dump_artifacts,
     load_artifacts,
 )
-from .auto_skill_ui import auto_create_entries, build_cloud_plus_entries
+from .auto_skill_ui import build_cloud_plus_entries, build_direct_entries
 from .cloud import get_cloud_otp, register_cloud_instance
 from .constants import (
     CONF_ACTION_AUTO_CREATE,
@@ -53,15 +53,9 @@ from .constants import (
     CONF_EXPOSED_PLAYERS,
     CONF_INSTANCE_NAME,
     CONF_SKILL_ID,
-    CONF_SKILL_TOKEN,
     CONNECTION_TYPE_CLOUD,
     CONNECTION_TYPE_CLOUD_PLUS,
     CONNECTION_TYPE_DIRECT,
-    DIRECT_API_BASE_PATH,
-    DIRECT_AUTH_BASE_PATH,
-    DIRECT_OAUTH_CLIENT_ID,
-    YANDEX_DIALOGS_DEVELOPER_URL,
-    YANDEX_OAUTH_URL,
 )
 from .plugin import YandexSmartHomePlugin
 
@@ -261,19 +255,6 @@ async def get_config_entries(
 
     label_text = _build_status_label(otp_code, is_cloud_plus, is_registered)
 
-    # Compute direct mode endpoint URLs
-    direct_base_url = ""
-    direct_auth_url = ""
-    direct_token_url = ""
-    if is_direct:
-        try:
-            ma_base_url = mass.webserver.base_url.rstrip("/")
-        except Exception:
-            ma_base_url = "https://<YOUR_MA_HOST>"
-        direct_base_url = f"{ma_base_url}{DIRECT_API_BASE_PATH}"
-        direct_auth_url = f"{ma_base_url}{DIRECT_AUTH_BASE_PATH}/authorize"
-        direct_token_url = f"{ma_base_url}{DIRECT_AUTH_BASE_PATH}/token"
-
     # Build player options for exposed players filter
     player_options: list[ConfigValueOption] = []
     try:
@@ -338,26 +319,29 @@ async def get_config_entries(
             )
         )
     elif is_direct:
+        # Pre-generate the per-install direct client secret once so it
+        # survives round-trips (auto-skill pipeline will read it later).
+        if not values.get(CONF_DIRECT_CLIENT_SECRET):
+            values[CONF_DIRECT_CLIENT_SECRET] = uuid.uuid4().hex
         entries.extend(
-            _direct_mode_legacy_entries(
-                direct_base_url=direct_base_url,
-                direct_auth_url=direct_auth_url,
-                direct_token_url=direct_token_url,
-                values=values,
-            )
-        )
-        # auto-create section (still experimental-flow for direct until
-        # task 10 unifies it with the cloud_plus builder)
-        entries.extend(
-            auto_create_entries(
-                connection_type=connection_type,
+            build_direct_entries(
                 artifacts=artifacts,
-                cloud_instance_id="",
-                base_url=ma_base_url_for_ui,
                 session_id=session_id_str,
                 user_code=None,
                 verification_url=None,
                 existing_artifacts_raw=artifacts_str,
+                base_url=ma_base_url_for_ui,
+            )
+        )
+        # Keep the direct client secret in the config as a hidden field.
+        entries.append(
+            ConfigEntry(
+                key=CONF_DIRECT_CLIENT_SECRET,
+                type=ConfigEntryType.SECURE_STRING,
+                label="Direct Client Secret (internal)",
+                hidden=True,
+                required=False,
+                default_value=cast("str", values[CONF_DIRECT_CLIENT_SECRET]),
             )
         )
 
@@ -410,143 +394,6 @@ def _cloud_mode_entries(
             hidden=not is_registered,
             depends_on=CONF_CONNECTION_TYPE,
             depends_on_value=CONNECTION_TYPE_CLOUD,
-        ),
-    ]
-
-
-def _direct_mode_legacy_entries(
-    *,
-    direct_base_url: str,
-    direct_auth_url: str,
-    direct_token_url: str,
-    values: dict[str, ConfigValueType],
-) -> list[ConfigEntry]:
-    """Direct mode — legacy manual-only entries.
-
-    This block keeps the direct-mode UX unchanged until task 10 unifies
-    it with the auto-create-based builder.
-    """
-    return [
-        ConfigEntry(
-            key="label_direct",
-            type=ConfigEntryType.LABEL,
-            label=(
-                "Direct connection setup: "
-                "1) Create a private skill in Yandex.Dialogs (Smart Home type). "
-                "2) Set Backend URL, Authorization URL, Token URL from values below. "
-                "3) Set Client ID and Client Secret from values below. "
-                "4) Publish skill, then link account in Yandex app. "
-                "5) Fill Skill ID and Skill Token below and Save."
-            ),
-            depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value=CONNECTION_TYPE_DIRECT,
-            category="Direct Connection Setup",
-        ),
-        ConfigEntry(
-            key="direct_dialogs_url",
-            type=ConfigEntryType.STRING,
-            label="Yandex.Dialogs Console (create skill here)",
-            required=False,
-            default_value=YANDEX_DIALOGS_DEVELOPER_URL,
-            help_link=YANDEX_DIALOGS_DEVELOPER_URL,
-            depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value=CONNECTION_TYPE_DIRECT,
-            category="Direct Connection Setup",
-        ),
-        ConfigEntry(
-            key="direct_backend_url",
-            type=ConfigEntryType.STRING,
-            label="Backend URL (→ Basic info)",
-            description="Copy to your skill's Backend URL field in Yandex.Dialogs.",
-            required=False,
-            value=direct_base_url or None,
-            depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value=CONNECTION_TYPE_DIRECT,
-            category="Copy to Yandex.Dialogs skill",
-        ),
-        ConfigEntry(
-            key="direct_auth_url",
-            type=ConfigEntryType.STRING,
-            label="Authorization URL (→ Account linking)",
-            description="Copy to 'Account linking' → 'Authorization URL' field.",
-            required=False,
-            value=direct_auth_url or None,
-            depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value=CONNECTION_TYPE_DIRECT,
-            category="Copy to Yandex.Dialogs skill",
-        ),
-        ConfigEntry(
-            key="direct_token_url",
-            type=ConfigEntryType.STRING,
-            label="Token URL (→ Account linking, both fields)",
-            description=("Copy to both 'Token endpoint' and 'Refresh token URL' fields."),
-            required=False,
-            value=direct_token_url or None,
-            depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value=CONNECTION_TYPE_DIRECT,
-            category="Copy to Yandex.Dialogs skill",
-        ),
-        ConfigEntry(
-            key="direct_client_id",
-            type=ConfigEntryType.STRING,
-            label="Client ID (→ Account linking)",
-            description="Copy to 'Account linking' → 'Client identifier' field.",
-            required=False,
-            default_value=DIRECT_OAUTH_CLIENT_ID,
-            depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value=CONNECTION_TYPE_DIRECT,
-            category="Copy to Yandex.Dialogs skill",
-        ),
-        ConfigEntry(
-            key=CONF_DIRECT_CLIENT_SECRET,
-            type=ConfigEntryType.SECURE_STRING,
-            label="Client Secret (→ Account linking)",
-            description=(
-                "Copy to 'Account linking' → 'Client secret' field. Auto-generated on first setup."
-            ),
-            required=False,
-            default_value=(
-                cast("str", values.get(CONF_DIRECT_CLIENT_SECRET))
-                if values and values.get(CONF_DIRECT_CLIENT_SECRET)
-                else uuid.uuid4().hex
-            ),
-            depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value=CONNECTION_TYPE_DIRECT,
-            category="Copy to Yandex.Dialogs skill",
-        ),
-        ConfigEntry(
-            key="direct_oauth_url",
-            type=ConfigEntryType.STRING,
-            label="OAuth URL (open to get skill token)",
-            required=False,
-            default_value=YANDEX_OAUTH_URL,
-            help_link=YANDEX_OAUTH_URL,
-            depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value=CONNECTION_TYPE_DIRECT,
-            category="Fill in from Yandex.Dialogs",
-        ),
-        ConfigEntry(
-            key=CONF_SKILL_ID,
-            type=ConfigEntryType.STRING,
-            label="Skill ID",
-            description=(
-                "UUID of your private Smart Home skill from Yandex.Dialogs. "
-                "Find it in the skill URL: /developer/skills/{skill_id}/"
-            ),
-            required=False,
-            depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value=CONNECTION_TYPE_DIRECT,
-            category="Fill in from Yandex.Dialogs",
-        ),
-        ConfigEntry(
-            key=CONF_SKILL_TOKEN,
-            type=ConfigEntryType.SECURE_STRING,
-            label="Skill OAuth Token",
-            description="Paste the OAuth token obtained from the URL above.",
-            required=False,
-            depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value=CONNECTION_TYPE_DIRECT,
-            category="Fill in from Yandex.Dialogs",
         ),
     ]
 

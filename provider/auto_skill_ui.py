@@ -51,6 +51,7 @@ __all__ = [
     "AUTO_CREATE_CATEGORY",
     "auto_create_entries",
     "build_cloud_plus_entries",
+    "build_direct_entries",
     "should_show_button",
 ]
 
@@ -61,6 +62,8 @@ AUTO_CREATE_CATEGORY = "Auto-create skill"
 _CAT_STEP_1_REGISTER = "Step 1 — Register cloud instance"
 _CAT_STEP_2_CREATE = "Step 2 — Create Smart Home skill"
 _CAT_STEP_3_LINK = "Step 3 — Link skill to Yandex"
+# Direct mode has only one step — no cloud registration, no OTP linking.
+_CAT_STEP_DIRECT_CREATE = "Create Smart Home skill"
 
 
 def _status_label(state: SkillCreationState, last_error: str | None) -> str:
@@ -307,19 +310,20 @@ def _step1_register_entries(
     ]
 
 
-def _step2_create_skill_entries(
+def _create_skill_step_entries(
     *,
-    is_registered: bool,
+    connection_type: str,
+    category: str,
     cloud_instance_id: str,
     artifacts: SkillCreationArtifacts,
     user_code: str | None,
     verification_url: str | None,
     base_url: str,
 ) -> list[ConfigEntry]:
-    """Step 2 — auto-create the skill and fill in the OAuth token."""
-    if not is_registered:
-        return []  # whole step hidden until Step 1 done
+    """Shared builder for the Create-Skill step.
 
+    Used by both cloud_plus Step 2 and direct single-step mode.
+    """
     entries: list[ConfigEntry] = []
 
     if user_code:
@@ -336,24 +340,24 @@ def _step2_create_skill_entries(
                 required=False,
                 help_link=verification_url or "https://ya.ru/device",
                 depends_on=CONF_CONNECTION_TYPE,
-                depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
-                category=_CAT_STEP_2_CREATE,
+                depends_on_value=connection_type,
+                category=category,
             )
         )
 
     entries.append(
         ConfigEntry(
-            key="label_step2_status",
+            key="label_create_skill_status",
             type=ConfigEntryType.LABEL,
             label=_status_label(artifacts.state, artifacts.last_error),
             depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
-            category=_CAT_STEP_2_CREATE,
+            depends_on_value=connection_type,
+            category=category,
         )
     )
 
     show_button = should_show_button(
-        connection_type=CONNECTION_TYPE_CLOUD_PLUS,
+        connection_type=connection_type,
         state=artifacts.state,
         cloud_instance_id=cloud_instance_id,
         base_url=base_url,
@@ -371,65 +375,81 @@ def _step2_create_skill_entries(
             action_label=_action_label(artifacts.state),
             hidden=not show_button,
             depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
-            category=_CAT_STEP_2_CREATE,
+            depends_on_value=connection_type,
+            category=category,
         )
     )
 
-    # OAuth URL + Skill OAuth Token — shown after skill is created so the
-    # user can finish Step 2 by pasting the token.
     show_token_fields = artifacts.state == SkillCreationState.DONE
-    entries.extend(
-        [
-            ConfigEntry(
-                key="oauth_url",
-                type=ConfigEntryType.STRING,
-                label="OAuth URL (open to get token)",
-                description=(
-                    "Open this URL in your browser, approve, and copy the "
-                    "access_token from the resulting URL into the field "
-                    "below."
-                ),
-                required=False,
-                default_value=YANDEX_OAUTH_URL,
-                help_link=YANDEX_OAUTH_URL,
-                hidden=not show_token_fields,
-                depends_on=CONF_CONNECTION_TYPE,
-                depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
-                category=_CAT_STEP_2_CREATE,
+    entries.extend([
+        ConfigEntry(
+            key="oauth_url",
+            type=ConfigEntryType.STRING,
+            label="OAuth URL (open to get token)",
+            description=(
+                "Open this URL in your browser, approve, and copy the "
+                "access_token from the resulting URL into the field below."
             ),
-            ConfigEntry(
-                key=CONF_SKILL_TOKEN,
-                type=ConfigEntryType.SECURE_STRING,
-                label="Skill OAuth Token",
-                description="Paste the OAuth token obtained from the URL above.",
-                required=False,
-                hidden=not show_token_fields,
-                depends_on=CONF_CONNECTION_TYPE,
-                depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
-                category=_CAT_STEP_2_CREATE,
+            required=False,
+            default_value=YANDEX_OAUTH_URL,
+            help_link=YANDEX_OAUTH_URL,
+            hidden=not show_token_fields,
+            depends_on=CONF_CONNECTION_TYPE,
+            depends_on_value=connection_type,
+            category=category,
+        ),
+        ConfigEntry(
+            key=CONF_SKILL_TOKEN,
+            type=ConfigEntryType.SECURE_STRING,
+            label="Skill OAuth Token",
+            description="Paste the OAuth token obtained from the URL above.",
+            required=False,
+            hidden=not show_token_fields,
+            depends_on=CONF_CONNECTION_TYPE,
+            depends_on_value=connection_type,
+            category=category,
+        ),
+        ConfigEntry(
+            key=CONF_SKILL_ID,
+            type=ConfigEntryType.STRING,
+            label="Skill ID",
+            description=(
+                "UUID of your private Smart Home skill. Set automatically "
+                "when auto-create succeeds; you can paste it manually if "
+                "you created the skill by hand."
             ),
-            # Also persist the Skill ID (usually set automatically on DONE,
-            # but we expose it so users can enter it manually as fallback).
-            ConfigEntry(
-                key=CONF_SKILL_ID,
-                type=ConfigEntryType.STRING,
-                label="Skill ID",
-                description=(
-                    "UUID of your private Smart Home skill. Set automatically "
-                    "when auto-create succeeds; you can paste it manually if "
-                    "you created the skill by hand."
-                ),
-                required=False,
-                hidden=not show_token_fields,
-                depends_on=CONF_CONNECTION_TYPE,
-                depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
-                category=_CAT_STEP_2_CREATE,
-            ),
-        ]
-    )
+            required=False,
+            hidden=not show_token_fields,
+            depends_on=CONF_CONNECTION_TYPE,
+            depends_on_value=connection_type,
+            category=category,
+        ),
+    ])
 
     return entries
+
+
+def _step2_create_skill_entries(
+    *,
+    is_registered: bool,
+    cloud_instance_id: str,
+    artifacts: SkillCreationArtifacts,
+    user_code: str | None,
+    verification_url: str | None,
+    base_url: str,
+) -> list[ConfigEntry]:
+    """cloud_plus Step 2 — hidden until Step 1 (register) is done."""
+    if not is_registered:
+        return []
+    return _create_skill_step_entries(
+        connection_type=CONNECTION_TYPE_CLOUD_PLUS,
+        category=_CAT_STEP_2_CREATE,
+        cloud_instance_id=cloud_instance_id,
+        artifacts=artifacts,
+        user_code=user_code,
+        verification_url=verification_url,
+        base_url=base_url,
+    )
 
 
 def _step3_link_entries(
@@ -483,9 +503,41 @@ def _step3_link_entries(
     return entries
 
 
+# ---------------------------------------------------------------------------
+# Direct-mode flow (auto-create only; no cloud registration, no OTP)
+# ---------------------------------------------------------------------------
+
+
+def build_direct_entries(
+    *,
+    artifacts: SkillCreationArtifacts,
+    session_id: str | None,
+    user_code: str | None,
+    verification_url: str | None,
+    existing_artifacts_raw: str | None,
+    base_url: str,
+) -> list[ConfigEntry]:
+    """Return the direct-mode config entries as a single Create-Skill step.
+
+    direct mode has no yaha-cloud registration (Step 1) and no OTP
+    linking (Step 3) — Yandex Dialogs' account-linking UI handles that
+    once the skill exists.
+    """
+    entries = _create_skill_step_entries(
+        connection_type=CONNECTION_TYPE_DIRECT,
+        category=_CAT_STEP_DIRECT_CREATE,
+        cloud_instance_id="",
+        artifacts=artifacts,
+        user_code=user_code,
+        verification_url=verification_url,
+        base_url=base_url,
+    )
+    entries.extend(_hidden_state_entries(existing_artifacts_raw, session_id))
+    return entries
+
+
 # Reference constants imported but unused at top-level are required by
-# future manual-fallback entries (Task: auto-show on FAILED). Export
-# them as module-level attrs so type-checkers don't flag unused imports.
+# future manual-fallback entries (Task 11: auto-show on FAILED).
 _ = (
     CLOUD_OAUTH_AUTHORIZE_URL,
     CLOUD_OAUTH_TOKEN_URL,
