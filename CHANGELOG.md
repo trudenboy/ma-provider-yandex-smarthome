@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.4.3] — 2026-04-24
+
+### Fixed
+- **`_build_authenticator_cm` double-wrap crash** — when a caller injected an authenticator already decorated with `@asynccontextmanager`, the helper re-wrapped it unconditionally, which broke at runtime because the outer wrapper would call `__anext__` on the inner CM object. Now detect an async-CM result and pass it through, otherwise adapt the async iterator without calling the factory twice.
+- **`SkillCreationState.DEPLOY_REQUESTED` is now actually set** — previously the value was defined and allow-listed in the resume branch but no code ever wrote it, making it dead state. The orchestrator now checkpoints to `DEPLOY_REQUESTED` before calling `request_deploy`, so a crash mid-publish resumes from publish-only instead of rerunning the whole pipeline.
+- **`TestListExistingSkills` docstring corrected** — class docstring claimed malformed JSON returned an empty list, but the test asserts `DialogsApiError` is raised. Docstring updated to match behavior.
+
 ## [1.4.2] — 2026-04-24
 
 ### Fixed
