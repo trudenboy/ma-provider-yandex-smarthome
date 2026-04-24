@@ -177,13 +177,18 @@ class DialogsSkillCreator:
                     step="fetch_csrf",
                     http_status=resp.status,
                 )
-            # Guard against unbounded response size (T5 pattern from ya-passport-auth)
-            html = await resp.text()
-        if len(html) > _MAX_HTML_RESPONSE_BYTES:
-            raise DialogsApiError(
-                "developer page response exceeded size cap",
-                step="fetch_csrf",
-            )
+            # Enforce the size cap while reading so an oversized
+            # response can't buffer fully in memory (T5 pattern from
+            # ya-passport-auth).
+            body = bytearray()
+            async for chunk in resp.content.iter_chunked(8192):
+                body.extend(chunk)
+                if len(body) > _MAX_HTML_RESPONSE_BYTES:
+                    raise DialogsApiError(
+                        "developer page response exceeded size cap",
+                        step="fetch_csrf",
+                    )
+            html = body.decode(resp.get_encoding() or "utf-8", errors="replace")
 
         match = DIALOGS_CSRF_REGEX.search(html)
         if not match:
@@ -448,9 +453,14 @@ class DialogsSkillCreator:
             method, url, json=payload, headers=headers
         ) as resp:
             body = await resp.text()
-            if resp.status == 409 or (
-                resp.status in (400, 422) and _looks_like_duplicate(body)
-            ):
+            # Only ``create_app`` can fail with duplicate-name errors —
+            # other endpoints use 409 for unrelated conflicts and would
+            # be misclassified as duplicates if the mapping were global.
+            duplicate_candidate = step == "create_app" and (
+                resp.status == 409
+                or (resp.status in (400, 422) and _looks_like_duplicate(body))
+            )
+            if duplicate_candidate:
                 raise DialogsDuplicateSkillError(
                     f"{step}: skill with this name already exists",
                     step=step,
@@ -899,10 +909,12 @@ async def _default_authenticator(
 
     async with PassportClient.create(config=config) as client:
         device_session = await client.start_device_login()
+        # Don't log user_code — it's a time-limited credential (grants
+        # Yandex sign-in for the device-flow window) and writing it to
+        # shared log backends would leak access.
         _LOGGER.info(
-            "device flow started — verification_url=%s, user_code=%s",
+            "device flow started — verification_url=%s",
             device_session.verification_url,
-            device_session.user_code,
         )
 
         page_path = f"{_DEVICE_CODE_PAGE_PATH}/{session_id}"
@@ -946,13 +958,13 @@ async def _default_authenticator(
         mass.webserver.register_dynamic_route(page_path, _serve_page, "GET")
         mass.webserver.register_dynamic_route(status_path, _serve_status, "GET")
         _LOGGER.warning(
-            "auto-skill: device-code popup URL %s (path=%s, user_code=%s) "
+            "auto-skill: device-code popup URL %s (path=%s) "
             "— if the popup does not open or points at an unreachable "
-            "address, open the path directly in your browser or fix "
-            "Settings → Core → Webserver → Base URL",
+            "address, open the path directly in your browser (the page "
+            "displays the user_code) or fix Settings → Core → Webserver "
+            "→ Base URL",
             page_url,
             page_path,
-            device_session.user_code,
         )
         try:
             async with AuthenticationHelper(mass, session_id) as auth_helper:

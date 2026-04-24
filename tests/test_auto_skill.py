@@ -46,13 +46,25 @@ def _mock_response(
     """Build a mock aiohttp.ClientResponse.
 
     If *body_json* is given, ``text()`` returns its JSON-encoded form;
-    otherwise ``body_text`` is used verbatim.
+    otherwise ``body_text`` is used verbatim. Also wires up
+    ``content.iter_chunked(size)`` as a single-chunk async iterator over
+    ``body_text.encode()`` so ``fetch_csrf``'s streaming reader works.
     """
     resp = AsyncMock()
     resp.status = status
     if body_json is not None:
         body_text = json.dumps(body_json, ensure_ascii=False)
     resp.text = AsyncMock(return_value=body_text)
+    resp.get_encoding = MagicMock(return_value="utf-8")
+
+    body_bytes = body_text.encode("utf-8")
+
+    async def _aiter(_size: int) -> Any:  # pragma: no cover — trivial
+        if body_bytes:
+            yield body_bytes
+
+    resp.content = MagicMock()
+    resp.content.iter_chunked = _aiter
     return resp
 
 

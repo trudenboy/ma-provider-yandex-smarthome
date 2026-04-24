@@ -26,9 +26,11 @@ __all__ = [
 class SkillCreationState(StrEnum):
     """Progress marker for the skill-creation pipeline.
 
-    Linear states advance through the 6 HAR-captured API calls;
-    ``FAILED`` is orthogonal — it preserves the last-reached linear
-    state in the artifact alongside an error string.
+    Linear states advance through the 6 HAR-captured API calls.
+    ``FAILED`` replaces the stored linear state in the artifact;
+    failure details are kept separately in ``last_error``, while
+    captured artifact IDs (``skill_id`` / ``logo_id`` / ``oauth_app_id``)
+    stay intact so a retry can resume from the partial results.
     """
 
     NONE = "none"

@@ -81,21 +81,23 @@ def _status_label(state: SkillCreationState, last_error: str | None) -> str:
         err = last_error or "unknown error"
         return (
             f"❌ Creation failed: {err}\n"
-            "Press 'Retry' to try again, or fill in Skill ID / Skill OAuth Token "
-            "manually below."
+            f"Press '{_action_label(state)}' to try again, or fill in "
+            "Skill ID / Skill OAuth Token manually below."
         )
     if state == SkillCreationState.NONE:
         return "Ready to create skill. Press the button below to start."
     # Any partial state — resume is possible.
     return (
         f"Partial progress saved ({state.value}). "
-        "Press 'Retry from last step' to finish, or fill Skill ID manually."
+        f"Press '{_action_label(state)}' to finish, or fill Skill ID manually."
     )
 
 
 def _action_label(state: SkillCreationState) -> str:
-    if state in (SkillCreationState.NONE, SkillCreationState.FAILED):
+    if state == SkillCreationState.NONE:
         return "Create skill automatically"
+    if state == SkillCreationState.FAILED:
+        return "Retry"
     return "Retry from last step"
 
 

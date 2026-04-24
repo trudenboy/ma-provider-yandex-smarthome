@@ -150,12 +150,11 @@ class TestAutoCreateEntries:
         assert action.hidden is True
 
     def test_action_label_changes_on_failed(self) -> None:
-        """After a failure the button offers to retry from last step."""
+        """After a failure the button label switches to 'Retry'."""
         entries = list(self._entries(state=SkillCreationState.FAILED))
         action = _find(entries, CONF_ACTION_AUTO_CREATE)
         assert action is not None
-        # On FAILED we start from scratch — "Create skill" label, not "Retry"
-        assert "Create" in action.action_label
+        assert action.action_label == "Retry"
 
     def test_action_label_says_retry_on_partial(self) -> None:
         """Partial (non-FAILED) progress state uses the 'Retry from last step' label."""
