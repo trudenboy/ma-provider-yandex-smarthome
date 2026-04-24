@@ -280,8 +280,8 @@ def build_cloud_plus_entries(  # noqa: PLR0913
     entries.extend(
         _step3_link_entries(
             is_registered=is_registered,
-            otp_code=otp_code,
             skill_id_set=skill_id_set,
+            otp_code=otp_code,
         )
     )
     entries.extend(_hidden_state_entries(existing_artifacts_raw, session_id))
@@ -661,17 +661,31 @@ def _manual_fallback_entries(
             category=category,
         ),
         *extra,
-        ConfigEntry(
-            key="manual_client_secret",
-            type=ConfigEntryType.STRING,
-            label="Client Secret value (for reference)",
-            description="Copy this string into 'Account linking' → 'Client secret'.",
-            required=False,
-            default_value=client_secret,
-            advanced=advanced,
-            depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value=connection_type,
-            category=category,
+        # manual_client_secret is a plain STRING so it's readable for
+        # copy-paste in cloud_plus (where the value is the literal
+        # "secret"). For direct mode we skip it: the real per-install
+        # UUID is surfaced via the SECURE_STRING CONF_DIRECT_CLIENT_SECRET
+        # entry in ``extra`` above, and showing the same value in a
+        # second unmasked STRING would leak it.
+        *(
+            [
+                ConfigEntry(
+                    key="manual_client_secret",
+                    type=ConfigEntryType.STRING,
+                    label="Client Secret value (for reference)",
+                    description=(
+                        "Copy this string into 'Account linking' → 'Client secret'."
+                    ),
+                    required=False,
+                    default_value=client_secret,
+                    advanced=advanced,
+                    depends_on=CONF_CONNECTION_TYPE,
+                    depends_on_value=connection_type,
+                    category=category,
+                )
+            ]
+            if connection_type != CONNECTION_TYPE_DIRECT
+            else []
         ),
         ConfigEntry(
             key="manual_auth_url",
@@ -732,25 +746,25 @@ def _step2_create_skill_entries(
 
 
 def _step3_link_entries(
-    *, is_registered: bool, otp_code: str | None, skill_id_set: bool = False
+    *, is_registered: bool, skill_id_set: bool, otp_code: str | None
 ) -> list[ConfigEntry]:
-    """Step 3 — get an OTP from the cloud and enter it in the Yandex app."""
-    if not is_registered:
-        return []  # whole step hidden until Step 1 done
+    """Step 3 — get an OTP from the cloud and enter it in the Yandex app.
 
-    # Banner priority: fresh OTP > linked (skill configured) > default prompt.
+    Hidden until both Step 1 (cloud registration) and Step 2 (skill
+    created — ``skill_id_set``) are done: OTP linking only makes sense
+    once the private skill exists in Yandex.Dialogs for the user to
+    link against in the Yandex app.
+    """
+    if not is_registered or not skill_id_set:
+        return []
+
+    # Banner priority: fresh OTP > linked (skill configured).
     if otp_code:
         banner_text = f"Enter this OTP in the Yandex app: {otp_code}"
-    elif skill_id_set:
-        banner_text = (
-            "✅ Cloud instance linked. Press 'Get OTP code' to re-link in "
-            "the Yandex app if you ever unlinked the skill."
-        )
     else:
         banner_text = (
-            "Press 'Get OTP code' to receive a short code, then "
-            "open Yandex app → Devices → Add device → Smart Home → "
-            "find your private skill → enter the code to link."
+            "✅ Skill configured. Press 'Get OTP code' to link it with your "
+            "Yandex account (or re-link if you ever unlinked it)."
         )
 
     entries: list[ConfigEntry] = [

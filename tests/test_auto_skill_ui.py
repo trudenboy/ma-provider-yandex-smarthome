@@ -204,6 +204,7 @@ class TestBuildCloudPlusEntries:
         is_registered: bool = False,
         state: SkillCreationState = SkillCreationState.NONE,
         otp_code: str | None = None,
+        skill_id: str = "",
     ):  # type: ignore[no-untyped-def]
         return build_cloud_plus_entries(
             otp_code=otp_code,
@@ -215,6 +216,7 @@ class TestBuildCloudPlusEntries:
             verification_url=None,
             existing_artifacts_raw=None,
             base_url="https://ma.example.com",
+            skill_id=skill_id,
         )
 
     def test_step1_register_always_visible(self) -> None:
@@ -239,14 +241,20 @@ class TestBuildCloudPlusEntries:
         assert CONF_ACTION_AUTO_CREATE in keys
 
     def test_step3_hidden_until_registered(self) -> None:
-        """Step 3 (Get OTP) likewise needs Step 1 done."""
-        entries = self._call(is_registered=False)
+        """Step 3 (Get OTP) requires Step 1 done (cloud registration)."""
+        entries = self._call(is_registered=False, skill_id="s1")
         keys = [e.key for e in entries]
         assert CONF_ACTION_GET_OTP not in keys
 
-    def test_step3_visible_after_register(self) -> None:
-        """After register, Step 3 renders the Get-OTP action."""
-        entries = self._call(is_registered=True)
+    def test_step3_hidden_until_skill_created(self) -> None:
+        """Step 3 also requires Step 2 done — OTP linking needs an existing skill."""
+        entries = self._call(is_registered=True, skill_id="")
+        keys = [e.key for e in entries]
+        assert CONF_ACTION_GET_OTP not in keys
+
+    def test_step3_visible_after_register_and_skill(self) -> None:
+        """After register AND skill created, Step 3 renders the Get-OTP action."""
+        entries = self._call(is_registered=True, skill_id="s1")
         keys = [e.key for e in entries]
         assert CONF_ACTION_GET_OTP in keys
 
@@ -301,7 +309,7 @@ class TestBuildCloudPlusEntries:
 
     def test_otp_code_appears_when_present(self) -> None:
         """OTP code field is visible once an OTP has been fetched."""
-        entries = self._call(is_registered=True, otp_code="ABC123")
+        entries = self._call(is_registered=True, skill_id="s1", otp_code="ABC123")
         otp = _find(list(entries), "otp_code")
         assert otp is not None
         assert otp.hidden is False
