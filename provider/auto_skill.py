@@ -37,8 +37,22 @@ from typing import TYPE_CHECKING, Any
 
 import aiohttp
 
+from .constants import (
+    CLOUD_OAUTH_AUTHORIZE_URL,
+    CLOUD_OAUTH_TOKEN_URL,
+    CLOUD_SKILL_CLIENT_ID_TEMPLATE,
+    CLOUD_SKILL_WEBHOOK_TEMPLATE,
+    CONNECTION_TYPE_CLOUD_PLUS,
+    CONNECTION_TYPE_DIRECT,
+    DIRECT_API_BASE_PATH,
+    DIRECT_AUTH_BASE_PATH,
+    DIRECT_OAUTH_CLIENT_ID,
+)
+
 if TYPE_CHECKING:
     from collections.abc import Mapping
+
+    from music_assistant.mass import MusicAssistant
 
 __all__ = [
     "DIALOGS_API_BASE",
@@ -49,6 +63,12 @@ __all__ = [
     "DialogsCsrfError",
     "DialogsDuplicateSkillError",
     "DialogsSkillCreator",
+    "build_draft_payload",
+    "build_oauth_app_payload",
+    "check_preconditions",
+    "derive_auth_urls",
+    "derive_backend_uri",
+    "derive_client_id",
 ]
 
 _LOGGER = logging.getLogger(__name__)
@@ -481,3 +501,200 @@ def _extract_error_code(body: str) -> str | None:
         if isinstance(value, str) and value:
             return value
     return None
+
+
+# ---------------------------------------------------------------------------
+# Pure helpers: backend/oauth URLs, payload builders, preconditions
+#
+# All of these are side-effect-free and separately unit-testable; the
+# orchestrator in a later commit wires them together.
+# ---------------------------------------------------------------------------
+
+
+def derive_backend_uri(mass: MusicAssistant, connection_type: str) -> str:
+    """Return the Backend URL the skill should point at for *connection_type*.
+
+    cloud_plus → yaha-cloud.ru relay (fixed URL).
+    direct     → ``{mass.webserver.base_url}`` + our API path (requires
+                 HTTPS base URL; see :func:`check_preconditions`).
+    """
+    if connection_type == CONNECTION_TYPE_CLOUD_PLUS:
+        return CLOUD_SKILL_WEBHOOK_TEMPLATE
+    if connection_type == CONNECTION_TYPE_DIRECT:
+        base = str(mass.webserver.base_url).rstrip("/")
+        return f"{base}{DIRECT_API_BASE_PATH}"
+    msg = f"auto-create is not supported for connection_type={connection_type!r}"
+    raise ValueError(msg)
+
+
+def derive_auth_urls(
+    mass: MusicAssistant, connection_type: str
+) -> tuple[str, str]:
+    """Return (authorize_url, token_url) for the OAuth app.
+
+    cloud_plus uses the yaha-cloud relay's OAuth endpoints; direct
+    uses the MA webserver's own authorize/token endpoints (served by
+    provider/direct.py).
+    """
+    if connection_type == CONNECTION_TYPE_CLOUD_PLUS:
+        return CLOUD_OAUTH_AUTHORIZE_URL, CLOUD_OAUTH_TOKEN_URL
+    if connection_type == CONNECTION_TYPE_DIRECT:
+        base = str(mass.webserver.base_url).rstrip("/")
+        return (
+            f"{base}{DIRECT_AUTH_BASE_PATH}/authorize",
+            f"{base}{DIRECT_AUTH_BASE_PATH}/token",
+        )
+    msg = f"auto-create is not supported for connection_type={connection_type!r}"
+    raise ValueError(msg)
+
+
+def derive_client_id(connection_type: str, cloud_instance_id: str) -> str:
+    """Return the OAuth client_id to register in the skill's account linking.
+
+    cloud_plus uses ``yandex_smart_home:{instance_id}`` (yaha-cloud
+    protocol); direct uses the fixed Yandex social redirect base URL
+    (its existing Yandex OAuth client expects this exact ID).
+    """
+    if connection_type == CONNECTION_TYPE_CLOUD_PLUS:
+        if not cloud_instance_id:
+            msg = "cloud_plus requires a registered cloud_instance_id"
+            raise ValueError(msg)
+        return CLOUD_SKILL_CLIENT_ID_TEMPLATE.format(instance_id=cloud_instance_id)
+    if connection_type == CONNECTION_TYPE_DIRECT:
+        return DIRECT_OAUTH_CLIENT_ID
+    msg = f"auto-create is not supported for connection_type={connection_type!r}"
+    raise ValueError(msg)
+
+
+def build_draft_payload(
+    *,
+    connection_type: str,
+    skill_name: str,
+    backend_uri: str,
+    logo_id: str | None,
+    developer_name: str = "Music Assistant user",
+) -> dict[str, Any]:
+    """Compose the PATCH /draft/update body for a Smart Home skill.
+
+    Matches the HAR sample field-for-field; every key that the
+    dashboard UI sends on save is reproduced so Yandex's validator
+    sees a complete draft and allows ``request-deploy`` afterwards.
+    """
+    if connection_type not in (CONNECTION_TYPE_CLOUD_PLUS, CONNECTION_TYPE_DIRECT):
+        msg = f"auto-create is not supported for connection_type={connection_type!r}"
+        raise ValueError(msg)
+
+    return {
+        "logo2": None,
+        "name": skill_name,
+        "voice": "shitova.us",
+        "logoId": logo_id,
+        "skillAccess": "private",
+        "hideInStore": False,
+        "noteForModerator": "",
+        "backendSettings": {
+            "uri": backend_uri,
+            "functionId": "",
+            "backendType": "webhook",
+        },
+        "publishingSettings": {
+            "brandVerificationWebsite": "",
+            "category": "smart_home",
+            "developerName": developer_name,
+            "secondaryTitle": "",
+            "email": "",  # server pulls from the authenticated session
+            "smartHome": {
+                "deepLinks": {
+                    "android": {"url": ""},
+                    "ios": {"url": "", "fallbackUrl": ""},
+                },
+            },
+            "multilingualSettings": {
+                "ru": {
+                    "name": skill_name,
+                    "secondaryTitle": "",
+                    "externalSettingsDescription": skill_name,
+                    "supportedUnitsDescription": skill_name,
+                },
+            },
+        },
+        "oauthAppId": None,
+        "isTrustedSmartHomeSkill": False,
+        "enableAllAvailableRegions": True,
+        "selectedRegions": [],
+        "channel": SMART_HOME_CHANNEL,
+    }
+
+
+def build_oauth_app_payload(
+    *,
+    skill_name: str,
+    client_id: str,
+    client_secret: str,
+    authorize_url: str,
+    token_url: str,
+) -> dict[str, Any]:
+    """Compose the POST /oauth/apps body for account-linking.
+
+    Values come from :func:`derive_client_id`, :func:`derive_auth_urls`,
+    and :func:`derive_backend_uri`'s caller context. ``refreshTokenUrl``
+    always equals ``token_url`` — Yandex's flow uses the same endpoint
+    for both grant types.
+    """
+    return {
+        "name": skill_name,
+        "clientId": client_id,
+        "clientSecret": client_secret,
+        "authorizationUrl": authorize_url,
+        "tokenUrl": token_url,
+        "refreshTokenUrl": token_url,
+        "scope": "",
+        "yandexClientId": "",
+    }
+
+
+def check_preconditions(
+    *,
+    connection_type: str,
+    mass: MusicAssistant,
+    cloud_instance_id: str,
+    direct_client_secret: str,
+) -> None:
+    """Validate that auto-create can run for the given connection type.
+
+    Raises :class:`ValueError` with a human-readable message on failure.
+    Called before any network I/O so the UI can surface the error
+    without a half-created skill on Yandex's side.
+    """
+    if connection_type == CONNECTION_TYPE_CLOUD_PLUS:
+        if not cloud_instance_id:
+            msg = (
+                "Cloud Plus requires a registered yaha-cloud instance first. "
+                "Use the 'Register with cloud' action."
+            )
+            raise ValueError(msg)
+        return
+
+    if connection_type == CONNECTION_TYPE_DIRECT:
+        if not direct_client_secret:
+            msg = "Direct mode requires a generated Client Secret"
+            raise ValueError(msg)
+        try:
+            base = str(mass.webserver.base_url)
+        except Exception as exc:
+            msg = f"MA webserver base URL is not available: {exc}"
+            raise ValueError(msg) from exc
+        if not base.startswith("https://"):
+            msg = (
+                "Direct mode requires MA to be reachable over HTTPS from the "
+                f"public internet (got base_url={base!r}). Yandex will reject "
+                "a skill with a non-HTTPS backend."
+            )
+            raise ValueError(msg)
+        return
+
+    msg = (
+        f"auto-create is not supported for connection_type={connection_type!r}; "
+        "use cloud_plus or direct."
+    )
+    raise ValueError(msg)

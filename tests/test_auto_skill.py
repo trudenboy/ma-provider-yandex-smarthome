@@ -16,6 +16,17 @@ from music_assistant.providers.yandex_smarthome.auto_skill import (
     DialogsCsrfError,
     DialogsDuplicateSkillError,
     DialogsSkillCreator,
+    build_draft_payload,
+    build_oauth_app_payload,
+    check_preconditions,
+    derive_auth_urls,
+    derive_backend_uri,
+    derive_client_id,
+)
+from music_assistant.providers.yandex_smarthome.constants import (
+    CONNECTION_TYPE_CLOUD,
+    CONNECTION_TYPE_CLOUD_PLUS,
+    CONNECTION_TYPE_DIRECT,
 )
 
 # ---------------------------------------------------------------------------
@@ -419,3 +430,212 @@ class TestListExistingSkills:
 
         with pytest.raises(DialogsApiError):
             await creator.list_existing_skills("csrf")
+
+
+# ---------------------------------------------------------------------------
+# Payload builders + preconditions (pure functions)
+# ---------------------------------------------------------------------------
+
+
+def _mass_with_base_url(base_url: str) -> MagicMock:
+    mass = MagicMock()
+    mass.webserver.base_url = base_url
+    return mass
+
+
+class TestDeriveBackendUri:
+    """derive_backend_uri routes per-mode."""
+
+    def test_cloud_plus_uses_yaha_relay_constant(self) -> None:
+        """cloud_plus always points at the fixed yaha-cloud webhook."""
+        mass = _mass_with_base_url("https://my-ma.example.com")
+        assert (
+            derive_backend_uri(mass, CONNECTION_TYPE_CLOUD_PLUS)
+            == "https://yaha-cloud.ru/api/yandex_smart_home"
+        )
+
+    def test_direct_uses_ma_base_plus_api_path(self) -> None:
+        """Direct concatenates MA base_url with the provider's API path."""
+        mass = _mass_with_base_url("https://my-ma.example.com/")
+        # Trailing slash on base_url should be stripped so the full URL is clean.
+        assert (
+            derive_backend_uri(mass, CONNECTION_TYPE_DIRECT)
+            == "https://my-ma.example.com/api/yandex_smarthome/v1.0"
+        )
+
+    def test_cloud_raises(self) -> None:
+        """Plain 'cloud' mode has no custom skill — function must reject it."""
+        mass = _mass_with_base_url("https://x")
+        with pytest.raises(ValueError, match="connection_type"):
+            derive_backend_uri(mass, CONNECTION_TYPE_CLOUD)
+
+
+class TestDeriveAuthUrls:
+    """derive_auth_urls returns (authorize_url, token_url)."""
+
+    def test_cloud_plus_urls(self) -> None:
+        """cloud_plus uses yaha-cloud OAuth endpoints."""
+        mass = _mass_with_base_url("https://x")
+        auth, token = derive_auth_urls(mass, CONNECTION_TYPE_CLOUD_PLUS)
+        assert auth == "https://yaha-cloud.ru/oauth/authorize"
+        assert token == "https://yaha-cloud.ru/oauth/token"
+
+    def test_direct_urls_use_ma_base(self) -> None:
+        """Direct uses the MA webserver's own authorize/token endpoints."""
+        mass = _mass_with_base_url("https://ma.example.com")
+        auth, token = derive_auth_urls(mass, CONNECTION_TYPE_DIRECT)
+        assert auth == "https://ma.example.com/api/yandex_smarthome/auth/authorize"
+        assert token == "https://ma.example.com/api/yandex_smarthome/auth/token"
+
+
+class TestDeriveClientId:
+    """derive_client_id formats the OAuth client_id per mode."""
+
+    def test_cloud_plus_templated(self) -> None:
+        """cloud_plus wraps the instance_id in the yaha protocol prefix."""
+        assert (
+            derive_client_id(CONNECTION_TYPE_CLOUD_PLUS, "abc123")
+            == "yandex_smart_home:abc123"
+        )
+
+    def test_cloud_plus_missing_instance_raises(self) -> None:
+        """Empty instance_id is a configuration bug — raise early."""
+        with pytest.raises(ValueError, match="cloud_instance_id"):
+            derive_client_id(CONNECTION_TYPE_CLOUD_PLUS, "")
+
+    def test_direct_fixed_value(self) -> None:
+        """Direct mode uses the fixed Yandex social redirect base."""
+        assert (
+            derive_client_id(CONNECTION_TYPE_DIRECT, "")
+            == "https://social.yandex.net/"
+        )
+
+
+class TestBuildDraftPayload:
+    """Snapshot coverage for the 100+-field draft/update payload."""
+
+    def test_cloud_plus_snapshot(self, snapshot) -> None:  # type: ignore[no-untyped-def]
+        """cloud_plus draft payload matches the captured HAR shape."""
+        payload = build_draft_payload(
+            connection_type=CONNECTION_TYPE_CLOUD_PLUS,
+            skill_name="Music Assistant",
+            backend_uri="https://yaha-cloud.ru/api/yandex_smart_home",
+            logo_id="be043706-a868-4999-83c8-f17bbd60745d",
+            developer_name="alice",
+        )
+        assert payload == snapshot
+
+    def test_direct_snapshot(self, snapshot) -> None:  # type: ignore[no-untyped-def]
+        """Direct draft payload matches the captured HAR shape."""
+        payload = build_draft_payload(
+            connection_type=CONNECTION_TYPE_DIRECT,
+            skill_name="Music Assistant",
+            backend_uri="https://ma.example.com/api/yandex_smarthome/v1.0",
+            logo_id=None,
+            developer_name="alice",
+        )
+        assert payload == snapshot
+
+    def test_invalid_mode_raises(self) -> None:
+        """Plain 'cloud' has no auto-create path."""
+        with pytest.raises(ValueError, match="connection_type"):
+            build_draft_payload(
+                connection_type=CONNECTION_TYPE_CLOUD,
+                skill_name="x",
+                backend_uri="https://x",
+                logo_id=None,
+            )
+
+
+class TestBuildOAuthAppPayload:
+    """OAuth-app payload is simpler — both modes round-trip the given fields."""
+
+    def test_cloud_plus_snapshot(self, snapshot) -> None:  # type: ignore[no-untyped-def]
+        """cloud_plus payload uses literal 'secret' and the yaha-prefixed client_id."""
+        payload = build_oauth_app_payload(
+            skill_name="Music Assistant",
+            client_id="yandex_smart_home:abc123",
+            client_secret="secret",
+            authorize_url="https://yaha-cloud.ru/oauth/authorize",
+            token_url="https://yaha-cloud.ru/oauth/token",
+        )
+        assert payload == snapshot
+
+    def test_direct_snapshot(self, snapshot) -> None:  # type: ignore[no-untyped-def]
+        """Direct payload uses social.yandex.net client_id and a per-install secret."""
+        payload = build_oauth_app_payload(
+            skill_name="Music Assistant",
+            client_id="https://social.yandex.net/",
+            client_secret="abc123deadbeef",
+            authorize_url="https://ma.example.com/api/yandex_smarthome/auth/authorize",
+            token_url="https://ma.example.com/api/yandex_smarthome/auth/token",
+        )
+        assert payload == snapshot
+
+
+class TestCheckPreconditions:
+    """check_preconditions rejects invalid configurations early."""
+
+    def test_cloud_plus_requires_instance(self) -> None:
+        """cloud_plus without a registered cloud instance is rejected."""
+        mass = _mass_with_base_url("https://x")
+        with pytest.raises(ValueError, match="yaha-cloud instance"):
+            check_preconditions(
+                connection_type=CONNECTION_TYPE_CLOUD_PLUS,
+                mass=mass,
+                cloud_instance_id="",
+                direct_client_secret="",
+            )
+
+    def test_cloud_plus_with_instance_ok(self) -> None:
+        """cloud_plus with a registered instance_id passes."""
+        mass = _mass_with_base_url("https://x")
+        check_preconditions(
+            connection_type=CONNECTION_TYPE_CLOUD_PLUS,
+            mass=mass,
+            cloud_instance_id="abc",
+            direct_client_secret="",
+        )
+
+    def test_direct_requires_https_base_url(self) -> None:
+        """Direct rejects non-HTTPS base URLs (Yandex won't accept)."""
+        mass = _mass_with_base_url("http://ma.local:8095")
+        with pytest.raises(ValueError, match="HTTPS"):
+            check_preconditions(
+                connection_type=CONNECTION_TYPE_DIRECT,
+                mass=mass,
+                cloud_instance_id="",
+                direct_client_secret="secret",
+            )
+
+    def test_direct_requires_client_secret(self) -> None:
+        """Direct rejects empty client_secret (would break account-linking)."""
+        mass = _mass_with_base_url("https://ma.example.com")
+        with pytest.raises(ValueError, match="Client Secret"):
+            check_preconditions(
+                connection_type=CONNECTION_TYPE_DIRECT,
+                mass=mass,
+                cloud_instance_id="",
+                direct_client_secret="",
+            )
+
+    def test_direct_happy_path(self) -> None:
+        """Direct with HTTPS base URL and a secret passes."""
+        mass = _mass_with_base_url("https://ma.example.com")
+        check_preconditions(
+            connection_type=CONNECTION_TYPE_DIRECT,
+            mass=mass,
+            cloud_instance_id="",
+            direct_client_secret="my-secret",
+        )
+
+    def test_cloud_mode_rejected(self) -> None:
+        """Plain 'cloud' never uses a custom skill — reject."""
+        mass = _mass_with_base_url("https://x")
+        with pytest.raises(ValueError, match="cloud_plus or direct"):
+            check_preconditions(
+                connection_type=CONNECTION_TYPE_CLOUD,
+                mass=mass,
+                cloud_instance_id="",
+                direct_client_secret="",
+            )
