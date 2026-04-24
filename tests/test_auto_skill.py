@@ -16,12 +16,17 @@ from music_assistant.providers.yandex_smarthome.auto_skill import (
     DialogsCsrfError,
     DialogsDuplicateSkillError,
     DialogsSkillCreator,
+    auto_create_skill,
     build_draft_payload,
     build_oauth_app_payload,
     check_preconditions,
     derive_auth_urls,
     derive_backend_uri,
     derive_client_id,
+)
+from music_assistant.providers.yandex_smarthome.auto_skill_state import (
+    SkillCreationArtifacts,
+    SkillCreationState,
 )
 from music_assistant.providers.yandex_smarthome.constants import (
     CONNECTION_TYPE_CLOUD,
@@ -639,3 +644,278 @@ class TestCheckPreconditions:
                 cloud_instance_id="",
                 direct_client_secret="",
             )
+
+
+# ---------------------------------------------------------------------------
+# Orchestrator (auto_create_skill)
+# ---------------------------------------------------------------------------
+
+
+def _make_creator_mock() -> AsyncMock:
+    """Build an AsyncMock matching DialogsSkillCreator's interface."""
+    creator = AsyncMock(spec=DialogsSkillCreator)
+    creator.fetch_csrf = AsyncMock(return_value="csrf-token")
+    creator.create_app = AsyncMock(return_value="skill-uuid")
+    creator.upload_logo = AsyncMock(return_value="logo-uuid")
+    creator.update_draft = AsyncMock(return_value=None)
+    creator.create_oauth_app = AsyncMock(return_value="oauth-uuid")
+    creator.attach_oauth = AsyncMock(return_value=None)
+    creator.request_deploy = AsyncMock(return_value=None)
+    return creator
+
+
+def _fake_authenticator_factory(
+    *,
+    session: MagicMock | None = None,
+    fire_device_code: bool = True,
+) -> Any:
+    """Build an async-generator authenticator usable as *authenticator*.
+
+    ``fire_device_code=True`` causes the authenticator to synchronously
+    invoke ``on_device_code`` with a stub DeviceCodeSession so tests
+    can assert the signal-event callback is fired.
+    """
+    if session is None:
+        session = MagicMock(spec=aiohttp.ClientSession)
+
+    async def _auth(on_device_code, timeout):  # type: ignore[no-untyped-def]
+        if fire_device_code:
+            stub = MagicMock()
+            stub.user_code = "ABCD-1234"
+            stub.verification_url = "https://ya.ru/device"
+            on_device_code(stub)
+        _ = timeout
+        yield session
+
+    return _auth
+
+
+async def _run_orch(
+    *,
+    creator: AsyncMock,
+    connection_type: str = CONNECTION_TYPE_CLOUD_PLUS,
+    artifacts: SkillCreationArtifacts | None = None,
+    base_url: str = "https://ma.example.com",
+    cloud_instance_id: str = "inst-1",
+    direct_client_secret: str = "",
+    on_device_code: Any = None,
+    progress_cb: Any = None,
+) -> SkillCreationArtifacts:
+    """Run auto_create_skill with sensible test defaults.
+
+    Injects *creator* via ``creator_factory`` and a fake authenticator
+    so no real ya-passport-auth or aiohttp traffic is attempted.
+    """
+    mass = _mass_with_base_url(base_url)
+    return await auto_create_skill(
+        mass=mass,
+        connection_type=connection_type,
+        skill_name="Music Assistant",
+        artifacts=artifacts if artifacts is not None else SkillCreationArtifacts(),
+        cloud_instance_id=cloud_instance_id,
+        direct_client_secret=direct_client_secret,
+        logo_bytes=b"\x89PNG",
+        on_device_code=on_device_code or (lambda _s: None),
+        authenticator=_fake_authenticator_factory(),
+        creator_factory=lambda _s: creator,
+        progress_cb=progress_cb,
+    )
+
+
+class TestAutoCreateSkillHappyPath:
+    """auto_create_skill on a fresh artifact runs all steps to DONE."""
+
+    @pytest.mark.asyncio
+    async def test_fresh_artifact_reaches_done(self) -> None:
+        """A NONE-state artifact runs the full pipeline to DONE."""
+        creator = _make_creator_mock()
+        on_code_calls: list[Any] = []
+
+        result = await _run_orch(creator=creator, on_device_code=on_code_calls.append)
+
+        assert result.state == SkillCreationState.DONE
+        assert result.skill_id == "skill-uuid"
+        assert result.logo_id == "logo-uuid"
+        assert result.oauth_app_id == "oauth-uuid"
+        assert result.last_error is None
+
+        for method in (
+            creator.fetch_csrf,
+            creator.create_app,
+            creator.upload_logo,
+            creator.update_draft,
+            creator.create_oauth_app,
+            creator.attach_oauth,
+            creator.request_deploy,
+        ):
+            method.assert_awaited_once()
+
+        assert len(on_code_calls) == 1
+        assert on_code_calls[0].user_code == "ABCD-1234"
+
+    @pytest.mark.asyncio
+    async def test_progress_cb_invoked_after_each_step(self) -> None:
+        """progress_cb receives a snapshot after every state transition."""
+        creator = _make_creator_mock()
+        progress_calls: list[SkillCreationArtifacts] = []
+
+        async def _progress(a: SkillCreationArtifacts) -> None:
+            progress_calls.append(a)
+
+        await _run_orch(creator=creator, progress_cb=_progress)
+
+        observed_states = [a.state for a in progress_calls]
+        assert observed_states == [
+            SkillCreationState.APP_CREATED,
+            SkillCreationState.DRAFT_UPDATED,
+            SkillCreationState.OAUTH_CREATED,
+            SkillCreationState.OAUTH_ATTACHED,
+            SkillCreationState.DONE,
+        ]
+
+
+class TestAutoCreateSkillResume:
+    """Non-NONE artifacts skip completed steps."""
+
+    @pytest.mark.asyncio
+    async def test_resume_from_app_created(self) -> None:
+        """create_app is not re-called when a skill_id is already present."""
+        creator = _make_creator_mock()
+        starting = SkillCreationArtifacts(
+            state=SkillCreationState.APP_CREATED, skill_id="existing-skill"
+        )
+        result = await _run_orch(creator=creator, artifacts=starting)
+
+        creator.create_app.assert_not_awaited()
+        creator.upload_logo.assert_awaited_once()
+        assert result.skill_id == "existing-skill"
+        assert result.state == SkillCreationState.DONE
+
+    @pytest.mark.asyncio
+    async def test_resume_from_oauth_attached(self) -> None:
+        """A near-done artifact only needs request_deploy."""
+        creator = _make_creator_mock()
+        starting = SkillCreationArtifacts(
+            state=SkillCreationState.OAUTH_ATTACHED,
+            skill_id="s1",
+            logo_id="l1",
+            oauth_app_id="o1",
+        )
+        result = await _run_orch(creator=creator, artifacts=starting)
+
+        creator.create_app.assert_not_awaited()
+        creator.upload_logo.assert_not_awaited()
+        creator.update_draft.assert_not_awaited()
+        creator.create_oauth_app.assert_not_awaited()
+        creator.attach_oauth.assert_not_awaited()
+        creator.request_deploy.assert_awaited_once()
+        assert result.state == SkillCreationState.DONE
+
+    @pytest.mark.asyncio
+    async def test_resume_from_failed_restarts_pipeline(self) -> None:
+        """FAILED state is treated like NONE — full retry from create_app."""
+        creator = _make_creator_mock()
+        starting = SkillCreationArtifacts(
+            state=SkillCreationState.FAILED,
+            last_error="some earlier error",
+        )
+        result = await _run_orch(creator=creator, artifacts=starting)
+
+        creator.create_app.assert_awaited_once()
+        assert result.state == SkillCreationState.DONE
+        assert result.last_error is None
+
+
+class TestAutoCreateSkillFailure:
+    """Pipeline failures convert to FAILED state with preserved partial data."""
+
+    @pytest.mark.asyncio
+    async def test_failure_at_create_app_preserves_nothing(self) -> None:
+        """Duplicate-name error bubbles up as FAILED with no skill_id captured."""
+        creator = _make_creator_mock()
+        creator.create_app.side_effect = DialogsDuplicateSkillError(
+            "exists", step="create_app", http_status=409
+        )
+
+        result = await _run_orch(creator=creator)
+
+        assert result.state == SkillCreationState.FAILED
+        assert result.skill_id is None
+        assert "exists" in (result.last_error or "")
+
+    @pytest.mark.asyncio
+    async def test_failure_after_app_created_preserves_skill_id(self) -> None:
+        """A partial failure keeps the skill_id so retry resumes from DRAFT_UPDATED."""
+        creator = _make_creator_mock()
+        creator.upload_logo.side_effect = DialogsApiError(
+            "500", step="upload_logo", http_status=500
+        )
+
+        result = await _run_orch(creator=creator)
+
+        assert result.state == SkillCreationState.FAILED
+        assert result.skill_id == "skill-uuid"
+
+    @pytest.mark.asyncio
+    async def test_csrf_miss_becomes_failed_state(self) -> None:
+        """CSRF extraction failure doesn't crash — surfaces as FAILED."""
+        creator = _make_creator_mock()
+        creator.fetch_csrf.side_effect = DialogsCsrfError(
+            "secretkey not found", step="fetch_csrf"
+        )
+
+        result = await _run_orch(creator=creator)
+
+        assert result.state == SkillCreationState.FAILED
+        assert "secretkey" in (result.last_error or "")
+
+    @pytest.mark.asyncio
+    async def test_precondition_raises_unmodified(self) -> None:
+        """Preconditions raise ValueError so UI can show the exact message."""
+        with pytest.raises(ValueError, match="HTTPS"):
+            await _run_orch(
+                creator=_make_creator_mock(),
+                connection_type=CONNECTION_TYPE_DIRECT,
+                base_url="http://not-https.example.com",
+                direct_client_secret="secret",
+            )
+
+    @pytest.mark.asyncio
+    async def test_progress_cb_exception_does_not_abort(self) -> None:
+        """If the config-save callback raises, the pipeline still reaches DONE."""
+
+        async def _boom(_a: SkillCreationArtifacts) -> None:
+            msg = "cannot write config"
+            raise RuntimeError(msg)
+
+        result = await _run_orch(creator=_make_creator_mock(), progress_cb=_boom)
+        assert result.state == SkillCreationState.DONE
+
+
+class TestAutoCreateSkillDirectMode:
+    """Direct mode wires the MA webserver URLs into the payloads."""
+
+    @pytest.mark.asyncio
+    async def test_direct_mode_passes_ma_base_to_draft(self) -> None:
+        """Backend URL and auth URLs must use the MA webserver base URL."""
+        creator = _make_creator_mock()
+        await _run_orch(
+            creator=creator,
+            connection_type=CONNECTION_TYPE_DIRECT,
+            base_url="https://ma.example.com",
+            cloud_instance_id="",
+            direct_client_secret="my-secret",
+        )
+
+        draft_payload = creator.update_draft.call_args.args[2]
+        assert (
+            draft_payload["backendSettings"]["uri"]
+            == "https://ma.example.com/api/yandex_smarthome/v1.0"
+        )
+        oauth_call = creator.create_oauth_app.call_args
+        assert oauth_call.kwargs["client_id"] == "https://social.yandex.net/"
+        assert oauth_call.kwargs["client_secret"] == "my-secret"
+        assert (
+            oauth_call.kwargs["authorize_url"]
+            == "https://ma.example.com/api/yandex_smarthome/auth/authorize"
+        )

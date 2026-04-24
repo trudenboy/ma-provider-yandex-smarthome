@@ -30,17 +30,21 @@ The CSRF token (returned by ``fetch_csrf``) must be passed as the
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import logging
 import re
+from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any
 
 import aiohttp
 
+from .auto_skill_state import SkillCreationArtifacts, SkillCreationState
 from .constants import (
     CLOUD_OAUTH_AUTHORIZE_URL,
     CLOUD_OAUTH_TOKEN_URL,
     CLOUD_SKILL_CLIENT_ID_TEMPLATE,
+    CLOUD_SKILL_CLIENT_SECRET,
     CLOUD_SKILL_WEBHOOK_TEMPLATE,
     CONNECTION_TYPE_CLOUD_PLUS,
     CONNECTION_TYPE_DIRECT,
@@ -50,11 +54,12 @@ from .constants import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 
     from music_assistant.mass import MusicAssistant
 
 __all__ = [
+    "DEVICE_FLOW_TIMEOUT_SECONDS",
     "DIALOGS_API_BASE",
     "DIALOGS_CSRF_REGEX",
     "DIALOGS_DEV_BASE",
@@ -63,6 +68,7 @@ __all__ = [
     "DialogsCsrfError",
     "DialogsDuplicateSkillError",
     "DialogsSkillCreator",
+    "auto_create_skill",
     "build_draft_payload",
     "build_oauth_app_payload",
     "check_preconditions",
@@ -698,3 +704,299 @@ def check_preconditions(
         "use cloud_plus or direct."
     )
     raise ValueError(msg)
+
+
+# ---------------------------------------------------------------------------
+# Orchestrator: device flow + resumable pipeline
+# ---------------------------------------------------------------------------
+
+DEVICE_FLOW_TIMEOUT_SECONDS = 300.0
+"""Hard cap on how long we'll wait for the user to enter the code."""
+
+
+async def _default_authenticator(
+    *,
+    on_device_code: Callable[[Any], None],
+    timeout: float,
+) -> AsyncIterator[aiohttp.ClientSession]:
+    """Real-world authentication path — runs Device Flow and yields a session.
+
+    Extracted as a function so tests can swap in a fake authenticator
+    without touching production network code. The import of
+    ``ya_passport_auth`` happens lazily inside the function so unit
+    tests that inject their own authenticator don't need the library
+    installed.
+    """
+    from ya_passport_auth import ClientConfig, PassportClient  # noqa: PLC0415
+    from ya_passport_auth.config import DEFAULT_ALLOWED_HOSTS  # noqa: PLC0415
+
+    allowed = DEFAULT_ALLOWED_HOSTS | frozenset({"dialogs.yandex.ru"})
+    config = ClientConfig(allowed_hosts=allowed)
+
+    async with PassportClient.create(config=config) as client:
+        creds = await client.login_device_code(
+            on_code=on_device_code,
+            total_timeout=timeout,
+        )
+        await client.refresh_passport_cookies(creds.x_token)
+        yield client._session
+
+
+def _build_authenticator_cm(
+    authenticator: Callable[..., AsyncIterator[aiohttp.ClientSession]],
+    on_device_code: Callable[[Any], None],
+    timeout: float,
+) -> Any:
+    """Wrap *authenticator* so it supports ``async with`` uniformly.
+
+    The default implementation is a plain async generator; tests may
+    pass either a generator or an already-decorated
+    ``@asynccontextmanager``. ``asynccontextmanager`` is idempotent on
+    an already-decorated callable, so we wrap unconditionally.
+    """
+    cm_factory = asynccontextmanager(authenticator)
+    return cm_factory(on_device_code=on_device_code, timeout=timeout)
+
+
+async def auto_create_skill(  # noqa: PLR0913
+    *,
+    mass: MusicAssistant,
+    connection_type: str,
+    skill_name: str,
+    artifacts: SkillCreationArtifacts,
+    cloud_instance_id: str,
+    direct_client_secret: str,
+    logo_bytes: bytes,
+    on_device_code: Callable[[Any], None],
+    progress_cb: Callable[[SkillCreationArtifacts], Awaitable[None]] | None = None,
+    authenticator: Callable[..., AsyncIterator[aiohttp.ClientSession]] | None = None,
+    creator_factory: Callable[[aiohttp.ClientSession], DialogsSkillCreator] | None = None,
+    timeout: float = DEVICE_FLOW_TIMEOUT_SECONDS,
+    developer_name: str = "Music Assistant user",
+) -> SkillCreationArtifacts:
+    """End-to-end flow: Device Flow → passport cookies → skill pipeline.
+
+    Resumes from ``artifacts.state`` — steps that already completed
+    (skill_id present, etc.) are skipped. On any exception, returns
+    artifacts with ``state=FAILED`` and a human-readable ``last_error``
+    instead of re-raising, so the config-flow UI can render the message
+    without crashing.
+
+    ``progress_cb`` is invoked after each successful step with the
+    updated artifacts; the caller uses it to persist state to MA config
+    so a subsequent retry resumes from the latest completed step.
+
+    ``authenticator`` and ``creator_factory`` are injection points for
+    tests; production callers leave them as ``None`` to use the real
+    Device Flow and a real :class:`DialogsSkillCreator`.
+    """
+    # Precondition failures surface unmodified (caller decides message).
+    check_preconditions(
+        connection_type=connection_type,
+        mass=mass,
+        cloud_instance_id=cloud_instance_id,
+        direct_client_secret=direct_client_secret,
+    )
+
+    auth_fn = authenticator or _default_authenticator
+    creator_fn = creator_factory or DialogsSkillCreator
+
+    try:
+        async with _build_authenticator_cm(
+            auth_fn, on_device_code, timeout
+        ) as session:
+            creator = creator_fn(session)
+            return await _run_pipeline_with_recovery(
+                creator=creator,
+                artifacts=artifacts,
+                connection_type=connection_type,
+                skill_name=skill_name,
+                cloud_instance_id=cloud_instance_id,
+                direct_client_secret=direct_client_secret,
+                logo_bytes=logo_bytes,
+                mass=mass,
+                developer_name=developer_name,
+                progress_cb=progress_cb,
+            )
+    except ValueError:
+        raise
+    except Exception as exc:
+        _LOGGER.exception("auto-create hit unexpected error")
+        return dataclasses.replace(
+            artifacts, state=SkillCreationState.FAILED, last_error=repr(exc)
+        )
+
+
+async def _run_pipeline_with_recovery(
+    *,
+    creator: DialogsSkillCreator,
+    artifacts: SkillCreationArtifacts,
+    connection_type: str,
+    skill_name: str,
+    cloud_instance_id: str,
+    direct_client_secret: str,
+    logo_bytes: bytes,
+    mass: MusicAssistant,
+    developer_name: str,
+    progress_cb: Callable[[SkillCreationArtifacts], Awaitable[None]] | None,
+) -> SkillCreationArtifacts:
+    """Fetch CSRF and run the pipeline, preserving partial state on failure.
+
+    Holds a ``current`` reference that ``_execute_pipeline`` updates via
+    ``progress_cb``, so a mid-pipeline raise lets us surface whatever
+    progress was captured (skill_id / logo_id / oauth_app_id) as a
+    FAILED artifact instead of losing it.
+    """
+    current = artifacts
+
+    async def _track(a: SkillCreationArtifacts) -> None:
+        nonlocal current
+        current = a
+        if progress_cb is not None:
+            await progress_cb(a)
+
+    try:
+        csrf = await creator.fetch_csrf()
+        return await _execute_pipeline(
+            creator=creator,
+            csrf=csrf,
+            artifacts=artifacts,
+            connection_type=connection_type,
+            skill_name=skill_name,
+            cloud_instance_id=cloud_instance_id,
+            direct_client_secret=direct_client_secret,
+            logo_bytes=logo_bytes,
+            mass=mass,
+            developer_name=developer_name,
+            progress_cb=_track,
+        )
+    except DialogsApiError as exc:
+        _LOGGER.warning(
+            "auto-create failed at %s: %s", exc.step, exc, exc_info=True
+        )
+        return dataclasses.replace(
+            current, state=SkillCreationState.FAILED, last_error=str(exc)
+        )
+
+
+async def _execute_pipeline(  # noqa: PLR0913
+    *,
+    creator: DialogsSkillCreator,
+    csrf: str,
+    artifacts: SkillCreationArtifacts,
+    connection_type: str,
+    skill_name: str,
+    cloud_instance_id: str,
+    direct_client_secret: str,
+    logo_bytes: bytes,
+    mass: MusicAssistant,
+    developer_name: str,
+    progress_cb: Callable[[SkillCreationArtifacts], Awaitable[None]] | None,
+) -> SkillCreationArtifacts:
+    """Advance through states sequentially, skipping completed steps."""
+    state = artifacts.state
+
+    # -- Step 3: create app --
+    if state in (SkillCreationState.NONE, SkillCreationState.FAILED):
+        new_skill_id = await creator.create_app(csrf, skill_name)
+        artifacts = dataclasses.replace(
+            artifacts,
+            state=SkillCreationState.APP_CREATED,
+            skill_id=new_skill_id,
+            last_error=None,
+        )
+        await _maybe_save(progress_cb, artifacts)
+        state = artifacts.state
+
+    if artifacts.skill_id is None:
+        msg = "internal error: skill_id missing after create_app"
+        raise RuntimeError(msg)
+    skill_id: str = artifacts.skill_id
+
+    # -- Step 4+5: upload logo and update draft (merged step) --
+    if state == SkillCreationState.APP_CREATED:
+        logo_id = artifacts.logo_id
+        if logo_id is None:
+            logo_id = await creator.upload_logo(csrf, skill_id, logo_bytes)
+            artifacts = dataclasses.replace(artifacts, logo_id=logo_id)
+
+        backend_uri = derive_backend_uri(mass, connection_type)
+        draft = build_draft_payload(
+            connection_type=connection_type,
+            skill_name=skill_name,
+            backend_uri=backend_uri,
+            logo_id=logo_id,
+            developer_name=developer_name,
+        )
+        await creator.update_draft(csrf, skill_id, draft)
+        artifacts = dataclasses.replace(
+            artifacts, state=SkillCreationState.DRAFT_UPDATED
+        )
+        await _maybe_save(progress_cb, artifacts)
+        state = artifacts.state
+
+    # -- Step 6: create OAuth app --
+    if state == SkillCreationState.DRAFT_UPDATED:
+        client_id = derive_client_id(connection_type, cloud_instance_id)
+        client_secret = (
+            CLOUD_SKILL_CLIENT_SECRET
+            if connection_type == CONNECTION_TYPE_CLOUD_PLUS
+            else direct_client_secret
+        )
+        authorize_url, token_url = derive_auth_urls(mass, connection_type)
+        oauth_app_id = await creator.create_oauth_app(
+            csrf,
+            name=skill_name,
+            client_id=client_id,
+            client_secret=client_secret,
+            authorize_url=authorize_url,
+            token_url=token_url,
+            refresh_url=token_url,
+        )
+        artifacts = dataclasses.replace(
+            artifacts,
+            state=SkillCreationState.OAUTH_CREATED,
+            oauth_app_id=oauth_app_id,
+        )
+        await _maybe_save(progress_cb, artifacts)
+        state = artifacts.state
+
+    if artifacts.oauth_app_id is None:
+        msg = "internal error: oauth_app_id missing after create_oauth_app"
+        raise RuntimeError(msg)
+    oauth_app_id_str: str = artifacts.oauth_app_id
+
+    # -- Step 7: attach OAuth app to skill --
+    if state == SkillCreationState.OAUTH_CREATED:
+        await creator.attach_oauth(csrf, skill_id, oauth_app_id_str)
+        artifacts = dataclasses.replace(
+            artifacts, state=SkillCreationState.OAUTH_ATTACHED
+        )
+        await _maybe_save(progress_cb, artifacts)
+        state = artifacts.state
+
+    # -- Step 8: publish --
+    if state in (
+        SkillCreationState.OAUTH_ATTACHED,
+        SkillCreationState.DEPLOY_REQUESTED,
+    ):
+        await creator.request_deploy(csrf, skill_id)
+        artifacts = dataclasses.replace(
+            artifacts, state=SkillCreationState.DONE
+        )
+        await _maybe_save(progress_cb, artifacts)
+
+    return artifacts
+
+
+async def _maybe_save(
+    progress_cb: Callable[[SkillCreationArtifacts], Awaitable[None]] | None,
+    artifacts: SkillCreationArtifacts,
+) -> None:
+    """Call ``progress_cb`` if provided, swallowing any save errors."""
+    if progress_cb is None:
+        return
+    try:
+        await progress_cb(artifacts)
+    except Exception:
+        _LOGGER.exception("progress_cb raised; continuing pipeline anyway")
