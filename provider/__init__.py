@@ -294,6 +294,10 @@ async def get_config_entries(
                 ConfigValueOption(title="Cloud Plus (private skill)", value="cloud_plus"),
                 ConfigValueOption(title="Direct (no relay, requires public URL)", value="direct"),
             ],
+            # Re-fetch the form immediately on dropdown change so the
+            # per-mode step builders swap in without requiring Save +
+            # reopen.
+            immediate_apply=True,
         ),
     ]
 
