@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.4.5] — 2026-04-24
+
+### Fixed
+- **Cloud Plus manual fallback no longer shows invalid Client ID before registration** — the cloud_plus Client ID embeds the yaha-cloud instance UUID; before the user registers, it was rendered as `yandex_smart_home:` (trailing colon, no UUID) and could mislead power users in Advanced view into creating a skill with broken account-linking. Manual fallback is now suppressed entirely for cloud_plus while `cloud_instance_id` is empty.
+
 ## [1.4.4] — 2026-04-24
 
 ### Fixed
