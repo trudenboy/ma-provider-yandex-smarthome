@@ -307,8 +307,7 @@ def _step1_register_entries(
             action=CONF_ACTION_REGISTER,
             action_label="Register with cloud",
             hidden=is_registered,
-            depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
+            # No depends_on — see note above action_auto_create.
             category=_CAT_STEP_1_REGISTER,
         ),
     ]
@@ -385,8 +384,9 @@ def _create_skill_step_entries(
             action=CONF_ACTION_AUTO_CREATE,
             action_label=_action_label(artifacts.state),
             hidden=not show_button,
-            depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value=connection_type,
+            # No depends_on — MA disables actions with unsaved-dependency
+            # fields until the user clicks Save, which breaks the flow.
+            # Visibility is already correctly gated via `hidden`.
             category=category,
         )
     )
@@ -654,8 +654,7 @@ def _step3_link_entries(
             description="Get a fresh one-time password to link with Yandex.",
             action=CONF_ACTION_GET_OTP,
             action_label="Get OTP code",
-            depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
+            # No depends_on — see note above action_auto_create.
             category=_CAT_STEP_3_LINK,
         ),
     ]

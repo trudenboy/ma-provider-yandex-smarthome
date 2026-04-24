@@ -384,8 +384,9 @@ def _cloud_mode_entries(
             action=CONF_ACTION_REGISTER,
             action_label="Register with cloud",
             hidden=is_registered,
-            depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value=CONNECTION_TYPE_CLOUD,
+            # No depends_on — MA disables actions with an unsaved
+            # dependency value until the user clicks Save, which breaks
+            # the flow right after picking a connection type.
         ),
         ConfigEntry(
             key=CONF_ACTION_GET_OTP,
@@ -395,8 +396,6 @@ def _cloud_mode_entries(
             action=CONF_ACTION_GET_OTP,
             action_label="Get OTP code",
             hidden=not is_registered,
-            depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value=CONNECTION_TYPE_CLOUD,
         ),
     ]
 
