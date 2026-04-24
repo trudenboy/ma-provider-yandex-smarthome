@@ -294,10 +294,10 @@ async def get_config_entries(
                 ConfigValueOption(title="Cloud Plus (private skill)", value="cloud_plus"),
                 ConfigValueOption(title="Direct (no relay, requires public URL)", value="direct"),
             ],
-            # Re-fetch the form immediately on dropdown change so the
-            # per-mode step builders swap in without requiring Save +
-            # reopen.
-            immediate_apply=True,
+            # NOTE: immediate_apply produced glitchy mixed-mode renders
+            # (entries from old mode stayed on screen next to new ones),
+            # so users need Save + reopen after changing Connection
+            # Type. Kept here to stop someone re-adding it.
         ),
     ]
 
