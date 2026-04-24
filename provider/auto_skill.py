@@ -899,14 +899,17 @@ async def _default_authenticator(
 
         page_path = f"{_DEVICE_CODE_PAGE_PATH}/{session_id}"
         status_path = f"{page_path}/status"
-        base_url = str(mass.webserver.base_url).rstrip("/")
-        status_url = f"{base_url}{status_path}"
+        # Use relative paths so the browser resolves them against the
+        # origin it opened the popup on (e.g. http://localhost:8095),
+        # not against ``mass.webserver.base_url`` which inside Docker
+        # points at the container's internal interface IP — unreachable
+        # from the host browser.
         state = {"value": "pending"}
 
         page_html = _build_device_code_page(
             device_session.user_code,
             device_session.verification_url,
-            status_url,
+            status_path,
         )
 
         async def _serve_page(_request: web.Request) -> web.Response:
@@ -931,7 +934,7 @@ async def _default_authenticator(
         mass.webserver.register_dynamic_route(status_path, _serve_status, "GET")
         try:
             async with AuthenticationHelper(mass, session_id) as auth_helper:
-                auth_helper.send_url(f"{base_url}{page_path}")
+                auth_helper.send_url(page_path)
                 try:
                     creds = await client.poll_device_until_confirmed(
                         device_session,
