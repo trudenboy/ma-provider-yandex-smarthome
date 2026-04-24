@@ -254,6 +254,78 @@ async def test_session_id_forwarded_from_frontend(monkeypatch) -> None:  # type:
 
 
 @pytest.mark.asyncio
+async def test_auto_create_prefers_saved_direct_secret(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """SECURE_STRING client secret: saved_config beats empty ``values`` on re-open.
+
+    On re-open MA does not echo SECURE_STRING values back into ``values``,
+    so reading from ``values`` alone would pass an empty secret into the
+    orchestrator. The helper must pull it from the persisted provider
+    config instead.
+    """
+    captured: dict[str, Any] = {}
+
+    async def _capture(**kwargs: Any) -> SkillCreationArtifacts:
+        captured["direct_client_secret"] = kwargs.get("direct_client_secret")
+        return SkillCreationArtifacts(state=SkillCreationState.DONE, skill_id="s")
+
+    monkeypatch.setattr(provider_module, "auto_create_skill", _capture)
+
+    mass = _make_mass()
+    saved_cfg = MagicMock()
+    saved_cfg.get_value.side_effect = lambda key: (
+        "persisted-secret" if key == CONF_DIRECT_CLIENT_SECRET else None
+    )
+    prov = MagicMock()
+    prov.config = saved_cfg
+    mass.get_provider.return_value = prov
+
+    # Frontend re-open: SECURE_STRING not echoed back -> values has no secret.
+    values: dict[str, Any] = {
+        CONF_INSTANCE_NAME: "X",
+    }
+
+    await _handle_config_actions(
+        mass,
+        CONF_ACTION_AUTO_CREATE,
+        values,
+        instance_id="inst-42",
+        is_cloud_plus=False,
+        connection_type=CONNECTION_TYPE_DIRECT,
+    )
+
+    assert captured["direct_client_secret"] == "persisted-secret"
+
+
+@pytest.mark.asyncio
+async def test_auto_create_falls_back_to_values_for_first_setup(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """First-time setup: no instance yet, secret is read from ``values``."""
+    captured: dict[str, Any] = {}
+
+    async def _capture(**kwargs: Any) -> SkillCreationArtifacts:
+        captured["direct_client_secret"] = kwargs.get("direct_client_secret")
+        return SkillCreationArtifacts(state=SkillCreationState.DONE, skill_id="s")
+
+    monkeypatch.setattr(provider_module, "auto_create_skill", _capture)
+
+    mass = _make_mass()  # get_provider returns None
+    values: dict[str, Any] = {
+        CONF_INSTANCE_NAME: "X",
+        CONF_DIRECT_CLIENT_SECRET: "fresh-secret",
+    }
+
+    await _handle_config_actions(
+        mass,
+        CONF_ACTION_AUTO_CREATE,
+        values,
+        instance_id=None,
+        is_cloud_plus=False,
+        connection_type=CONNECTION_TYPE_DIRECT,
+    )
+
+    assert captured["direct_client_secret"] == "fresh-secret"
+
+
+@pytest.mark.asyncio
 async def test_existing_action_register_still_works(monkeypatch) -> None:  # type: ignore[no-untyped-def]
     """Gap-fill: pre-existing CONF_ACTION_REGISTER path is still covered."""
 

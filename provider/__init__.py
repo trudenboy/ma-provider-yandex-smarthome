@@ -106,6 +106,28 @@ async def setup(
     return YandexSmartHomePlugin(mass, manifest, config, SUPPORTED_FEATURES)
 
 
+def _resolve_direct_client_secret(
+    mass: MusicAssistant,
+    instance_id: str | None,
+    values: dict[str, ConfigValueType],
+) -> str:
+    """Return the direct-mode OAuth client secret for the current install.
+
+    `CONF_DIRECT_CLIENT_SECRET` is a SECURE_STRING: MA's frontend does
+    not echo saved secrets back into ``values`` on re-open, so reading
+    from ``values`` alone returns an empty string for existing instances.
+    Prefer the persisted value from saved config and fall back to
+    ``values`` only for first-time setup before any save.
+    """
+    if instance_id:
+        prov = mass.get_provider(instance_id)
+        if prov and prov.config:
+            saved = prov.config.get_value(CONF_DIRECT_CLIENT_SECRET)
+            if saved:
+                return str(saved)
+    return str(values.get(CONF_DIRECT_CLIENT_SECRET) or "")
+
+
 async def _handle_config_actions(
     mass: MusicAssistant,
     action: str | None,
@@ -155,7 +177,7 @@ async def _handle_config_actions(
     # in Step 3.
 
     if action == CONF_ACTION_AUTO_CREATE:
-        await _run_auto_create_action(mass, values, connection_type)
+        await _run_auto_create_action(mass, values, connection_type, instance_id)
 
     return otp_code
 
@@ -164,6 +186,7 @@ async def _run_auto_create_action(
     mass: MusicAssistant,
     values: dict[str, ConfigValueType],
     connection_type: str,
+    instance_id: str | None,
 ) -> None:
     """Execute the experimental auto-create-skill action.
 
@@ -188,7 +211,7 @@ async def _run_auto_create_action(
             skill_name=str(values.get(CONF_INSTANCE_NAME) or "Music Assistant"),
             artifacts=artifacts,
             cloud_instance_id=str(values.get(CONF_CLOUD_INSTANCE_ID, "")),
-            direct_client_secret=str(values.get(CONF_DIRECT_CLIENT_SECRET, "")),
+            direct_client_secret=_resolve_direct_client_secret(mass, instance_id, values),
             logo_bytes=load_default_logo_bytes(),
             session_id=session_id,
         )
@@ -334,9 +357,13 @@ async def get_config_entries(
     elif is_direct:
         # Pre-generate the per-install direct client secret once so it
         # survives round-trips (auto-skill pipeline reads it later).
-        if not values.get(CONF_DIRECT_CLIENT_SECRET):
-            values[CONF_DIRECT_CLIENT_SECRET] = uuid.uuid4().hex
-        direct_secret = str(values[CONF_DIRECT_CLIENT_SECRET])
+        # SECURE_STRING is not echoed back into ``values`` on re-open,
+        # so prefer the persisted value from saved config first and
+        # only mint a fresh UUID on true first-time setup.
+        direct_secret = _resolve_direct_client_secret(mass, instance_id, values)
+        if not direct_secret:
+            direct_secret = uuid.uuid4().hex
+            values[CONF_DIRECT_CLIENT_SECRET] = direct_secret
         entries.extend(
             build_direct_entries(
                 artifacts=artifacts,
