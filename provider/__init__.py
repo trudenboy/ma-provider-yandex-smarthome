@@ -285,7 +285,9 @@ async def get_config_entries(
             description=(
                 '"cloud" — public Yaha Cloud skill (simple setup). '
                 '"cloud_plus" — private skill via cloud relay (for multi-platform setups). '
-                '"direct" — Yandex calls your MA server directly (requires public HTTPS URL).'
+                '"direct" — Yandex calls your MA server directly (requires public HTTPS URL). '
+                'After changing this, click Save and reopen the settings to see the '
+                'fields for the new mode.'
             ),
             required=False,
             default_value=CONNECTION_TYPE_CLOUD,
