@@ -899,17 +899,22 @@ async def _default_authenticator(
 
         page_path = f"{_DEVICE_CODE_PAGE_PATH}/{session_id}"
         status_path = f"{page_path}/status"
-        # Use relative paths so the browser resolves them against the
-        # origin it opened the popup on (e.g. http://localhost:8095),
-        # not against ``mass.webserver.base_url`` which inside Docker
-        # points at the container's internal interface IP — unreachable
-        # from the host browser.
+        # MA frontend requires an absolute URL in signal_event(AUTH_SESSION,
+        # ...). The URL comes from mass.webserver.base_url which the user
+        # configures in Settings → Core → Webserver → Base URL. If they
+        # haven't touched it and MA is behind Docker/reverse-proxy, it may
+        # point at an unreachable internal address — the warning log below
+        # gives them the path so they can open it manually if the popup
+        # fails to load.
+        base_url = str(mass.webserver.base_url).rstrip("/")
+        status_url = f"{base_url}{status_path}"
+        page_url = f"{base_url}{page_path}"
         state = {"value": "pending"}
 
         page_html = _build_device_code_page(
             device_session.user_code,
             device_session.verification_url,
-            status_path,
+            status_url,
         )
 
         async def _serve_page(_request: web.Request) -> web.Response:
@@ -932,9 +937,18 @@ async def _default_authenticator(
 
         mass.webserver.register_dynamic_route(page_path, _serve_page, "GET")
         mass.webserver.register_dynamic_route(status_path, _serve_status, "GET")
+        _LOGGER.warning(
+            "auto-skill: device-code popup URL %s (path=%s, user_code=%s) "
+            "— if the popup does not open or points at an unreachable "
+            "address, open the path directly in your browser or fix "
+            "Settings → Core → Webserver → Base URL",
+            page_url,
+            page_path,
+            device_session.user_code,
+        )
         try:
             async with AuthenticationHelper(mass, session_id) as auth_helper:
-                auth_helper.send_url(page_path)
+                auth_helper.send_url(page_url)
                 try:
                     creds = await client.poll_device_until_confirmed(
                         device_session,
