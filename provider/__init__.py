@@ -358,6 +358,23 @@ def _cloud_mode_entries(
 ) -> list[ConfigEntry]:
     """Public-cloud mode: simple register + get-OTP flow."""
     return [
+        # Advisory — the public Yaha Cloud skill can only be linked to one
+        # instance per Yandex account, so users who already set up Yaha
+        # Cloud in Home Assistant (or another MA install) need Cloud Plus.
+        # There's no pre-flight API to detect this, so the warning is
+        # static — cheaper than a failed OTP attempt.
+        ConfigEntry(
+            key="label_cloud_conflict_warning",
+            type=ConfigEntryType.LABEL,
+            label=(
+                "⚠️ If this Yandex account already uses the Yaha Cloud skill "
+                "via Home Assistant or another Music Assistant install, "
+                "pick 'Cloud Plus' above instead — the public skill can "
+                "only be linked to one instance per account."
+            ),
+            depends_on=CONF_CONNECTION_TYPE,
+            depends_on_value=CONNECTION_TYPE_CLOUD,
+        ),
         ConfigEntry(
             key="label_status",
             type=ConfigEntryType.LABEL,
