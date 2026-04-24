@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.4.1] — 2026-04-24
+
+### Fixed
+- **Upstream lint compliance** — drop duplicate module-docstring candidate in `auto_skill.py` (caught by `check-docstring-first`), tighten type annotations in UI/state tests to satisfy upstream mypy strict mode (no more `# type: ignore[no-untyped-def]` fallbacks; StrEnum comparisons now use `.value`).
+
 ## [1.4.0] — 2026-04-24
 
 ### Added
