@@ -224,12 +224,14 @@ class TestBuildCloudPlusEntries:
         keys = [e.key for e in entries]
         assert CONF_ACTION_REGISTER in keys
 
-    def test_step2_hidden_until_registered(self) -> None:
-        """Step 2 (Create skill) does not appear until Step 1 completes."""
+    def test_step2_button_inactive_until_registered(self) -> None:
+        """Step 2 fields are emitted, but the Create-Skill button is hidden."""
         entries = self._call(is_registered=False)
-        keys = [e.key for e in entries]
-        assert CONF_ACTION_AUTO_CREATE not in keys
-        assert CONF_SKILL_TOKEN not in keys
+        action = _find(list(entries), CONF_ACTION_AUTO_CREATE)
+        # Entry exists (so advanced users can see other Step 2 fields),
+        # but the action button self-hides without a cloud instance.
+        assert action is not None
+        assert action.hidden is True
 
     def test_step2_visible_after_register(self) -> None:
         """After register, Step 2 renders the auto-create action."""
@@ -363,8 +365,8 @@ class TestBuildDirectEntries:
         # field, plus the Backend URL with the MA base URL.
         backend = _find(list(entries), "manual_backend_url")
         assert backend is not None
-        assert "ma.example.com" in str(backend.value)
-        assert "/api/yandex_smarthome/v1.0" in str(backend.value)
+        assert "ma.example.com" in str(backend.default_value)
+        assert "/api/yandex_smarthome/v1.0" in str(backend.default_value)
 
     def test_skill_id_field_shown_on_done(self) -> None:
         """Skill ID input field is surfaced (non-advanced) on DONE."""

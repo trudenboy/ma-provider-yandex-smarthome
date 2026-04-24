@@ -563,7 +563,11 @@ def _manual_fallback_entries(
             label="Backend URL (→ Basic info)",
             description="Copy to 'Basic info' → 'Backend URL' in your skill.",
             required=False,
-            value=backend_uri,
+            # Reference-only fields use default_value so MA UI renders
+            # the text without storing it as a mutable config value
+            # (``value=`` was returning empty on first render before the
+            # user clicked Save).
+            default_value=backend_uri,
             advanced=advanced,
             depends_on=CONF_CONNECTION_TYPE,
             depends_on_value=connection_type,
@@ -575,7 +579,7 @@ def _manual_fallback_entries(
             label="Client ID (→ Account linking)",
             description="Copy to 'Account linking' → 'Client identifier' field.",
             required=False,
-            value=client_id,
+            default_value=client_id,
             advanced=advanced,
             depends_on=CONF_CONNECTION_TYPE,
             depends_on_value=connection_type,
@@ -588,7 +592,7 @@ def _manual_fallback_entries(
             label="Client Secret value (for reference)",
             description="Copy this string into 'Account linking' → 'Client secret'.",
             required=False,
-            value=client_secret,
+            default_value=client_secret,
             advanced=advanced,
             depends_on=CONF_CONNECTION_TYPE,
             depends_on_value=connection_type,
@@ -599,7 +603,7 @@ def _manual_fallback_entries(
             type=ConfigEntryType.STRING,
             label="Authorization URL (→ Account linking)",
             required=False,
-            value=auth_url,
+            default_value=auth_url,
             advanced=advanced,
             depends_on=CONF_CONNECTION_TYPE,
             depends_on_value=connection_type,
@@ -611,7 +615,7 @@ def _manual_fallback_entries(
             label="Token URL (→ Account linking, both fields)",
             description="Paste into BOTH 'Token endpoint' and 'Refresh token URL'.",
             required=False,
-            value=token_url,
+            default_value=token_url,
             advanced=advanced,
             depends_on=CONF_CONNECTION_TYPE,
             depends_on_value=connection_type,
@@ -622,16 +626,21 @@ def _manual_fallback_entries(
 
 def _step2_create_skill_entries(
     *,
-    is_registered: bool,
+    is_registered: bool,  # noqa: ARG001 — kept for call-site symmetry
     cloud_instance_id: str,
     artifacts: SkillCreationArtifacts,
     user_code: str | None,
     verification_url: str | None,
     base_url: str,
 ) -> list[ConfigEntry]:
-    """cloud_plus Step 2 — hidden until Step 1 (register) is done."""
-    if not is_registered:
-        return []
+    """cloud_plus Step 2 — always emitted.
+
+    The Create-Skill action button self-hides via ``should_show_button``
+    when no cloud instance exists yet, but the section's other fields
+    (status label + advanced manual-setup references) stay visible so
+    power users can see everything under Advanced without first going
+    through the register step.
+    """
     return _create_skill_step_entries(
         connection_type=CONNECTION_TYPE_CLOUD_PLUS,
         category=_CAT_STEP_2_CREATE,
