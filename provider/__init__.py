@@ -331,19 +331,9 @@ async def get_config_entries(
                 direct_client_secret=direct_secret,
             )
         )
-        # Keep the direct client secret in the config as a hidden field
-        # unless it's already surfaced via the manual fallback block.
-        if artifacts.state != SkillCreationState.FAILED:
-            entries.append(
-                ConfigEntry(
-                    key=CONF_DIRECT_CLIENT_SECRET,
-                    type=ConfigEntryType.SECURE_STRING,
-                    label="Direct Client Secret (internal)",
-                    hidden=True,
-                    required=False,
-                    default_value=direct_secret,
-                )
-            )
+        # NB: CONF_DIRECT_CLIENT_SECRET is now emitted by the manual
+        # fallback block (advanced/hidden per state), so we don't add a
+        # duplicate hidden round-trip entry here.
 
     # -- Tail: player filter + hidden round-trip fields (all modes) --
     entries.extend(_common_tail_entries(player_options, values))

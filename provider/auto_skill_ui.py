@@ -393,21 +393,25 @@ def _create_skill_step_entries(
         )
     )
 
-    # Manual-fallback copy-paste fields — shown on FAILED so the user
-    # can create the skill in Yandex.Dialogs by hand without leaving
-    # the form. Hidden on every other state.
-    if artifacts.state == SkillCreationState.FAILED:
-        entries.extend(
-            _manual_fallback_entries(
-                connection_type=connection_type,
-                category=category,
-                cloud_instance_id=cloud_instance_id,
-                base_url=base_url,
-                direct_client_secret=direct_client_secret,
-            )
+    # Manual-fallback copy-paste fields — always emitted so advanced
+    # users can edit them, but on any state other than FAILED they're
+    # marked ``advanced=True`` so default view stays clean. On FAILED
+    # they show up unconditionally (auto-fallback UX).
+    entries.extend(
+        _manual_fallback_entries(
+            connection_type=connection_type,
+            category=category,
+            cloud_instance_id=cloud_instance_id,
+            base_url=base_url,
+            direct_client_secret=direct_client_secret,
+            advanced=artifacts.state != SkillCreationState.FAILED,
         )
+    )
 
-    show_token_fields = artifacts.state in (
+    # Skill ID / Skill OAuth Token / OAuth URL — the actual fields the
+    # provider needs at runtime. Auto-shown once auto-create reached
+    # DONE or FAILED; always available for advanced users.
+    token_fields_advanced = artifacts.state not in (
         SkillCreationState.DONE,
         SkillCreationState.FAILED,
     )
@@ -424,7 +428,7 @@ def _create_skill_step_entries(
                 required=False,
                 default_value=YANDEX_OAUTH_URL,
                 help_link=YANDEX_OAUTH_URL,
-                hidden=not show_token_fields,
+                advanced=token_fields_advanced,
                 depends_on=CONF_CONNECTION_TYPE,
                 depends_on_value=connection_type,
                 category=category,
@@ -435,7 +439,7 @@ def _create_skill_step_entries(
                 label="Skill OAuth Token",
                 description="Paste the OAuth token obtained from the URL above.",
                 required=False,
-                hidden=not show_token_fields,
+                advanced=token_fields_advanced,
                 depends_on=CONF_CONNECTION_TYPE,
                 depends_on_value=connection_type,
                 category=category,
@@ -450,7 +454,7 @@ def _create_skill_step_entries(
                     "you created the skill by hand."
                 ),
                 required=False,
-                hidden=not show_token_fields,
+                advanced=token_fields_advanced,
                 depends_on=CONF_CONNECTION_TYPE,
                 depends_on_value=connection_type,
                 category=category,
@@ -468,8 +472,18 @@ def _manual_fallback_entries(
     cloud_instance_id: str,
     base_url: str,
     direct_client_secret: str,
+    advanced: bool,
 ) -> list[ConfigEntry]:
-    """Copy-paste fields for creating the skill by hand when auto-create fails."""
+    """Copy-paste fields for creating the skill by hand.
+
+    ``advanced=True``  → hidden from the default view, shown when the
+    user toggles Advanced. Used when auto-create is expected to work
+    but power users still want to see/edit everything.
+
+    ``advanced=False`` → visible unconditionally. Used on FAILED state
+    so the user has everything they need to finish manually without
+    needing to click Advanced.
+    """
     if connection_type == CONNECTION_TYPE_CLOUD_PLUS:
         backend_uri = CLOUD_SKILL_WEBHOOK_TEMPLATE
         client_id = CLOUD_SKILL_CLIENT_ID_TEMPLATE.format(
@@ -488,6 +502,20 @@ def _manual_fallback_entries(
     else:
         return []
 
+    label_text = (
+        "Auto-create failed — you can create the skill by hand instead. "
+        "Open Yandex.Dialogs (link below), create a private Smart Home "
+        "skill, paste the values below into the skill's Basic info and "
+        "Account linking tabs, then put the skill UUID in the Skill ID "
+        "field below."
+        if not advanced
+        else (
+            "Manual setup values — copy these into Yandex.Dialogs if you "
+            "prefer to create the skill by hand, or want to verify what "
+            "auto-create used."
+        )
+    )
+
     # For direct mode, also surface the hidden generated secret as an
     # editable field so user can copy it.
     extra: list[ConfigEntry] = []
@@ -500,6 +528,7 @@ def _manual_fallback_entries(
                 description="Copy to 'Account linking' → 'Client secret' field.",
                 required=False,
                 default_value=direct_client_secret,
+                advanced=advanced,
                 depends_on=CONF_CONNECTION_TYPE,
                 depends_on_value=connection_type,
                 category=category,
@@ -510,13 +539,8 @@ def _manual_fallback_entries(
         ConfigEntry(
             key="manual_fallback_label",
             type=ConfigEntryType.LABEL,
-            label=(
-                "Auto-create failed — you can create the skill by hand instead. "
-                "Open Yandex.Dialogs (link below), create a private Smart Home "
-                "skill, paste the values below into the skill's Basic info and "
-                "Account linking tabs, then put the skill UUID in the Skill ID "
-                "field below."
-            ),
+            label=label_text,
+            advanced=advanced,
             depends_on=CONF_CONNECTION_TYPE,
             depends_on_value=connection_type,
             category=category,
@@ -528,6 +552,7 @@ def _manual_fallback_entries(
             required=False,
             default_value=YANDEX_DIALOGS_DEVELOPER_URL,
             help_link=YANDEX_DIALOGS_DEVELOPER_URL,
+            advanced=advanced,
             depends_on=CONF_CONNECTION_TYPE,
             depends_on_value=connection_type,
             category=category,
@@ -539,6 +564,7 @@ def _manual_fallback_entries(
             description="Copy to 'Basic info' → 'Backend URL' in your skill.",
             required=False,
             value=backend_uri,
+            advanced=advanced,
             depends_on=CONF_CONNECTION_TYPE,
             depends_on_value=connection_type,
             category=category,
@@ -550,6 +576,7 @@ def _manual_fallback_entries(
             description="Copy to 'Account linking' → 'Client identifier' field.",
             required=False,
             value=client_id,
+            advanced=advanced,
             depends_on=CONF_CONNECTION_TYPE,
             depends_on_value=connection_type,
             category=category,
@@ -562,6 +589,7 @@ def _manual_fallback_entries(
             description="Copy this string into 'Account linking' → 'Client secret'.",
             required=False,
             value=client_secret,
+            advanced=advanced,
             depends_on=CONF_CONNECTION_TYPE,
             depends_on_value=connection_type,
             category=category,
@@ -572,6 +600,7 @@ def _manual_fallback_entries(
             label="Authorization URL (→ Account linking)",
             required=False,
             value=auth_url,
+            advanced=advanced,
             depends_on=CONF_CONNECTION_TYPE,
             depends_on_value=connection_type,
             category=category,
@@ -583,6 +612,7 @@ def _manual_fallback_entries(
             description="Paste into BOTH 'Token endpoint' and 'Refresh token URL'.",
             required=False,
             value=token_url,
+            advanced=advanced,
             depends_on=CONF_CONNECTION_TYPE,
             depends_on_value=connection_type,
             category=category,

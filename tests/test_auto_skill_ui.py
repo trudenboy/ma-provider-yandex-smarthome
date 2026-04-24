@@ -257,40 +257,46 @@ class TestBuildCloudPlusEntries:
         assert register.hidden is True
 
     def test_skill_token_shown_on_done(self) -> None:
-        """Skill OAuth Token input is revealed on DONE (happy path)."""
+        """Skill OAuth Token input is surfaced (non-advanced) on DONE."""
         entries = self._call(is_registered=True, state=SkillCreationState.DONE)
         token = _find(list(entries), CONF_SKILL_TOKEN)
         assert token is not None
-        assert token.hidden is False
+        assert getattr(token, "advanced", False) is False
 
     def test_skill_token_shown_on_failed(self) -> None:
-        """Skill OAuth Token input is also revealed on FAILED for manual entry."""
+        """Skill OAuth Token input is also surfaced on FAILED for manual entry."""
         entries = self._call(is_registered=True, state=SkillCreationState.FAILED)
         token = _find(list(entries), CONF_SKILL_TOKEN)
         assert token is not None
-        assert token.hidden is False
+        assert getattr(token, "advanced", False) is False
 
-    def test_skill_token_hidden_on_none(self) -> None:
-        """Before user interacts, the token field is hidden."""
+    def test_skill_token_advanced_on_none(self) -> None:
+        """Before user interacts, the token field is hidden behind Advanced."""
         entries = self._call(is_registered=True, state=SkillCreationState.NONE)
         token = _find(list(entries), CONF_SKILL_TOKEN)
         assert token is not None
-        assert token.hidden is True
+        assert getattr(token, "advanced", False) is True
 
     def test_manual_fallback_appears_on_failed(self) -> None:
-        """FAILED renders manual copy-paste fields inline."""
+        """FAILED renders manual copy-paste fields inline (non-advanced)."""
         entries = self._call(is_registered=True, state=SkillCreationState.FAILED)
         keys = [e.key for e in entries]
         assert "manual_backend_url" in keys
         assert "manual_client_id" in keys
         assert "manual_auth_url" in keys
         assert "manual_token_url" in keys
+        # On FAILED the block is NOT advanced — auto-visible
+        backend = _find(list(entries), "manual_backend_url")
+        assert getattr(backend, "advanced", False) is False
 
-    def test_manual_fallback_absent_on_done(self) -> None:
-        """Happy path does not show the manual fallback block."""
+    def test_manual_fallback_shown_under_advanced_on_done(self) -> None:
+        """Happy path keeps manual fields under Advanced (power-user visibility)."""
         entries = self._call(is_registered=True, state=SkillCreationState.DONE)
         keys = [e.key for e in entries]
-        assert "manual_backend_url" not in keys
+        # Still emitted — but advanced so the default view stays clean
+        assert "manual_backend_url" in keys
+        backend = _find(list(entries), "manual_backend_url")
+        assert getattr(backend, "advanced", False) is True
 
     def test_otp_code_appears_when_present(self) -> None:
         """OTP code field is visible once an OTP has been fetched."""
@@ -361,8 +367,8 @@ class TestBuildDirectEntries:
         assert "/api/yandex_smarthome/v1.0" in str(backend.value)
 
     def test_skill_id_field_shown_on_done(self) -> None:
-        """Skill ID input field is unhidden on DONE so user can verify/edit."""
+        """Skill ID input field is surfaced (non-advanced) on DONE."""
         entries = self._call(state=SkillCreationState.DONE)
         skill_id = _find(list(entries), CONF_SKILL_ID)
         assert skill_id is not None
-        assert skill_id.hidden is False
+        assert getattr(skill_id, "advanced", False) is False
