@@ -289,4 +289,6 @@ async def test_existing_action_register_still_works(monkeypatch) -> None:  # typ
     )
 
     assert values[CONF_CLOUD_INSTANCE_ID] == "inst-new"
-    assert otp == "111111"
+    # Register no longer auto-fetches OTP — that's a separate Step 3 action.
+    # The handler returns None because no OTP was requested.
+    assert otp is None

@@ -249,6 +249,7 @@ def build_cloud_plus_entries(
     verification_url: str | None,
     existing_artifacts_raw: str | None,
     base_url: str,
+    skill_id_set: bool = False,
 ) -> list[ConfigEntry]:
     """Return the cloud_plus-mode config entries as three visible steps.
 
@@ -272,6 +273,7 @@ def build_cloud_plus_entries(
         _step3_link_entries(
             is_registered=is_registered,
             otp_code=otp_code,
+            skill_id_set=skill_id_set,
         )
     )
     entries.extend(_hidden_state_entries(existing_artifacts_raw, session_id))
@@ -612,25 +614,32 @@ def _step2_create_skill_entries(
 
 
 def _step3_link_entries(
-    *, is_registered: bool, otp_code: str | None
+    *, is_registered: bool, otp_code: str | None, skill_id_set: bool = False
 ) -> list[ConfigEntry]:
     """Step 3 — get an OTP from the cloud and enter it in the Yandex app."""
     if not is_registered:
         return []  # whole step hidden until Step 1 done
 
+    # Banner priority: fresh OTP > linked (skill configured) > default prompt.
+    if otp_code:
+        banner_text = f"Enter this OTP in the Yandex app: {otp_code}"
+    elif skill_id_set:
+        banner_text = (
+            "✅ Cloud instance linked. Press 'Get OTP code' to re-link in "
+            "the Yandex app if you ever unlinked the skill."
+        )
+    else:
+        banner_text = (
+            "Press 'Get OTP code' to receive a short code, then "
+            "open Yandex app → Devices → Add device → Smart Home → "
+            "find your private skill → enter the code to link."
+        )
+
     entries: list[ConfigEntry] = [
         ConfigEntry(
             key="label_step3_status",
             type=ConfigEntryType.LABEL,
-            label=(
-                f"Enter this OTP in the Yandex app: {otp_code}"
-                if otp_code
-                else (
-                    "Press 'Get OTP code' to receive a short code, then "
-                    "open Yandex app → Devices → Add device → Smart Home → "
-                    "find your private skill → enter the code to link."
-                )
-            ),
+            label=banner_text,
             depends_on=CONF_CONNECTION_TYPE,
             depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
             category=_CAT_STEP_3_LINK,

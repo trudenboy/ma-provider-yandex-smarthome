@@ -147,15 +147,11 @@ async def _handle_config_actions(
             except Exception:
                 _LOGGER.exception("Failed to get OTP code")
 
-    if action == CONF_ACTION_REGISTER and not otp_code:
-        cloud_id = str(values.get(CONF_CLOUD_INSTANCE_ID, ""))
-        cloud_token = str(values.get(CONF_CLOUD_CONNECTION_TOKEN, ""))
-        if cloud_id and cloud_token:
-            try:
-                async with aiohttp.ClientSession() as session:
-                    otp_code = await get_cloud_otp(session, cloud_id, SecretStr(cloud_token))
-            except Exception:
-                _LOGGER.exception("Failed to get OTP after registration")
+    # NOTE: the old flow used to auto-fetch OTP right after Register so
+    # the user saw the code immediately. In the 3-step cloud_plus flow
+    # (Register → Create skill → Get OTP), that leaks the OTP into Step 1.
+    # OTP is now fetched only when the user explicitly presses Get OTP
+    # in Step 3.
 
     if action == CONF_ACTION_AUTO_CREATE:
         await _run_auto_create_action(mass, values, connection_type)
@@ -315,6 +311,7 @@ async def get_config_entries(
                 verification_url=None,
                 existing_artifacts_raw=artifacts_str,
                 base_url=ma_base_url_for_ui,
+                skill_id_set=bool(values.get(CONF_SKILL_ID)),
             )
         )
     elif is_direct:
