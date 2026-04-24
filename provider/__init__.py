@@ -277,6 +277,17 @@ async def get_config_entries(
             required=False,
             default_value="Music Assistant",
         ),
+        # Save-and-reopen notice — the form doesn't re-render on
+        # dropdown change, so the user has to Save + reopen to see
+        # the next mode's fields.
+        ConfigEntry(
+            key="label_connection_type_notice",
+            type=ConfigEntryType.LABEL,
+            label=(
+                "ℹ️ After changing Connection Type below, click Save and "
+                "reopen this settings page to see the fields for the new mode."
+            ),
+        ),
         # Connection type selector
         ConfigEntry(
             key=CONF_CONNECTION_TYPE,
@@ -285,9 +296,7 @@ async def get_config_entries(
             description=(
                 '"cloud" — public Yaha Cloud skill (simple setup). '
                 '"cloud_plus" — private skill via cloud relay (for multi-platform setups). '
-                '"direct" — Yandex calls your MA server directly (requires public HTTPS URL). '
-                'After changing this, click Save and reopen the settings to see the '
-                'fields for the new mode.'
+                '"direct" — Yandex calls your MA server directly (requires public HTTPS URL).'
             ),
             required=False,
             default_value=CONNECTION_TYPE_CLOUD,
