@@ -35,6 +35,7 @@ import json
 import logging
 import re
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import aiohttp
@@ -75,6 +76,7 @@ __all__ = [
     "derive_auth_urls",
     "derive_backend_uri",
     "derive_client_id",
+    "load_default_logo_bytes",
 ]
 
 _LOGGER = logging.getLogger(__name__)
@@ -987,6 +989,27 @@ async def _execute_pipeline(  # noqa: PLR0913
         await _maybe_save(progress_cb, artifacts)
 
     return artifacts
+
+
+# Minimal 1x1 transparent PNG — used when the packaged logo is missing
+# (e.g. during unit tests before the asset commit lands). Real installs
+# pick up provider/auto_skill_logo.png instead.
+_FALLBACK_LOGO_PNG = bytes.fromhex(
+    "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489"
+    "0000000d49444154789c6300010000050001d0a0c9a30000000049454e44ae426082"
+)
+
+
+def load_default_logo_bytes() -> bytes:
+    """Return PNG bytes for the skill logo.
+
+    Reads ``provider/auto_skill_logo.png`` if it exists; otherwise
+    returns a 1x1 transparent PNG so tests can run without the asset.
+    """
+    path = Path(__file__).parent / "auto_skill_logo.png"
+    if path.is_file():
+        return path.read_bytes()
+    return _FALLBACK_LOGO_PNG
 
 
 async def _maybe_save(

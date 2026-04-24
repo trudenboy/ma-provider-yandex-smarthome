@@ -16,15 +16,27 @@ Reference: https://github.com/dext0r/yandex_smart_home
 
 from __future__ import annotations
 
+import contextlib
+import dataclasses
 import logging
 import uuid
 from typing import TYPE_CHECKING, cast
 
 import aiohttp
 from music_assistant_models.config_entries import ConfigEntry, ConfigValueOption
-from music_assistant_models.enums import ConfigEntryType, ProviderFeature
+from music_assistant_models.enums import ConfigEntryType, EventType, ProviderFeature
 
 from ._compat import SecretStr
+from .auto_skill import (
+    auto_create_skill,
+    load_default_logo_bytes,
+)
+from .auto_skill_state import (
+    SkillCreationState,
+    dump_artifacts,
+    load_artifacts,
+)
+from .auto_skill_ui import auto_create_entries
 from .cloud import get_cloud_otp, register_cloud_instance
 from .constants import (
     CLOUD_OAUTH_AUTHORIZE_URL,
@@ -32,14 +44,18 @@ from .constants import (
     CLOUD_SKILL_CLIENT_ID_TEMPLATE,
     CLOUD_SKILL_CLIENT_SECRET,
     CLOUD_SKILL_WEBHOOK_TEMPLATE,
+    CONF_ACTION_AUTO_CREATE,
     CONF_ACTION_GET_OTP,
     CONF_ACTION_REGISTER,
+    CONF_AUTO_CREATE_ARTIFACTS,
+    CONF_AUTO_CREATE_SESSION_ID,
     CONF_CLOUD_CONNECTION_TOKEN,
     CONF_CLOUD_INSTANCE_ID,
     CONF_CLOUD_INSTANCE_PASSWORD,
     CONF_CONNECTION_TYPE,
     CONF_DIRECT_ACCESS_TOKEN,
     CONF_DIRECT_CLIENT_SECRET,
+    CONF_EXPERIMENTAL_AUTO_CREATE_SKILL,
     CONF_EXPOSED_PLAYERS,
     CONF_INSTANCE_NAME,
     CONF_SKILL_ID,
@@ -126,8 +142,9 @@ async def _handle_config_actions(
     values: dict[str, ConfigValueType],
     instance_id: str | None,
     is_cloud_plus: bool,
+    connection_type: str,
 ) -> str | None:
-    """Execute register/OTP actions and return OTP code if obtained."""
+    """Execute config-flow actions and return OTP code if obtained."""
     saved_config = None
     if instance_id:
         prov = mass.get_provider(instance_id)
@@ -171,7 +188,78 @@ async def _handle_config_actions(
             except Exception:
                 _LOGGER.exception("Failed to get OTP after registration")
 
+    if action == CONF_ACTION_AUTO_CREATE:
+        await _run_auto_create_action(mass, values, connection_type)
+
     return otp_code
+
+
+async def _run_auto_create_action(
+    mass: MusicAssistant,
+    values: dict[str, ConfigValueType],
+    connection_type: str,
+) -> None:
+    """Execute the experimental auto-create-skill action.
+
+    Never re-raises: all errors are persisted into the artifacts blob so
+    the UI can show a FAILED state on the next render rather than
+    crashing the config form.
+    """
+    session_id = str(values.get(CONF_AUTO_CREATE_SESSION_ID) or uuid.uuid4().hex)
+    values[CONF_AUTO_CREATE_SESSION_ID] = session_id
+    artifacts_raw = values.get(CONF_AUTO_CREATE_ARTIFACTS)
+    artifacts = load_artifacts(str(artifacts_raw) if artifacts_raw else None)
+
+    def _on_device_code(device_session: object) -> None:
+        # ya-passport-auth's DeviceCodeSession exposes user_code and
+        # verification_url; we push a URL with the code embedded so the
+        # popup in the MA frontend pre-fills it for the user.
+        user_code = getattr(device_session, "user_code", "")
+        verification_url = getattr(
+            device_session, "verification_url", "https://ya.ru/device"
+        )
+        full_url = (
+            f"{verification_url}?user_code={user_code}"
+            if user_code
+            else verification_url
+        )
+        try:
+            mass.signal_event(EventType.AUTH_SESSION, session_id, full_url)
+        except Exception:
+            _LOGGER.exception("signal_event for auto-create popup failed")
+
+    try:
+        new_artifacts = await auto_create_skill(
+            mass=mass,
+            connection_type=connection_type,
+            skill_name=str(values.get(CONF_INSTANCE_NAME) or "Music Assistant"),
+            artifacts=artifacts,
+            cloud_instance_id=str(values.get(CONF_CLOUD_INSTANCE_ID, "")),
+            direct_client_secret=str(values.get(CONF_DIRECT_CLIENT_SECRET, "")),
+            logo_bytes=load_default_logo_bytes(),
+            on_device_code=_on_device_code,
+        )
+    except ValueError as exc:
+        # Precondition failures come back here — surface as FAILED.
+        new_artifacts = dataclasses.replace(
+            artifacts,
+            state=SkillCreationState.FAILED,
+            last_error=str(exc),
+        )
+        _LOGGER.warning("auto-create precondition failed: %s", exc)
+    except Exception as exc:  # defensive — never crash the config form
+        new_artifacts = dataclasses.replace(
+            artifacts,
+            state=SkillCreationState.FAILED,
+            last_error=repr(exc),
+        )
+        _LOGGER.exception("auto-create hit unexpected error")
+
+    values[CONF_AUTO_CREATE_ARTIFACTS] = dump_artifacts(new_artifacts)
+    if new_artifacts.state == SkillCreationState.DONE and new_artifacts.skill_id:
+        # Only set CONF_SKILL_ID on full success so the runtime doesn't
+        # try to use a half-built skill mid-pipeline.
+        values[CONF_SKILL_ID] = new_artifacts.skill_id
 
 
 async def get_config_entries(
@@ -188,7 +276,31 @@ async def get_config_entries(
     is_cloud_plus = connection_type == CONNECTION_TYPE_CLOUD_PLUS
     is_direct = connection_type == CONNECTION_TYPE_DIRECT
 
-    otp_code = await _handle_config_actions(mass, action, values, instance_id, is_cloud_plus)
+    otp_code = await _handle_config_actions(
+        mass, action, values, instance_id, is_cloud_plus, connection_type
+    )
+
+    # Experimental auto-create-skill section — built separately and
+    # appended at the end of the returned tuple.
+    experimental_enabled = bool(values.get(CONF_EXPERIMENTAL_AUTO_CREATE_SKILL))
+    artifacts_raw = values.get(CONF_AUTO_CREATE_ARTIFACTS)
+    artifacts_str = str(artifacts_raw) if artifacts_raw else None
+    artifacts = load_artifacts(artifacts_str)
+    session_id = values.get(CONF_AUTO_CREATE_SESSION_ID)
+    ma_base_url_for_ui = ""
+    with contextlib.suppress(Exception):
+        ma_base_url_for_ui = str(mass.webserver.base_url)
+    auto_create_section = auto_create_entries(
+        connection_type=connection_type,
+        experimental_enabled=experimental_enabled,
+        artifacts=artifacts,
+        cloud_instance_id=str(values.get(CONF_CLOUD_INSTANCE_ID, "")),
+        base_url=ma_base_url_for_ui,
+        session_id=str(session_id) if session_id else None,
+        user_code=None,  # not shown in form — popup URL carries the code
+        verification_url=None,
+        existing_artifacts_raw=artifacts_str,
+    )
 
     is_registered = bool(values.get(CONF_CLOUD_INSTANCE_ID)) and bool(
         values.get(CONF_CLOUD_CONNECTION_TOKEN)
@@ -589,4 +701,6 @@ async def get_config_entries(
             required=False,
             value=(cast("str", values.get(CONF_DIRECT_ACCESS_TOKEN)) if values else None),
         ),
+        # --- Experimental auto-create-skill section (hidden for 'cloud' mode) ---
+        *auto_create_section,
     )
