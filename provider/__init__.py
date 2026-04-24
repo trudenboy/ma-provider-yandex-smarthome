@@ -36,14 +36,9 @@ from .auto_skill_state import (
     dump_artifacts,
     load_artifacts,
 )
-from .auto_skill_ui import auto_create_entries
+from .auto_skill_ui import auto_create_entries, build_cloud_plus_entries
 from .cloud import get_cloud_otp, register_cloud_instance
 from .constants import (
-    CLOUD_OAUTH_AUTHORIZE_URL,
-    CLOUD_OAUTH_TOKEN_URL,
-    CLOUD_SKILL_CLIENT_ID_TEMPLATE,
-    CLOUD_SKILL_CLIENT_SECRET,
-    CLOUD_SKILL_WEBHOOK_TEMPLATE,
     CONF_ACTION_AUTO_CREATE,
     CONF_ACTION_GET_OTP,
     CONF_ACTION_REGISTER,
@@ -106,25 +101,6 @@ def _build_status_label(otp_code: str | None, is_cloud_plus: bool, is_registered
     return (
         "Register a cloud instance to connect with Yandex Alice. "
         "This is free and uses the yaha-cloud.ru relay service (no public URL needed)."
-    )
-
-
-def _build_cloud_plus_label(is_cloud_plus: bool, is_registered: bool) -> str:
-    """Build the Cloud Plus instruction label."""
-    if not is_cloud_plus:
-        return ""
-    if is_registered:
-        return (
-            "Cloud Plus setup: "
-            "1) Open Yandex.Dialogs console (link below) → Smart Home → Create skill. "
-            "2) Fill 'Basic info': Backend URL = webhook URL below, Access = Private. "
-            "3) Save, then fill 'Account linking' section with values below. "
-            "4) Save & Publish. "
-            "5) Get OAuth token → enter skill_id and token → Save."
-        )
-    return (
-        "Cloud Plus mode requires a private skill in Yandex.Dialogs. "
-        "First register a cloud instance, then follow the setup instructions."
     )
 
 
@@ -259,6 +235,7 @@ async def get_config_entries(
         values = {}
 
     connection_type = str(values.get(CONF_CONNECTION_TYPE, CONNECTION_TYPE_CLOUD))
+    is_cloud = connection_type == CONNECTION_TYPE_CLOUD
     is_cloud_plus = connection_type == CONNECTION_TYPE_CLOUD_PLUS
     is_direct = connection_type == CONNECTION_TYPE_DIRECT
 
@@ -266,25 +243,16 @@ async def get_config_entries(
         mass, action, values, instance_id, is_cloud_plus, connection_type
     )
 
-    # Auto-create-skill section — built separately and appended at the
-    # end of the returned tuple.
+    # Auto-create-skill state — loaded once and threaded through the
+    # per-mode builders below.
     artifacts_raw = values.get(CONF_AUTO_CREATE_ARTIFACTS)
     artifacts_str = str(artifacts_raw) if artifacts_raw else None
     artifacts = load_artifacts(artifacts_str)
-    session_id = values.get(CONF_AUTO_CREATE_SESSION_ID)
+    session_id_val = values.get(CONF_AUTO_CREATE_SESSION_ID)
+    session_id_str = str(session_id_val) if session_id_val else None
     ma_base_url_for_ui = ""
     with contextlib.suppress(Exception):
         ma_base_url_for_ui = str(mass.webserver.base_url)
-    auto_create_section = auto_create_entries(
-        connection_type=connection_type,
-        artifacts=artifacts,
-        cloud_instance_id=str(values.get(CONF_CLOUD_INSTANCE_ID, "")),
-        base_url=ma_base_url_for_ui,
-        session_id=str(session_id) if session_id else None,
-        user_code=None,  # not shown in form — popup URL carries the code
-        verification_url=None,
-        existing_artifacts_raw=artifacts_str,
-    )
 
     is_registered = bool(values.get(CONF_CLOUD_INSTANCE_ID)) and bool(
         values.get(CONF_CLOUD_CONNECTION_TOKEN)
@@ -292,14 +260,6 @@ async def get_config_entries(
     cloud_instance_id = str(values.get(CONF_CLOUD_INSTANCE_ID, ""))
 
     label_text = _build_status_label(otp_code, is_cloud_plus, is_registered)
-    cloud_plus_label = _build_cloud_plus_label(is_cloud_plus, is_registered)
-
-    # Compute copyable values for Cloud Plus mode
-    webhook_url = ""
-    client_id = ""
-    if is_cloud_plus and is_registered:
-        webhook_url = CLOUD_SKILL_WEBHOOK_TEMPLATE
-        client_id = CLOUD_SKILL_CLIENT_ID_TEMPLATE.format(instance_id=cloud_instance_id)
 
     # Compute direct mode endpoint URLs
     direct_base_url = ""
@@ -325,7 +285,7 @@ async def get_config_entries(
     except Exception:  # noqa: S110
         pass
 
-    return (
+    entries: list[ConfigEntry] = [
         # Instance name
         ConfigEntry(
             key=CONF_INSTANCE_NAME,
@@ -358,14 +318,66 @@ async def get_config_entries(
             ],
             advanced=True,
         ),
-        # Status label (cloud modes only)
+    ]
+
+    # -- Per-mode sections (each builder returns only the fields for its mode)
+    if is_cloud:
+        entries.extend(_cloud_mode_entries(label_text, otp_code, is_registered))
+    elif is_cloud_plus:
+        entries.extend(
+            build_cloud_plus_entries(
+                otp_code=otp_code,
+                is_registered=is_registered,
+                cloud_instance_id=cloud_instance_id,
+                artifacts=artifacts,
+                session_id=session_id_str,
+                user_code=None,  # popup URL carries the code
+                verification_url=None,
+                existing_artifacts_raw=artifacts_str,
+                base_url=ma_base_url_for_ui,
+            )
+        )
+    elif is_direct:
+        entries.extend(
+            _direct_mode_legacy_entries(
+                direct_base_url=direct_base_url,
+                direct_auth_url=direct_auth_url,
+                direct_token_url=direct_token_url,
+                values=values,
+            )
+        )
+        # auto-create section (still experimental-flow for direct until
+        # task 10 unifies it with the cloud_plus builder)
+        entries.extend(
+            auto_create_entries(
+                connection_type=connection_type,
+                artifacts=artifacts,
+                cloud_instance_id="",
+                base_url=ma_base_url_for_ui,
+                session_id=session_id_str,
+                user_code=None,
+                verification_url=None,
+                existing_artifacts_raw=artifacts_str,
+            )
+        )
+
+    # -- Tail: player filter + hidden round-trip fields (all modes) --
+    entries.extend(_common_tail_entries(player_options, values))
+    return tuple(entries)
+
+
+def _cloud_mode_entries(
+    label_text: str, otp_code: str | None, is_registered: bool
+) -> list[ConfigEntry]:
+    """Public-cloud mode: simple register + get-OTP flow."""
+    return [
         ConfigEntry(
             key="label_status",
             type=ConfigEntryType.LABEL,
             label=label_text,
-            hidden=is_direct,
+            depends_on=CONF_CONNECTION_TYPE,
+            depends_on_value=CONNECTION_TYPE_CLOUD,
         ),
-        # OTP code — copyable text field (shown only when OTP is available)
         ConfigEntry(
             key="otp_code",
             type=ConfigEntryType.STRING,
@@ -373,9 +385,10 @@ async def get_config_entries(
             description="Copy this code and enter it in the Yandex app.",
             required=False,
             value=otp_code,
-            hidden=not otp_code or is_direct,
+            hidden=not otp_code,
+            depends_on=CONF_CONNECTION_TYPE,
+            depends_on_value=CONNECTION_TYPE_CLOUD,
         ),
-        # Register action (hidden after registration or in direct mode)
         ConfigEntry(
             key=CONF_ACTION_REGISTER,
             type=ConfigEntryType.ACTION,
@@ -383,9 +396,10 @@ async def get_config_entries(
             description="Register a new instance on yaha-cloud.ru relay service.",
             action=CONF_ACTION_REGISTER,
             action_label="Register with cloud",
-            hidden=is_registered or is_direct,
+            hidden=is_registered,
+            depends_on=CONF_CONNECTION_TYPE,
+            depends_on_value=CONNECTION_TYPE_CLOUD,
         ),
-        # Get OTP action (shown after registration, hidden in direct mode)
         ConfigEntry(
             key=CONF_ACTION_GET_OTP,
             type=ConfigEntryType.ACTION,
@@ -393,9 +407,26 @@ async def get_config_entries(
             description="Get a fresh one-time password to link with Yandex Smart Home app.",
             action=CONF_ACTION_GET_OTP,
             action_label="Get OTP code",
-            hidden=not is_registered or is_direct,
+            hidden=not is_registered,
+            depends_on=CONF_CONNECTION_TYPE,
+            depends_on_value=CONNECTION_TYPE_CLOUD,
         ),
-        # --- Direct connection section ---
+    ]
+
+
+def _direct_mode_legacy_entries(
+    *,
+    direct_base_url: str,
+    direct_auth_url: str,
+    direct_token_url: str,
+    values: dict[str, ConfigValueType],
+) -> list[ConfigEntry]:
+    """Direct mode — legacy manual-only entries.
+
+    This block keeps the direct-mode UX unchanged until task 10 unifies
+    it with the auto-create-based builder.
+    """
+    return [
         ConfigEntry(
             key="label_direct",
             type=ConfigEntryType.LABEL,
@@ -411,7 +442,6 @@ async def get_config_entries(
             depends_on_value=CONNECTION_TYPE_DIRECT,
             category="Direct Connection Setup",
         ),
-        # Yandex Dialogs developer console link (direct)
         ConfigEntry(
             key="direct_dialogs_url",
             type=ConfigEntryType.STRING,
@@ -423,7 +453,6 @@ async def get_config_entries(
             depends_on_value=CONNECTION_TYPE_DIRECT,
             category="Direct Connection Setup",
         ),
-        # Backend URL (for Yandex.Dialogs skill config)
         ConfigEntry(
             key="direct_backend_url",
             type=ConfigEntryType.STRING,
@@ -435,7 +464,6 @@ async def get_config_entries(
             depends_on_value=CONNECTION_TYPE_DIRECT,
             category="Copy to Yandex.Dialogs skill",
         ),
-        # Authorization URL (direct)
         ConfigEntry(
             key="direct_auth_url",
             type=ConfigEntryType.STRING,
@@ -447,7 +475,6 @@ async def get_config_entries(
             depends_on_value=CONNECTION_TYPE_DIRECT,
             category="Copy to Yandex.Dialogs skill",
         ),
-        # Token URL (direct)
         ConfigEntry(
             key="direct_token_url",
             type=ConfigEntryType.STRING,
@@ -459,7 +486,6 @@ async def get_config_entries(
             depends_on_value=CONNECTION_TYPE_DIRECT,
             category="Copy to Yandex.Dialogs skill",
         ),
-        # Client ID (direct — always the same)
         ConfigEntry(
             key="direct_client_id",
             type=ConfigEntryType.STRING,
@@ -471,7 +497,6 @@ async def get_config_entries(
             depends_on_value=CONNECTION_TYPE_DIRECT,
             category="Copy to Yandex.Dialogs skill",
         ),
-        # Client Secret (direct — auto-generated per install)
         ConfigEntry(
             key=CONF_DIRECT_CLIENT_SECRET,
             type=ConfigEntryType.SECURE_STRING,
@@ -489,7 +514,6 @@ async def get_config_entries(
             depends_on_value=CONNECTION_TYPE_DIRECT,
             category="Copy to Yandex.Dialogs skill",
         ),
-        # OAuth URL for getting skill token (direct)
         ConfigEntry(
             key="direct_oauth_url",
             type=ConfigEntryType.STRING,
@@ -501,7 +525,6 @@ async def get_config_entries(
             depends_on_value=CONNECTION_TYPE_DIRECT,
             category="Fill in from Yandex.Dialogs",
         ),
-        # Skill ID (cloud_plus and direct)
         ConfigEntry(
             key=CONF_SKILL_ID,
             type=ConfigEntryType.STRING,
@@ -512,10 +535,9 @@ async def get_config_entries(
             ),
             required=False,
             depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value_not=CONNECTION_TYPE_CLOUD,
+            depends_on_value=CONNECTION_TYPE_DIRECT,
             category="Fill in from Yandex.Dialogs",
         ),
-        # Skill OAuth Token (cloud_plus and direct)
         ConfigEntry(
             key=CONF_SKILL_TOKEN,
             type=ConfigEntryType.SECURE_STRING,
@@ -523,122 +545,17 @@ async def get_config_entries(
             description="Paste the OAuth token obtained from the URL above.",
             required=False,
             depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value_not=CONNECTION_TYPE_CLOUD,
+            depends_on_value=CONNECTION_TYPE_DIRECT,
             category="Fill in from Yandex.Dialogs",
         ),
-        # --- Cloud Plus section (advanced) ---
-        # Cloud Plus instructions
-        ConfigEntry(
-            key="label_cloud_plus",
-            type=ConfigEntryType.LABEL,
-            label=cloud_plus_label,
-            depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
-            advanced=True,
-            category="Cloud Plus Setup",
-        ),
-        # Yandex Dialogs developer console link
-        ConfigEntry(
-            key="dialogs_url",
-            type=ConfigEntryType.STRING,
-            label="Yandex.Dialogs Console (create skill here)",
-            required=False,
-            default_value=YANDEX_DIALOGS_DEVELOPER_URL,
-            help_link=YANDEX_DIALOGS_DEVELOPER_URL,
-            depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
-            advanced=True,
-            category="Cloud Plus Setup",
-        ),
-        # --- Copy to Yandex.Dialogs ---
-        # Webhook URL
-        ConfigEntry(
-            key="webhook_url",
-            type=ConfigEntryType.STRING,
-            label="Backend URL (→ Basic info)",
-            description="Copy and paste into your private skill's Backend URL field.",
-            required=False,
-            value=webhook_url or None,
-            hidden=not webhook_url,
-            depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
-            advanced=True,
-            category="Copy to Yandex.Dialogs skill",
-        ),
-        # Client ID
-        ConfigEntry(
-            key="skill_client_id",
-            type=ConfigEntryType.STRING,
-            label="Client ID (→ Account linking)",
-            description="Copy to 'Account linking' → 'Client identifier' field.",
-            required=False,
-            value=client_id or None,
-            hidden=not client_id,
-            depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
-            advanced=True,
-            category="Copy to Yandex.Dialogs skill",
-        ),
-        # Client Secret
-        ConfigEntry(
-            key="skill_client_secret",
-            type=ConfigEntryType.STRING,
-            label="Client Secret (→ Account linking)",
-            description="Copy to 'Account linking' → 'Client secret' field.",
-            required=False,
-            default_value=CLOUD_SKILL_CLIENT_SECRET,
-            hidden=not is_registered,
-            depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
-            advanced=True,
-            category="Copy to Yandex.Dialogs skill",
-        ),
-        # Authorization URL
-        ConfigEntry(
-            key="skill_auth_url",
-            type=ConfigEntryType.STRING,
-            label="Authorization URL (→ Account linking)",
-            description="Copy to 'Account linking' → 'Authorization URL' field.",
-            required=False,
-            default_value=CLOUD_OAUTH_AUTHORIZE_URL,
-            hidden=not is_registered,
-            depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
-            advanced=True,
-            category="Copy to Yandex.Dialogs skill",
-        ),
-        # Token URL
-        ConfigEntry(
-            key="skill_token_url",
-            type=ConfigEntryType.STRING,
-            label="Token URL (→ Account linking, both fields)",
-            description=(
-                "Copy to both 'Token endpoint' and 'Refresh token URL' fields "
-                "in the 'Account linking' section."
-            ),
-            required=False,
-            default_value=CLOUD_OAUTH_TOKEN_URL,
-            hidden=not is_registered,
-            depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
-            advanced=True,
-            category="Copy to Yandex.Dialogs skill",
-        ),
-        # OAuth URL — link to get skill token (Cloud Plus)
-        ConfigEntry(
-            key="oauth_url",
-            type=ConfigEntryType.STRING,
-            label="OAuth URL (open to get token)",
-            required=False,
-            default_value=YANDEX_OAUTH_URL,
-            help_link=YANDEX_OAUTH_URL,
-            hidden=not is_registered,
-            depends_on=CONF_CONNECTION_TYPE,
-            depends_on_value=CONNECTION_TYPE_CLOUD_PLUS,
-            advanced=True,
-            category="Fill in from Yandex.Dialogs",
-        ),
-        # --- Player filter ---
+    ]
+
+
+def _common_tail_entries(
+    player_options: list[ConfigValueOption], values: dict[str, ConfigValueType]
+) -> list[ConfigEntry]:
+    """Player filter + hidden round-trip fields shared by every mode."""
+    return [
         ConfigEntry(
             key=CONF_EXPOSED_PLAYERS,
             type=ConfigEntryType.STRING,
@@ -652,7 +569,6 @@ async def get_config_entries(
             default_value=[],
             options=list(player_options) if player_options else [],
         ),
-        # --- Auto-managed fields (hidden, populated by actions) ---
         ConfigEntry(
             key=CONF_CLOUD_INSTANCE_ID,
             type=ConfigEntryType.STRING,
@@ -685,6 +601,4 @@ async def get_config_entries(
             required=False,
             value=(cast("str", values.get(CONF_DIRECT_ACCESS_TOKEN)) if values else None),
         ),
-        # --- Experimental auto-create-skill section (hidden for 'cloud' mode) ---
-        *auto_create_section,
-    )
+    ]
