@@ -297,7 +297,6 @@ async def get_config_entries(
                 ConfigValueOption(title="Cloud Plus (private skill)", value="cloud_plus"),
                 ConfigValueOption(title="Direct (no relay, requires public URL)", value="direct"),
             ],
-            advanced=True,
         ),
     ]
 
