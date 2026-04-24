@@ -4,10 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.4.0] — 2026-04-24
+
 ### Added
 - **Auto-create skill as default flow** — for `cloud_plus` and `direct` modes the provider now creates the private Yandex Dialogs skill automatically via device-flow login against Yandex Passport + undocumented `dialogs.yandex.ru/developer/app-store-api`. Partial failures are resumable: retry resumes from the last completed step without duplicating work.
 - **Numbered step UX** — the config form shows the single next step you need (Register → Create → Link for `cloud_plus`, Create only for `direct`). Later steps are hidden until the previous one is done.
 - **Manual fallback is automatic** — on auto-create failure, the form unfolds copy-paste fields (Backend URL / Client ID / Client Secret / Auth/Token URLs / Dialogs console link) so the user finishes in Yandex.Dialogs by hand without leaving MA settings.
+- **Power-user Advanced view** — all manual-setup reference values (Backend URL, Client ID, Client Secret, Auth/Token URLs) are always available under Advanced, so users can verify or edit them even when auto-create succeeded.
+- **Cloud mode single-account-link advisory** — when Cloud connection type is selected, a note warns that the public Yaha Cloud skill only allows one linked instance per Yandex account and suggests Cloud Plus for multi-install setups.
+- **Configured-state collapse** — once Skill ID and Skill OAuth Token are both saved, the provider UI replaces the edit fields with a single "Open skill in Yandex.Dialogs" link pointing at `dialogs.yandex.ru/developer/skills/{skill_id}/`.
+
+### Changed
+- **Connection Type moved out of Advanced** — the mode selector is the first decision a user makes and now renders in the default view.
+- **Skill logo during auto-create** uses the provider's own `icon.svg` (rasterised to 512×512 PNG) instead of a placeholder.
 
 ### Removed
 - `experimental_auto_create_skill` master toggle — auto-create is now on by default.
