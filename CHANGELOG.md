@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.4.2] — 2026-04-24
+
+### Fixed
+- **Upstream mypy strict `in` on `str | None`** — the `"Retry" in action.action_label` assertion now narrows `action_label` with an explicit `is not None` first, matching the strict operator rules used by upstream mypy.
+
 ## [1.4.1] — 2026-04-24
 
 ### Fixed
