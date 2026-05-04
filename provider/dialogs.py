@@ -144,11 +144,11 @@ class DialogsWebhookHandler:
             body = await request.json()
         except Exception:
             return self._yandex_response(
-                session_state={}, text="Что-то пошло не так с запросом."  # noqa: RUF001
+                session_state={}, text="Что-то пошло не так с запросом."
             )
         if not isinstance(body, dict):
             return self._yandex_response(
-                session_state={}, text="Что-то пошло не так с запросом."  # noqa: RUF001
+                session_state={}, text="Что-то пошло не так с запросом."
             )
 
         session = body.get("session") or {}
@@ -182,7 +182,7 @@ class DialogsWebhookHandler:
         if not command:
             return self._yandex_response(
                 session_state=session,
-                text="Не понял команду. Скажи, например: включи рок на кухне.",  # noqa: RUF001
+                text="Не понял команду. Скажи, например: включи рок на кухне.",
                 end_session=False,
             )
 
@@ -200,7 +200,7 @@ class DialogsWebhookHandler:
             hint = parsed.player_hint or "(не указано)"
             return self._yandex_response(
                 session_state=session,
-                text=f"Не нашёл колонку «{hint}». Скажи, например: на кухне.",  # noqa: RUF001
+                text=f"Не нашёл колонку «{hint}». Скажи, например: на кухне.",
                 end_session=False,
             )
 
@@ -220,7 +220,7 @@ class DialogsWebhookHandler:
         if media is None:
             return self._yandex_response(
                 session_state=session,
-                text=f"Не нашёл такую музыку: {parsed.query}.",  # noqa: RUF001
+                text=f"Не нашёл такую музыку: {parsed.query}.",
             )
 
         # Fire-and-forget — Alice has a 4.5s budget; play_media may take longer
