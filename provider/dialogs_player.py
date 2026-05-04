@@ -51,9 +51,7 @@ def _first(items: Any) -> Any:
 # ---------------------------------------------------------------------------
 
 
-async def resolve_query(
-    mass: MusicAssistant, parsed: ParsedCommand
-) -> MediaItemType | str | None:
+async def resolve_query(mass: MusicAssistant, parsed: ParsedCommand) -> MediaItemType | str | None:
     """Pick the best media item for the parsed voice command.
 
     Returns either a MediaItem or a URI string (both accepted by
@@ -230,6 +228,4 @@ async def play_for_alice(
             except Exception as exc:
                 _LOGGER.warning("cmd_power(True) on %s failed: %s", player_id, exc)
 
-    await mass.player_queues.play_media(
-        queue_id=player_id, media=media, radio_mode=radio_mode
-    )
+    await mass.player_queues.play_media(queue_id=player_id, media=media, radio_mode=radio_mode)

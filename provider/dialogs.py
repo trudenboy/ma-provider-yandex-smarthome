@@ -143,13 +143,9 @@ class DialogsWebhookHandler:
         try:
             body = await request.json()
         except Exception:
-            return self._yandex_response(
-                session_state={}, text="Что-то пошло не так с запросом."
-            )
+            return self._yandex_response(session_state={}, text="Что-то пошло не так с запросом.")
         if not isinstance(body, dict):
-            return self._yandex_response(
-                session_state={}, text="Что-то пошло не так с запросом."
-            )
+            return self._yandex_response(session_state={}, text="Что-то пошло не так с запросом.")
 
         session = body.get("session") or {}
         if not isinstance(session, dict):
@@ -160,9 +156,7 @@ class DialogsWebhookHandler:
 
         # skill_id sanity check — reject if absent or mismatched.
         incoming_skill_id = str(session.get("skill_id") or "")
-        if not incoming_skill_id or not secrets.compare_digest(
-            incoming_skill_id, self._skill_id
-        ):
+        if not incoming_skill_id or not secrets.compare_digest(incoming_skill_id, self._skill_id):
             self._logger.warning(
                 "Rejecting dialog payload: skill_id %r != configured %r",
                 incoming_skill_id or "<missing>",

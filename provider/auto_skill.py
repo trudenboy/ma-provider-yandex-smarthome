@@ -390,9 +390,7 @@ class DialogsSkillCreator:
         Body is empty; all params are in the query string. Returns on
         2xx; otherwise raises.
         """
-        url = (
-            f"{DIALOGS_API_BASE}/apps/{skill_id}/draft/request-deploy?channel={self._channel}"
-        )
+        url = f"{DIALOGS_API_BASE}/apps/{skill_id}/draft/request-deploy?channel={self._channel}"
         headers = {"x-csrf-token": csrf}
         async with self._session.post(url, headers=headers) as resp:
             body = await resp.text()

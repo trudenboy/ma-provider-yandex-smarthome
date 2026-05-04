@@ -89,9 +89,7 @@ class TestResolveQuery:
     async def test_my_wave_no_provider_returns_none(self) -> None:
         """kind=my_wave without yandex_music provider returns None."""
         mass = _make_mass()
-        result = await resolve_query(
-            mass, ParsedCommand(kind="my_wave", query="", radio_mode=True)
-        )
+        result = await resolve_query(mass, ParsedCommand(kind="my_wave", query="", radio_mode=True))
         assert result is None
 
     async def test_search_failure_returns_none(self) -> None:

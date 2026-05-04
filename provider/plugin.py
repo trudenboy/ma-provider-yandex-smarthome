@@ -275,8 +275,7 @@ class YandexSmartHomePlugin(PluginProvider):
                 )
                 self._dialogs_handler.register_routes()
                 self.logger.info(
-                    "Dialogs voice skill enabled (experimental), "
-                    "skill_id=%s",
+                    "Dialogs voice skill enabled (experimental), skill_id=%s",
                     self._dialog_skill_id,
                 )
             else:

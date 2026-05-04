@@ -898,7 +898,7 @@ def _dialog_skill_entries(
             type=ConfigEntryType.BOOLEAN,
             label="Enable experimental Dialogs voice skill",
             description=(
-                'Enables a custom Yandex Dialogs «Навык» for free-form voice playback. '
+                "Enables a custom Yandex Dialogs «Навык» for free-form voice playback. "
                 'Once created, say "Алиса, попроси <name> включи Metallica на кухне". '
                 "Requires a publicly reachable HTTPS URL. Direct mode only."
             ),
@@ -973,10 +973,7 @@ def _dialog_skill_entries(
         )
 
     # Auto-create action button
-    can_create = (
-        not direct_https_missing
-        and artifacts.state != SkillCreationState.DONE
-    )
+    can_create = not direct_https_missing and artifacts.state != SkillCreationState.DONE
     entries.append(
         ConfigEntry(
             key=CONF_ACTION_AUTO_CREATE_DIALOG,
@@ -1039,7 +1036,8 @@ def _dialog_skill_entries(
                 "the skill by hand in Yandex.Dialogs."
             ),
             required=False,
-            advanced=artifacts.state not in (
+            advanced=artifacts.state
+            not in (
                 SkillCreationState.DONE,
                 SkillCreationState.FAILED,
             ),
