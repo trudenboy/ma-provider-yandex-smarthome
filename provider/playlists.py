@@ -41,9 +41,7 @@ async def fetch_playlist_options(mass: MusicAssistant) -> list[ConfigValueOption
         if not playlist.uri:
             continue
         provider_label = playlist.provider or ""
-        title = (
-            f"{playlist.name} ({provider_label})" if provider_label else playlist.name
-        )
+        title = f"{playlist.name} ({provider_label})" if provider_label else playlist.name
         options.append(ConfigValueOption(title=title, value=playlist.uri))
     return options
 
