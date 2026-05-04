@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.5.0] — 2026-05-04
+
 ### Added
 - **MA library playlists as Yandex `mode(input_source)` modes** — pick up to 10 playlists from any music provider in MA and they appear as input-source slots on every exposed player. After saving, assign voice aliases (e.g. "Rock", "Jazz") to mode values `one`..`ten` in the Yandex app and Alice can start a playlist by name (`"Алиса, включи рок на [плеер]"`). Native player sources still take priority and fill slots first; playlists fill the remainder. Playlist-slot actions power the player on if needed and start playback via `mass.player_queues.play_media`. Workaround for Yandex Smart Home API not supporting `play_media` for third-party devices.
 
