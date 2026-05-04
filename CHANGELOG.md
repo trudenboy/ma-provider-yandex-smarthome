@@ -23,6 +23,8 @@ All notable changes to this project will be documented in this file.
 - **`DIALOG_CHANNEL` single source of truth** — removed the duplicate definition from `auto_skill.py`; now imported from `provider/constants.py`.
 - **Dialog draft docstring aligned with payload** — `build_dialog_draft_payload` docstring previously stated `category="other"` while the actual payload used `"music_and_sounds"`; aligned to match reality.
 - **Removed duplicate inflection suffixes** — `_INFLECTION_SUFFIXES` in `dialogs_nlu.py` contained "ыми", "ого", "ой" twice each; duplicates removed.
+- **Background play task uses `mass.create_task`** — replaced bare `asyncio.create_task` with `self._mass.create_task` so the playback task is tracked in the MA lifecycle (cancelled on shutdown/unload) and unhandled exceptions are logged by the framework's task handler. The manual `add_done_callback` / `_on_play_task_done` are no longer needed and have been removed.
+- **`resolve_query` docstring corrected** — removed the redundant "caller should tell the caller" phrasing; now reads "the webhook handler should respond with a 'not found' message".
 
 ## [1.5.3] — 2026-05-04
 

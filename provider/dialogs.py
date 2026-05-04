@@ -226,8 +226,9 @@ class DialogsWebhookHandler:
             )
 
         # Fire-and-forget — Alice has a 4.5s budget; play_media may take longer
-        # to actually start streaming. Errors land in the log via the done-callback.
-        task = asyncio.create_task(
+        # to actually start streaming. mass.create_task tracks the task in the
+        # MA lifecycle (cancelled on shutdown) and logs unhandled exceptions.
+        self._mass.create_task(
             play_for_alice(
                 self._mass,
                 player.player_id,
@@ -235,7 +236,6 @@ class DialogsWebhookHandler:
                 radio_mode=parsed.radio_mode,
             )
         )
-        task.add_done_callback(self._on_play_task_done)
 
         if session_id:
             self._remember_player(session_id, player.player_id)
@@ -245,16 +245,6 @@ class DialogsWebhookHandler:
             session_state=session,
             text=f"Включаю {spoken_query} на {player.name or player.player_id}.",
         )
-
-    @staticmethod
-    def _on_play_task_done(task: asyncio.Task[None]) -> None:
-        if task.cancelled():
-            return
-        exc = task.exception()
-        if exc is not None:
-            _LOGGER.exception(
-                "Dialog play_for_alice background task failed", exc_info=exc
-            )
 
     # -------------------------------------------------------------------
     # Yandex Dialogs response envelope

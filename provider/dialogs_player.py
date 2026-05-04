@@ -57,8 +57,8 @@ async def resolve_query(
     """Pick the best media item for the parsed voice command.
 
     Returns either a MediaItem or a URI string (both accepted by
-    play_media); None means we couldn't resolve and the caller should
-    tell the caller to respond with "not found".
+    play_media); None means we couldn't resolve and the webhook handler
+    should respond with a "not found" message to the user.
     """
     if parsed.kind == "my_wave":
         return await _resolve_my_wave(mass)
