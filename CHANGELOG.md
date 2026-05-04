@@ -15,7 +15,14 @@ All notable changes to this project will be documented in this file.
   - **Auto-create pipeline extended** — `auto_skill.py` is now parameterised by `skill_type` (`"smart_home"` | `"dialog"`); the dialog path builds a separate draft payload and injects the generated webhook URL. New `auto_rename_dialog_skill` helper patches the skill name in Yandex Dialogs and re-deploys.
   - **Config UI (direct mode only)** — toggle `Enable Dialogs voice skill (experimental)`, skill activation name (`CONF_DIALOG_SKILL_NAME`), auto-create action, rename-drift detection, hidden storage for artifacts/secret.
   - **Plugin wiring** — `DialogsWebhookHandler` is instantiated and routes registered during `_start_direct_mode`; unregistered on `unload`. Ignored silently in cloud/cloud_plus mode.
-  - Full test coverage: 30+ table-driven NLU parse cases, player resolver cases (exact/inflected/substring/disabled/exposed_ids), content resolver unit tests, and webhook handler end-to-end tests including session memory, auth rejection, and fire-and-forget playback.
+  - Full test coverage: 30+ table-driven NLU parse cases (including "включай"/"включайте" verb forms), player resolver cases (exact/inflected/substring/disabled/exposed_ids), content resolver unit tests, and webhook handler end-to-end tests including session memory, auth rejection, and fire-and-forget playback.
+
+### Fixed (follow-up review)
+- **Webhook skill_id check rejects absent/empty skill_id** — previously a request with no `session.skill_id` field was accepted (only URL secret validated); now any payload with missing or mismatched `skill_id` returns 401. Comparison uses `secrets.compare_digest` for constant-time safety.
+- **NLU verb regex covers "включай"/"включайте"** — prior regex matched "включи"/"включите" but not "включай"/"включайте", leaving those forms unparsed and passing the raw verb into the search query.
+- **`DIALOG_CHANNEL` single source of truth** — removed the duplicate definition from `auto_skill.py`; now imported from `provider/constants.py`.
+- **Dialog draft docstring aligned with payload** — `build_dialog_draft_payload` docstring previously stated `category="other"` while the actual payload used `"music_and_sounds"`; aligned to match reality.
+- **Removed duplicate inflection suffixes** — `_INFLECTION_SUFFIXES` in `dialogs_nlu.py` contained "ыми", "ого", "ой" twice each; duplicates removed.
 
 ## [1.5.3] — 2026-05-04
 

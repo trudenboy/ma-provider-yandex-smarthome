@@ -158,12 +158,14 @@ class DialogsWebhookHandler:
         if not isinstance(req, dict):
             req = {}
 
-        # skill_id sanity check.
-        incoming_skill_id = session.get("skill_id")
-        if incoming_skill_id and incoming_skill_id != self._skill_id:
+        # skill_id sanity check — reject if absent or mismatched.
+        incoming_skill_id = str(session.get("skill_id") or "")
+        if not incoming_skill_id or not secrets.compare_digest(
+            incoming_skill_id, self._skill_id
+        ):
             self._logger.warning(
-                "Rejecting dialog payload: skill_id %s != configured %s",
-                incoming_skill_id,
+                "Rejecting dialog payload: skill_id %r != configured %r",
+                incoming_skill_id or "<missing>",
                 self._skill_id,
             )
             return web.Response(status=401)

@@ -50,9 +50,9 @@ _SPACE_RE = re.compile(r"\s+")
 # Anchored to a word boundary so "Натали" isn't mis-split.
 _PLAYER_SUFFIX_RE = re.compile(r"\s+на\s+(?P<hint>.+?)\s*$", re.IGNORECASE)
 
-# Verb stem covering "включи", "включай", "поставь", "запусти".
+# Verb stem covering "включи", "включай", "включите", "поставь", "запусти".
 _VERB_RE = re.compile(
-    r"^(?:алиса[, ]+)?(?:включи(?:те|й)?|поставь(?:те)?|запусти(?:те)?)\s+",
+    r"^(?:алиса[, ]+)?(?:включи(?:те)?|включай(?:те)?|поставь(?:те)?|запусти(?:те)?)\s+",
     re.IGNORECASE,
 )
 
@@ -145,8 +145,8 @@ def parse_command(text: str) -> ParsedCommand:
 # Not a full lemmatizer — picks up the most frequent endings for short names.
 # Order: longest first so "ой" matches before "й".
 _INFLECTION_SUFFIXES = (
-    "ого", "ому", "ыми", "ыми", "ого",
-    "ой", "ом", "ым", "ой", "ы",
+    "ого", "ому", "ыми",
+    "ой", "ом", "ым", "ы",
     "е", "у", "а", "и", "й", "ь",
 )
 

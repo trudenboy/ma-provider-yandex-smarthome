@@ -50,6 +50,7 @@ from .constants import (
     CLOUD_SKILL_WEBHOOK_TEMPLATE,
     CONNECTION_TYPE_CLOUD_PLUS,
     CONNECTION_TYPE_DIRECT,
+    DIALOG_CHANNEL,
     DIRECT_API_BASE_PATH,
     DIRECT_AUTH_BASE_PATH,
     DIRECT_OAUTH_CLIENT_ID,
@@ -99,11 +100,6 @@ DIALOGS_API_BASE = f"{DIALOGS_DEV_BASE}/developer/app-store-api"
 DIALOGS_CSRF_REGEX = re.compile(r'"secretkey":"([^"]+)"')
 
 SMART_HOME_CHANNEL = "smartHome"
-# Yandex Dialogs «Навык» (custom dialog skill). Experimental — exact value not
-# documented; "dialog" is the best guess based on the existing channel naming
-# convention. If Yandex returns 4xx, retry with "general" or inspect what the
-# Dialogs developer console sends in browser DevTools when creating a skill.
-DIALOG_CHANNEL = "dialog"
 _MAX_HTML_RESPONSE_BYTES = 2 * 1024 * 1024  # 2 MiB
 
 # ---------------------------------------------------------------------------
@@ -650,8 +646,9 @@ def build_dialog_draft_payload(
 ) -> dict[str, Any]:
     """Compose the PATCH /draft/update body for a Yandex Dialogs «Навык».
 
-    Mirrors :func:`build_draft_payload` but sets ``category="other"`` and
-    drops the ``smartHome`` deepLinks block. ⚠️ Exact required-field set
+    Mirrors :func:`build_draft_payload` but uses
+    ``publishingSettings.category="music_and_sounds"`` and drops
+    the ``smartHome`` deepLinks block. ⚠️ Exact required-field set
     for «Навык» is not documented — this matches the most common shape
     seen in Dialogs developer UI HARs and may need adjustment after a
     manual probe (see plan probe checklist).

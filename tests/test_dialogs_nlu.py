@@ -48,9 +48,11 @@ class TestParseCommand:
             # Punctuation, casing, alice prefix
             ("Алиса, включи Metallica.", "search", "metallica", None, False),
             ("ВКЛЮЧИ ПЕСНЮ Hey Jude!", "track", "hey jude", None, False),
-            # Different verbs
+            # Different verbs (including включай which was previously unmatched)
             ("поставь Metallica", "search", "metallica", None, False),
             ("запусти джаз на кухне", "search", "джаз", "кухне", False),
+            ("включай Metallica", "search", "metallica", None, False),
+            ("включайте джаз на кухне", "search", "джаз", "кухне", False),
         ],
     )
     def test_parse(
