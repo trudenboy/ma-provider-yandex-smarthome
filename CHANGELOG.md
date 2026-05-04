@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.5.2] — 2026-05-04
+
+### Fixed
+- **Playlist picker no longer silently truncated at 500** — `fetch_playlist_options` now pages through `iter_library_items` instead of a single `library_items(limit=500)` call, so users with very large libraries see every playlist in the multi-select.
+
+### Removed
+- Dead helper `_build_source_modes` in `device.py` — superseded by `_build_combined_modes` since 1.5.0; was unreachable.
+
 ## [1.5.1] — 2026-05-04
 
 ### Fixed
