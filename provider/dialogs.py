@@ -80,15 +80,16 @@ class DialogsWebhookHandler:
     def register_routes(self) -> None:
         """Register the webhook route on mass.webserver."""
         path = f"{DIALOG_WEBHOOK_BASE_PATH}/{self._webhook_secret}"
+        redacted = f"{DIALOG_WEBHOOK_BASE_PATH}/...{self._webhook_secret[-4:]}"
         try:
             unregister = self._mass.webserver.register_dynamic_route(
                 path, self._handle_webhook, "POST"
             )
         except RuntimeError:
-            self._logger.exception("Failed to register Dialogs webhook route %s", path)
+            self._logger.exception("Failed to register Dialogs webhook route %s", redacted)
             raise
         self._unregister_callbacks.append(unregister)
-        self._logger.info("Dialogs webhook registered at %s", path)
+        self._logger.info("Dialogs webhook registered at %s", redacted)
 
     def unregister_routes(self) -> None:
         """Unregister the webhook route."""
