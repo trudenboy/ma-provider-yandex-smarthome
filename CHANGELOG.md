@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.5.1] — 2026-05-04
+
+### Fixed
+- **Upstream lint/mypy compliance for v1.5.0** — `tests/test_device.py` `# type: ignore[arg-type]` was on the wrong physical line of a multi-line `get_device_state(...)` call (mypy strict reported the ignore as unused while still flagging the arg); collapsed the call to one line so the ignore lands on the offending arg. `tests/test_handlers.py` added `assert mode_caps[0].parameters is not None` before `.modes` access (mypy `union-attr`). One ruff-format whitespace fix in `provider/playlists.py`.
+
 ## [1.5.0] — 2026-05-04
 
 ### Added
