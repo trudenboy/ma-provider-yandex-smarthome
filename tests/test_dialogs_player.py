@@ -17,10 +17,10 @@ from provider.dialogs_player import play_for_alice, resolve_query
 
 @dataclass
 class _SearchResults:
-    artists: list = field(default_factory=list)
-    albums: list = field(default_factory=list)
-    tracks: list = field(default_factory=list)
-    playlists: list = field(default_factory=list)
+    artists: list[object] = field(default_factory=list)
+    albums: list[object] = field(default_factory=list)
+    tracks: list[object] = field(default_factory=list)
+    playlists: list[object] = field(default_factory=list)
 
 
 def _make_mass(search_results: _SearchResults | None = None) -> MagicMock:

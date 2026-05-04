@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.6.1] — 2026-05-04
+
+### Fixed
+- **Upstream mypy compliance for v1.6.0** — test files copied to `music-assistant/server` failed mypy strict: bare `list`/`dict` generic types in `_SearchResults` dataclass fields now annotated as `list[object]` / `dict[str, object]`; `resolve_player` calls with `MockMass` stub suppressed via `# type: ignore[arg-type]`.
+
 ## [1.6.0] — 2026-05-04
 
 ### Added
