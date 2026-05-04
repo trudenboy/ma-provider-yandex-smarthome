@@ -13,8 +13,6 @@ from typing import TYPE_CHECKING
 from music_assistant_models.config_entries import ConfigValueOption
 
 if TYPE_CHECKING:
-    from music_assistant_models.media_items import Playlist
-
     from music_assistant.mass import MusicAssistant
 
 
@@ -45,30 +43,6 @@ async def fetch_playlist_options(mass: MusicAssistant) -> list[ConfigValueOption
         )
         options.append(ConfigValueOption(title=title, value=playlist.uri))
     return options
-
-
-async def resolve_playlists(
-    mass: MusicAssistant, uris: list[str]
-) -> list[Playlist | None]:
-    """Resolve playlist URIs to MediaItem objects.
-
-    Preserves order and slot alignment: invalid/removed entries appear as
-    None at the same index so the caller can still build a mode list and
-    fail per-slot rather than collapsing the whole list.
-    """
-    resolved: list[Playlist | None] = []
-    for uri in uris:
-        if not uri:
-            resolved.append(None)
-            continue
-        try:
-            item = await mass.music.get_item_by_uri(uri)
-        except Exception as exc:
-            _LOGGER.warning("Cannot resolve playlist URI %s: %s", uri, exc)
-            resolved.append(None)
-            continue
-        resolved.append(item)
-    return resolved
 
 
 async def play_playlist(mass: MusicAssistant, player_id: str, uri: str) -> None:
