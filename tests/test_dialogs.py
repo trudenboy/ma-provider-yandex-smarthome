@@ -35,13 +35,8 @@ class _MockPlayers:
         self._players = players
         self.cmd_power = AsyncMock()
 
-    def all(
-        self,
-        *,
-        return_unavailable: bool = True,
-        return_disabled: bool = False,
-    ) -> list[MockPlayer]:
-        """Return all players (ignoring filter args)."""
+    def all_players(self) -> list[MockPlayer]:
+        """Return all players."""
         return list(self._players)
 
     def get_player(self, player_id: str) -> MockPlayer | None:

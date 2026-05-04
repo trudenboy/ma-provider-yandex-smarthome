@@ -11,13 +11,12 @@ Bound to MA APIs: `mass.music.search`, `mass.music.get_item_by_uri`,
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from music_assistant_models.enums import MediaType
 
 if TYPE_CHECKING:
     from music_assistant_models.media_items import MediaItemType
-    from music_assistant_models.player import Player
 
     from music_assistant.mass import MusicAssistant
 
@@ -29,7 +28,7 @@ _LOGGER = logging.getLogger(__name__)
 _SEARCH_LIMIT_DEFAULT = 5
 
 
-def _has_feature(player: Player, feature_name: str) -> bool:
+def _has_feature(player: Any, feature_name: str) -> bool:
     """Mirror provider.device._has_feature so we don't import device.py from here."""
     features = getattr(player, "supported_features", None)
     if not features:
@@ -39,10 +38,10 @@ def _has_feature(player: Player, feature_name: str) -> bool:
     )
 
 
-def _first(items: object) -> object | None:
+def _first(items: Any) -> Any:
     """Return the first item of a Sequence, or None if empty/not-a-sequence."""
     try:
-        return next(iter(items))  # type: ignore[arg-type]
+        return next(iter(items))
     except (StopIteration, TypeError):
         return None
 
@@ -125,23 +124,17 @@ def _pick_from_results(results: object, kind: str) -> MediaItemType | None:
 # ---------------------------------------------------------------------------
 
 
-def _find_yandex_music_provider(mass: MusicAssistant) -> object | None:
+def _find_yandex_music_provider(mass: MusicAssistant) -> Any:
     """Locate the first available yandex_music music provider instance."""
-    try:
-        for prov in mass.music_providers:  # type: ignore[attr-defined]
-            if getattr(prov, "domain", None) == "yandex_music" and getattr(
-                prov, "available", True
-            ):
-                return prov
-    except Exception:  # noqa: S110
-        pass
-    # Fallback: scan all providers via mass.providers (different attr in some MA versions)
-    try:
-        for prov in mass.providers:  # type: ignore[attr-defined]
-            if getattr(prov, "domain", None) == "yandex_music":
-                return prov
-    except Exception:  # noqa: S110
-        pass
+    for attr in ("music_providers", "providers"):
+        try:
+            for prov in getattr(mass, attr, ()):
+                if getattr(prov, "domain", None) == "yandex_music" and getattr(
+                    prov, "available", True
+                ):
+                    return prov
+        except Exception:  # noqa: S110
+            pass
     return None
 
 

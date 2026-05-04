@@ -101,13 +101,8 @@ class MockPlayerController:
         """Initialise with a fixed player list."""
         self._players = players
 
-    def all(
-        self,
-        *,
-        return_unavailable: bool = True,
-        return_disabled: bool = False,
-    ) -> list[MockPlayer]:
-        """Return all players (ignoring filter args for test simplicity)."""
+    def all_players(self) -> list[MockPlayer]:
+        """Return all players."""
         return list(self._players)
 
 

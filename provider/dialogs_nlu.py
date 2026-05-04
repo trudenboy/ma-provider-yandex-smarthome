@@ -192,7 +192,7 @@ def resolve_player(
       - else None (caller asks Alice for clarification)
     """
     candidates: list[Player] = []
-    for player in mass.players.all(return_unavailable=False, return_disabled=False):
+    for player in mass.players.all_players():
         if not player.available or not player.enabled:
             continue
         if getattr(player, "synced_to", None):
