@@ -29,8 +29,11 @@ async def fetch_playlist_options(mass: MusicAssistant) -> list[ConfigValueOption
     """
     try:
         playlists = await mass.music.playlists.library_items(limit=_LIBRARY_LIMIT)
-    except Exception:
-        _LOGGER.exception("Failed to fetch library playlists for config form")
+    except Exception as exc:
+        # Fail-soft: this runs on every config-form render and races with
+        # provider/database startup. Don't spam stack traces — debug-level
+        # is enough for diagnostics, normal renders stay quiet.
+        _LOGGER.debug("Library playlists not available yet: %s", exc)
         return []
 
     options: list[ConfigValueOption] = []
