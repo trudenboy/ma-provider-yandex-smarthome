@@ -115,7 +115,7 @@ def _pick_from_results(results: object, kind: str) -> MediaItemType | None:
             continue
         item = _first(bucket)
         if item is not None:
-            return item  # type: ignore[return-value]
+            return item  # type: ignore[no-any-return]
     return None
 
 
@@ -203,9 +203,9 @@ async def _resolve_genre(mass: MusicAssistant, query: str) -> MediaItemType | st
     except Exception as exc:
         _LOGGER.warning("Genre fallback search failed for %r: %s", query, exc)
         return None
-    return _first(getattr(results, "artists", None) or []) or _first(
+    return _first(getattr(results, "artists", None) or []) or _first(  # type: ignore[no-any-return]
         getattr(results, "tracks", None) or []
-    )  # type: ignore[return-value]
+    )
 
 
 # ---------------------------------------------------------------------------

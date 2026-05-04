@@ -6,7 +6,7 @@ declared intents/slots — Yandex passes the raw user phrase as
 playlist/my_wave/genre/search), search query, optional player hint.
 
 Pure-Python; no MA-API dependency for the parser itself, only for
-``resolve_player`` which iterates ``mass.players.all()``.
+``resolve_player`` which iterates ``mass.players.all_players()``.
 """
 
 from __future__ import annotations
@@ -14,11 +14,9 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
-    from music_assistant_models.player import Player
-
     from music_assistant.mass import MusicAssistant
 
 
@@ -178,7 +176,7 @@ def resolve_player(
     *,
     default_id: str | None = None,
     exposed_ids: set[str] | None = None,
-) -> Player | None:
+) -> Any:
     """Find an MA player by fuzzy-matching the hint string against player names.
 
     Filters: only players that are available, enabled, and not synced to a
@@ -191,7 +189,7 @@ def resolve_player(
       - else substring
       - else None (caller asks Alice for clarification)
     """
-    candidates: list[Player] = []
+    candidates: list[Any] = []
     for player in mass.players.all_players():
         if not player.available or not player.enabled:
             continue
@@ -218,9 +216,9 @@ def resolve_player(
     if not needle:
         return None
 
-    exact: list[Player] = []
-    startswith: list[Player] = []
-    contains: list[Player] = []
+    exact: list[Any] = []
+    startswith: list[Any] = []
+    contains: list[Any] = []
     for p in candidates:
         haystack = _normalize_player_token(p.name or p.player_id)
         if not haystack:
