@@ -67,6 +67,9 @@ def _make_mass(players: list[MockPlayer], search_track: object = None) -> MagicM
     mass.player_queues.play_media = AsyncMock()
     mass.webserver = MagicMock()
     mass.webserver.register_dynamic_route = MagicMock(return_value=lambda: None)
+    # mass.create_task must actually schedule the coroutine so fire-and-forget
+    # tasks run when the test awaits asyncio.sleep(0).
+    mass.create_task = lambda coro, **_kw: asyncio.ensure_future(coro)
     return mass
 
 
