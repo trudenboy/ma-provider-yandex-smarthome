@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.6.2] — 2026-05-04
+
+### Fixed
+- **Upstream ruff compliance for v1.6.x dialog modules** — added `# noqa: RUF001` inline suppressions on lines with intentional Cyrillic characters flagged as visually ambiguous with Latin lookalikes (`с`, `Н`, `е`, `у`, `а`, `о`, `г`). The upstream server's ruff config has no `per-file-ignores` for these modules, so inline noqa is required.
+- **`_build_request` test helper signature** — changed `dict[str, object]` to `dict[str, Any]`; `dict` is invariant so callers passing `dict[str, dict[str, str]]` fail mypy strict.
+
 ## [1.6.1] — 2026-05-04
 
 ### Fixed
