@@ -145,7 +145,7 @@ def _source_to_mode(active_source: str | None, source_list: list[PlayerSource]) 
 def _mode_to_source(mode_value: str, source_list: list[PlayerSource]) -> str | None:
     """Resolve a Yandex mode value to an MA source id."""
     try:
-        idx = list(YANDEX_MODE_VALUES).index(mode_value)
+        idx = YANDEX_MODE_VALUES.index(mode_value)
     except ValueError:
         return None
     if idx >= len(source_list):
@@ -226,7 +226,10 @@ def get_device_description(
     # Native sources occupy first slots; playlists fill remainder up to MAX_INPUT_SOURCES.
     source_list = _get_source_list(player)
     if len(source_list) >= MAX_INPUT_SOURCES and playlist_uris:
-        _LOGGER.warning(
+        # Debug-level: this fires on every /user/devices poll for an
+        # affected player, but it documents a config decision rather than
+        # a runtime fault — promoting it to warn would spam production logs.
+        _LOGGER.debug(
             "Player %s has %d native sources (>= cap %d); playlist sources ignored",
             player.player_id,
             len(source_list),
@@ -353,7 +356,7 @@ async def _execute_input_source(
         )
 
     try:
-        slot_index = list(YANDEX_MODE_VALUES).index(str(value))
+        slot_index = YANDEX_MODE_VALUES.index(str(value))
     except ValueError:
         return CapabilityActionResult(
             type=YandexCapabilityType.MODE,

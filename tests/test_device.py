@@ -871,6 +871,7 @@ class TestPlaylistInputSources:
         player = MockPlayer(source_list=sources, supported_features={"select_source"})
         desc = get_device_description(player, playlist_uris=playlist_uris)  # type: ignore[arg-type]
         mode_caps = [c for c in desc.capabilities if c.type == YandexCapabilityType.MODE]
+        assert len(mode_caps) == 1
         assert len(mode_caps[0].parameters.modes) == 10  # type: ignore[arg-type,union-attr]
 
     def test_native_full_ignores_playlists(self) -> None:
@@ -880,6 +881,7 @@ class TestPlaylistInputSources:
         player = MockPlayer(source_list=sources, supported_features={"select_source"})
         desc = get_device_description(player, playlist_uris=playlist_uris)  # type: ignore[arg-type]
         mode_caps = [c for c in desc.capabilities if c.type == YandexCapabilityType.MODE]
+        assert len(mode_caps) == 1
         assert len(mode_caps[0].parameters.modes) == 10  # type: ignore[arg-type,union-attr]
 
     def test_state_with_native_active_in_combined_mode(self) -> None:
