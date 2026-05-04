@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.5.3] — 2026-05-04
+
+### Fixed
+- **Misleading "Exposed Playlists" config description** — the in-app help text claimed the user could *"open the device in the Yandex app and assign voice aliases (e.g. \"Rock\" for mode «one»)"*. That option does not exist: the Yandex Smart Home API for `mode(input_source)` accepts only the fixed catalogue values `one`..`ten`, `ModeValue` has no `display_name`/`synonym` field, and the *Home with Alice* app has no UI to rename mode values. Description now reflects the actual ordinal-only mechanism («Alice, switch \<player\> source to five») and tells users the slot index is determined by the order they picked the playlists.
+
 ## [1.5.2] — 2026-05-04
 
 ### Fixed
