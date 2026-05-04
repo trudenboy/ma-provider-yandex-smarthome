@@ -70,6 +70,15 @@ class _ProviderFeature(_StrEnum):
     pass
 
 
+class _MediaType(_StrEnum):
+    ARTIST = "artist"
+    ALBUM = "album"
+    TRACK = "track"
+    PLAYLIST = "playlist"
+    RADIO = "radio"
+    UNKNOWN = "unknown"
+
+
 _ensure_module(
     "music_assistant_models.enums",
     {
@@ -77,6 +86,7 @@ _ensure_module(
         "EventType": _EventType,
         "ConfigEntryType": _ConfigEntryType,
         "ProviderFeature": _ProviderFeature,
+        "MediaType": _MediaType,
     },
 )
 

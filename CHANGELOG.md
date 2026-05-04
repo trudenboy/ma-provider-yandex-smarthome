@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.6.0] — 2026-05-04
+
+### Added
+- **Experimental Yandex Dialogs «Навык» for free-form voice playback (direct mode only)** — a new optional skill type that lets users say *"Алиса, попроси Music Assistant включить Metallica на кухне"* and have MA search for the content and start playback on the named player.
+  - New modules: `provider/dialogs_nlu.py` (command parser + player resolver), `provider/dialogs_player.py` (content resolver + play wrapper), `provider/dialogs.py` (aiohttp webhook handler).
+  - **NLU parser** classifies Russian voice commands into kinds: `track`, `artist`, `album`, `playlist`, `my_wave`, `genre`, `search`. Extracts an optional `"на <player>"` suffix and fuzzy-matches player names with Russian inflection stripping (e.g. «на кухне» → player «Кухня»).
+  - **Content resolver** dispatches to `mass.music.search` by kind, with special-case paths for *Моя волна* (yandex_music rotor `user:onyourwave`) and genre radio (yandex_music genre rotor with artist-search fallback).
+  - **Webhook handler** authenticates via URL path-secret + `body.session.skill_id`, keeps a 200-entry in-memory LRU session cache so follow-up commands remember which player was chosen, powers the player on before playback if needed, and fires play in a background task to stay within Yandex's 4.5 s response budget.
+  - **Auto-create pipeline extended** — `auto_skill.py` is now parameterised by `skill_type` (`"smart_home"` | `"dialog"`); the dialog path builds a separate draft payload and injects the generated webhook URL. New `auto_rename_dialog_skill` helper patches the skill name in Yandex Dialogs and re-deploys.
+  - **Config UI (direct mode only)** — toggle `Enable Dialogs voice skill (experimental)`, skill activation name (`CONF_DIALOG_SKILL_NAME`), auto-create action, rename-drift detection, hidden storage for artifacts/secret.
+  - **Plugin wiring** — `DialogsWebhookHandler` is instantiated and routes registered during `_start_direct_mode`; unregistered on `unload`. Ignored silently in cloud/cloud_plus mode.
+  - Full test coverage: 30+ table-driven NLU parse cases (including "включай"/"включайте" verb forms), player resolver cases (exact/inflected/substring/disabled/exposed_ids), content resolver unit tests, and webhook handler end-to-end tests including session memory, auth rejection, and fire-and-forget playback.
+
+### Fixed (follow-up review)
+- **Webhook skill_id check rejects absent/empty skill_id** — previously a request with no `session.skill_id` field was accepted (only URL secret validated); now any payload with missing or mismatched `skill_id` returns 401. Comparison uses `secrets.compare_digest` for constant-time safety.
+- **NLU verb regex covers "включай"/"включайте"** — prior regex matched "включи"/"включите" but not "включай"/"включайте", leaving those forms unparsed and passing the raw verb into the search query.
+- **`DIALOG_CHANNEL` single source of truth** — removed the duplicate definition from `auto_skill.py`; now imported from `provider/constants.py`.
+- **Dialog draft docstring aligned with payload** — `build_dialog_draft_payload` docstring previously stated `category="other"` while the actual payload used `"music_and_sounds"`; aligned to match reality.
+- **Removed duplicate inflection suffixes** — `_INFLECTION_SUFFIXES` in `dialogs_nlu.py` contained "ыми", "ого", "ой" twice each; duplicates removed.
+- **Background play task uses `mass.create_task`** — replaced bare `asyncio.create_task` with `self._mass.create_task` so the playback task is tracked in the MA lifecycle (cancelled on shutdown/unload) and unhandled exceptions are logged by the framework's task handler. The manual `add_done_callback` / `_on_play_task_done` are no longer needed and have been removed.
+- **`resolve_query` docstring corrected** — removed the redundant "caller should tell the caller" phrasing; now reads "the webhook handler should respond with a 'not found' message".
+
 ## [1.5.3] — 2026-05-04
 
 ### Fixed
