@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.7.2] — 2026-05-05
+
+### Fixed
+- **Auto-create no longer fails on Yandex backend validation due to chicken-and-egg.** The plugin's direct-mode handler used to bail out at startup if `skill_id`/`skill_token` were missing, so HTTP routes were never registered until *after* a skill existed. But Yandex calls those routes *during* `request_deploy` to validate the backend — so the very first auto-create always failed with `400 BackendSettings uri ... is not valid`. Split the startup into two stages: routes register as soon as `direct_client_secret` is set (auto-generated when the form is opened); the state notifier (outgoing callbacks) starts only when `skill_id`/`skill_token` are populated. Now Yandex's validation hits live endpoints on the first attempt.
+
 ## [1.7.1] — 2026-05-05
 
 ### Fixed
