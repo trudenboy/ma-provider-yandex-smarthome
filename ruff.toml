@@ -104,9 +104,10 @@ mark-parentheses = false
 known-first-party = ["music_assistant"]
 
 [lint.per-file-ignores]
-# dialogs_nlu.py contains Russian strings (inflection suffixes, docstring examples)
-# that trigger RUF001/RUF002 false-positives; inline noqa doesn't suppress these
-# reliably inside string literals across ruff versions.
-"provider/dialogs_nlu.py" = ["RUF001", "RUF002"]
+# RUF002 (ambiguous Cyrillic in docstrings) is suppressed file-wide because
+# the docstrings contain Russian examples we want to keep verbatim. RUF001
+# (ambiguous Cyrillic in strings) is handled with inline `# noqa: RUF001` so
+# the suppression survives the upstream sync where this ruff config doesn't apply.
+"provider/dialogs_nlu.py" = ["RUF002"]
 "provider/dialogs_player.py" = ["RUF002"]
-"provider/dialogs.py" = ["RUF001", "RUF002"]
+"provider/dialogs.py" = ["RUF002"]

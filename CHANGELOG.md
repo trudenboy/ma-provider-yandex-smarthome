@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.6.4] — 2026-05-05
+
+### Fixed
+- **Inline `# noqa: RUF001` survives the auto-fix workflow** — v1.6.2 added these comments alongside `per-file-ignores` in `ruff.toml`, but the auto-fix CI step (`ruff check --fix`) considered them redundant and stripped them, breaking upstream lint (which has no per-file-ignores). Removed `RUF001` from `per-file-ignores` so the inline noqa is "used" and preserved across syncs. `RUF002` (docstrings) stays in per-file-ignores — upstream doesn't enforce it.
+
 ## [1.6.3] — 2026-05-04
 
 ### Fixed
