@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.8.4] — 2026-05-05
+
+User-reported issue: на screenless Яндекс-Станциях voice-first disambiguation prompt получает голосовой ответ, но навык переспрашивает вместо того чтобы запустить выбранную колонку. Три причины:
+
+### Fixed
+- **Accusative-case Russian endings now stripped by the player-name stemmer.** Added `ую` (feminine adjective accusative — *"большую"*, *"маленькую"*) and `ю` (feminine noun accusative — *"Кухню"*, *"Спальню"*) to `_INFLECTION_SUFFIXES`. Without these, an answer like *"большую"* couldn't match *"Кухня большая"* via free-text resolution: stem of *"большую"* stayed *"большую"* (no matching suffix) while stem of *"Кухня большая"* was *"кухн больш"* — neither `contains` nor `startswith` produced a hit, so the resolver returned `[]`. The user heard the prompt repeated.
+- **Ordinal regex tolerates leading filler words.** *"выбираю первую"*, *"хочу вторую"*, *"давай первую"* now resolve to the right candidate. Previously the strict `^…\b` anchor required the ordinal word at position 0, missing every padded reply. The patterns now use word-prefix `\bперв\w*\b` (etc.) with `re.search` — catches every morphological form (нач. с *перв*, *втор*, *треть*, *четвёрт*, *пят*) without enumerating each, regardless of leading or trailing words. Cardinal numbers (*один*, *два*, …) and digits stay anchored whole-utterance to avoid false positives ("у меня один вариант" must NOT pick the first candidate).
+- **Reordered `_try_resume_pending` resolution steps** so named answers always win over positional ones. New order: `ButtonPressed` → free-text (named distinguishers like *"Кухня большая"* / *"большая"*) → ordinal (*"первая"*, *"выбираю первую"*). The previous ordinal-first order would have mis-resolved a hypothetical *"Спальня первая"*-named player to whatever happened to be `candidate_ids[0]` instead of matching by name. Three new tests cover the regression: `test_voice_ordinal_with_filler`, `test_voice_accusative_adjective`, `test_voice_accusative_noun`.
+
 ## [1.8.3] — 2026-05-05
 
 Upstream-sync lint fix. The upstream `music-assistant/server` CI ran with the v1.8.2 sync and surfaced 57 ruff errors + 3 mypy errors that this repo's local checks were silencing via `ruff.toml` rules that don't propagate when the sync workflow copies provider files into `music_assistant/providers/yandex_smarthome/`. All purely lint configuration — no behaviour change.
