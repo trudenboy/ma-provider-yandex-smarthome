@@ -1554,56 +1554,6 @@ async def _execute_pipeline(  # noqa: PLR0913, PLR0915
     return artifacts
 
 
-async def _unused_wait_for_deploy_completed_DEPRECATED(  # pragma: no cover
-    creator: DialogsSkillCreator,
-    csrf: str,
-    skill_id: str,
-    *,
-    timeout: float = 300.0,
-    poll_interval: float = 3.0,
-) -> bool:
-    """Deprecated polling helper — kept for ad-hoc debugging only.
-
-    Yandex's actual deploy for aliceSkill takes 5+ minutes under typical
-    moderation queue conditions, which is too long to block a
-    config-flow action on. Pipeline now returns immediately after
-    ``request_deploy`` succeeds and lets the user check the dev-console
-    URL surfaced in the UI for status. This helper polls the operations
-    log if a caller really wants to wait for deployCompleted /
-    deployFailed; not used in the main pipeline.
-    """
-    deadline = asyncio.get_event_loop().time() + timeout
-    while asyncio.get_event_loop().time() < deadline:
-        try:
-            ops = await creator.get_operations(csrf, skill_id)
-        except DialogsApiError as exc:
-            _LOGGER.debug("operations poll failed (transient): %s", exc)
-            await asyncio.sleep(poll_interval)
-            continue
-
-        for op in ops:
-            if op.get("type") == "deployCompleted" and op.get("itemId") == skill_id:
-                _LOGGER.info("auto-skill: deployCompleted observed for skill %s", skill_id)
-                return True
-            if op.get("type") == "deployFailed" and op.get("itemId") == skill_id:
-                _LOGGER.warning(
-                    "auto-skill: deployFailed for skill %s: %s",
-                    skill_id,
-                    op.get("comment", "(no comment)"),
-                )
-                return False
-
-        await asyncio.sleep(poll_interval)
-
-    _LOGGER.warning(
-        "auto-skill: timed out waiting for deployCompleted on %s after %.0fs — "
-        "request_deploy was accepted, Yandex will finish on its side",
-        skill_id,
-        timeout,
-    )
-    return False
-
-
 async def auto_rename_dialog_skill(  # noqa: PLR0913
     *,
     mass: MusicAssistant,
