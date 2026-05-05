@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.7.1] — 2026-05-05
+
+### Fixed
+- **Direct mode auto-create now passes Yandex's backend validation.** The Backend URI sent to Yandex (`derive_backend_uri` for `direct`) included `/v1.0`, but Yandex appends `/v1.0/...` itself when calling our endpoints. The result was duplicate `/v1.0/v1.0/user/devices` paths during validation → all 404, and `request_deploy` returned `HTTP 400 BackendSettings uri ... is not valid`. Introduced `DIRECT_BACKEND_URI_PATH = "/api/yandex_smarthome"` (without `/v1.0`) for Yandex; routes still register at `DIRECT_API_BASE_PATH = "/api/yandex_smarthome/v1.0"` so the actual paths Yandex calls (`<backend>/v1.0/user/devices` = `/api/yandex_smarthome/v1.0/user/devices`) match what the plugin listens on.
+
 ## [1.7.0] — 2026-05-05
 
 ### Added
