@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.8.5] — 2026-05-05
+
+User report: на screenless Яндекс-Станциях disambiguation prompt получает голосовой ответ ("Проигрыватель"), но навык переспрашивает прежним промптом, и так в цикле, пока не падает в "Не понял команду". С прямой формой "включи джаз на проигрывателе" всё работает — то есть resolver и стеммер сами по себе нормальные.
+
+### Fixed
+- **`pending_command` дублируется в `state.application` как fallback к `state.session`.** Корневая причина зацикливания: некоторые Yandex-устройства (особенно screenless Stations) не возвращают `state.session` между SimpleUtterance-turn-ами в одной открытой сессии — мы получаем второй turn без `pending_command`, попадаем в "no-hint + no-default disambig" branch, который заново показывает тот же prompt. Теперь disambiguation-ответ сохраняет `pending_command` (и `awaiting_query`) одновременно в `state.session` И `state.application`. Application-tier per-device, переживает session-сброс, и Yandex эту секцию возвращает надёжно. `_handle_webhook` читает обе секции, отдаёт приоритет session, fallback на application. Успешный play / control сбрасывает pending в обоих tier-ах. Webhook-recv DEBUG-лог теперь показывает наличие `pending_command` отдельно для session и application — это поможет в будущей диагностике.
+
 ## [1.8.4] — 2026-05-05
 
 User-reported issue: на screenless Яндекс-Станциях voice-first disambiguation prompt получает голосовой ответ, но навык переспрашивает вместо того чтобы запустить выбранную колонку. Три причины:
