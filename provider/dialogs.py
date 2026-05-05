@@ -364,8 +364,15 @@ class DialogsWebhookHandler:
             exposed_ids=self._exposed_player_ids,
         )
         if player is None:
-            hint = control.player_hint or "(не указано)"
-            text = f"Не нашёл колонку «{hint}». Скажи, например: на кухне."
+            # Distinguish "no hint + ambiguous" from "hint given but unknown"
+            # so the message matches the actual cause.
+            if control.player_hint:
+                text = (
+                    f"Не нашёл колонку «{control.player_hint}». "
+                    "Скажи, например: на кухне."
+                )
+            else:
+                text = "Скажи, на какой колонке. Например: пауза на кухне."
             return self._yandex_response(
                 incoming_session=session,
                 text=text,
@@ -489,8 +496,14 @@ class DialogsWebhookHandler:
             }
             for p in capped
         ]
+        # Clear any prior `awaiting_query` / `pending_command` before
+        # writing the new one. Without this, slot-elicitation state from
+        # an earlier turn would leak into the disambiguation response —
+        # the next utterance ("Кухня маленькая") would get auto-prefixed
+        # with "включи " by the awaiting-query branch and miss the
+        # pending-command resolver.
         new_session_state = {
-            **session_state_in,
+            **_without_pending(session_state_in),
             "pending_command": {
                 "kind": parsed.kind,
                 "query": parsed.query[:200],
@@ -596,10 +609,20 @@ class DialogsWebhookHandler:
         user-scoped state (set keys to None to clear). Omit a parameter
         to leave that bucket unchanged on Yandex's side.
         """
+        # Yandex envelopes carry two user_id fields: the deprecated root
+        # `session.user_id` (always present in current API revisions for
+        # backwards compatibility) and the nested `session.user.user_id`
+        # (set only when the user is account-linked). Prefer the root for
+        # historical reasons but fall back to the nested form so the
+        # echo doesn't leak an empty string if a future Yandex API
+        # revision drops the root field.
+        user_id = incoming_session.get("user_id") or _safe_dict(
+            incoming_session.get("user")
+        ).get("user_id", "")
         echoed = {
             "session_id": incoming_session.get("session_id", ""),
             "message_id": incoming_session.get("message_id", 0),
-            "user_id": incoming_session.get("user_id", ""),
+            "user_id": user_id,
         }
         response_body: dict[str, Any] = {
             "text": text,

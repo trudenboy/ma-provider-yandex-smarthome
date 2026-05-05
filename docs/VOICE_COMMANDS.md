@@ -19,9 +19,9 @@ envelope shaped like:
   "session": {
     "skill_id": "<our-skill-uuid>",
     "session_id": "<per-conversation>",
-    "user_id":   "<per-Yandex-account>",
+    "user_id":   "<deprecated; always present, per-app-instance>",
     "new":       true | false,
-    "user":      { "user_id": "<account-scoped, only if logged in>" }
+    "user":      { "user_id": "<account-scoped; only when account-linked>" }
   },
   "request": {
     "type":              "SimpleUtterance" | "ButtonPressed",

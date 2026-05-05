@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.8.1] — 2026-05-05
+
+Three Copilot-review findings on the v1.8.0 voice-UX refactor + a docs fix.
+
+### Fixed
+- **`_yandex_response.user_id` echo falls back to nested `session.user.user_id`.** Yandex envelopes carry both a deprecated root `session.user_id` and a nested `session.user.user_id` (set when the user is account-linked). Previously we only read the root, which would emit an empty echo if a future Yandex API revision drops the deprecated field. Now uses the root with a fallback to the nested form.
+- **Disambiguation no longer leaks `awaiting_query` into the next turn.** `_build_disambiguation_response` previously copied `session_state_in` verbatim. If the multi-match was reached via slot elicitation (`Включи.` → `Что включить?` → `Metallica на кухне` → multiple "Кухня"), `awaiting_query=True` stayed in the response state. The user's answer to the disambiguation question (e.g. *"Кухня маленькая"*) would then get auto-prefixed with `включи `, breaking pending-command resolution. Fix: clear both `awaiting_query` and `pending_command` via `_without_pending(...)` before writing the new pending entry.
+- **Control commands without a player hint now ask "на какой колонке?".** Saying *"пауза"* on a fresh multi-player install (no `default_id` in any state tier) used to respond with the misleading `Не нашёл колонку «(не указано)»`. The message now distinguishes "hint given but unknown" (kept the same) from "no hint, ambiguous" (new: *"Скажи, на какой колонке. Например: пауза на кухне."*).
+
+### Docs
+- **Wire-format snippet in `VOICE_COMMANDS.md` accurately describes the two `user_id` fields.** Root `session.user_id` clarified as deprecated-but-always-present (per-app-instance); nested `session.user.user_id` clarified as account-linked-only.
+
 ## [1.8.0] — 2026-05-05
 
 Voice-UX overhaul of the experimental Dialogs skill, driven by the research write-up in [`docs/VOICE_UX_RESEARCH.md`](docs/VOICE_UX_RESEARCH.md). Seven P0 changes — together they turn the skill from "works most of the time" into "predictable" without any breaking config changes.

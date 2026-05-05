@@ -342,6 +342,25 @@ class TestStatePersistence:
         await asyncio.sleep(0)
         assert mass.player_queues.play_media.call_args.kwargs["queue_id"] == "p2"
 
+    async def test_user_id_echo_falls_back_to_nested(self) -> None:
+        """When root session.user_id is missing, echo the nested session.user.user_id."""
+        track = MagicMock(uri="library://track/1", spec_set=["uri"])
+        mass = _make_mass([MockPlayer(player_id="p1", name="Кухня")], search_track=track)
+        handler = self._make_handler(mass)
+        body = {
+            "session": {
+                "skill_id": "skill-uuid-1",
+                "session_id": "s1",
+                "new": False,
+                # No root "user_id"; only the nested one.
+                "user": {"user_id": "yandex-user-42"},
+            },
+            "request": {"command": "включи Metallica на кухне"},
+        }
+        resp = await handler._handle_webhook(_build_request(body))
+        body_out = _response_body(resp)
+        assert body_out["session"]["user_id"] == "yandex-user-42"
+
     async def test_session_state_preserved_on_player_not_found(self) -> None:
         """Even on error, existing session_state is echoed back so other keys aren't lost."""
         mass = _make_mass([MockPlayer(player_id="p1", name="Спальня")])
@@ -500,6 +519,35 @@ class TestControlCommandsIntegration:
         resp = await handler._handle_webhook(_build_request(body))
         assert resp.status == 200
         mass.player_queues.pause.assert_not_awaited()
+        body_out = _response_body(resp)
+        assert "Не нашёл колонку «гостиной»" in body_out["response"]["text"]
+
+    async def test_control_no_hint_no_default_asks_for_player(self) -> None:
+        """Control with no hint + no default + multi-player → ask for the player.
+
+        Previously responded with the misleading "Не нашёл колонку «(не указано)»";
+        now the message tells the user to specify the player.
+        """
+        mass = self._setup_mass_with_control_methods(
+            [
+                MockPlayer(player_id="p1", name="Кухня"),
+                MockPlayer(player_id="p2", name="Спальня"),
+            ]
+        )
+        handler = DialogsWebhookHandler(
+            mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET
+        )
+        body = {
+            "session": {"skill_id": "skill-uuid-1", "session_id": "s1", "new": False},
+            "request": {"command": "пауза"},
+        }
+        resp = await handler._handle_webhook(_build_request(body))
+        assert resp.status == 200
+        mass.player_queues.pause.assert_not_awaited()
+        body_out = _response_body(resp)
+        text = body_out["response"]["text"]
+        assert "(не указано)" not in text
+        assert "на какой колонке" in text.lower()
 
 
 # ---------------------------------------------------------------------------
@@ -640,6 +688,39 @@ class TestDisambiguation:
         # not "включи yesterday".
         search_query = mass.music.search.call_args.kwargs["search_query"]
         assert search_query == "yesterday"
+
+    async def test_disambiguation_clears_awaiting_query(self) -> None:
+        """Slot-elicit → multi-match → disambiguation prompt drops awaiting_query.
+
+        Without this, the next user utterance ("Кухня маленькая") would get
+        auto-prefixed with "включи " by the awaiting-query branch and miss
+        the pending-command resolver.
+        """
+        track = MagicMock(uri="library://track/1", spec_set=["uri"])
+        mass = _make_mass(
+            [
+                MockPlayer(player_id="p1", name="Кухня большая"),
+                MockPlayer(player_id="p2", name="Кухня маленькая"),
+            ],
+            search_track=track,
+        )
+        handler = DialogsWebhookHandler(
+            mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET
+        )
+        # Simulate the awaiting_query → ambiguous-resolution turn.
+        body = {
+            "session": {"skill_id": "skill-uuid-1", "session_id": "s1", "new": False},
+            "request": {"command": "Metallica на кухне"},
+            "state": {"session": {"awaiting_query": True}},
+        }
+        resp = await handler._handle_webhook(_build_request(body))
+        body_out = _response_body(resp)
+        # Disambiguation prompt is returned (multi-match).
+        assert body_out["response"]["end_session"] is False
+        assert "buttons" in body_out["response"]
+        # And the response carries pending_command but NOT awaiting_query.
+        assert "pending_command" in body_out["session_state"]
+        assert "awaiting_query" not in body_out["session_state"]
 
     async def test_freetext_followup_resolves_pending(self) -> None:
         """User says 'на кухне маленькой' after the disambiguation question — plays on p2."""
