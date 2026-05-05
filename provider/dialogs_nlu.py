@@ -167,16 +167,18 @@ _INFLECTION_SUFFIXES = (
 # default/only-exposed player if the user said one of these instead of
 # a specific player name. Stored as already-normalised stems so we can
 # compare against the same normalisation we run on `hint`.
-_GENERIC_PLAYER_STEMS = frozenset({
-    "колонк",  # колонка / на колонке / колонку
-    "плеер",  # плеер / на плеере / плеера
-    "пле",  # short for "плеер" after stripping the trailing -ер suffix  # noqa: RUF003
-    "проигрыватель",  # full word survives stem (no matching suffix)
-    "проигрывател",  # stripped «-ь»
-    "динамик",  # динамик / на динамике
-    "акустик",  # акустика / на акустике
-    "устройств",  # устройство / на устройстве
-})
+_GENERIC_PLAYER_STEMS = frozenset(
+    {
+        "колонк",  # колонка / на колонке / колонку
+        "плеер",  # плеер / на плеере / плеера
+        "пле",  # short for "плеер" after stripping the trailing -ер suffix  # noqa: RUF003
+        "проигрыватель",  # full word survives stem (no matching suffix)
+        "проигрывател",  # stripped «-ь»
+        "динамик",  # динамик / на динамике
+        "акустик",  # акустика / на акустике
+        "устройств",  # устройство / на устройстве
+    }
+)
 
 
 def _normalize_player_token(name: str) -> str:
@@ -265,8 +267,12 @@ def resolve_player(
     _LOGGER.debug(
         "resolve_player: hint=%r → needle=%r; candidates=%s; "
         "matches: exact=%d startswith=%d contains=%d",
-        hint, needle, haystacks,
-        len(exact), len(startswith), len(contains),
+        hint,
+        needle,
+        haystacks,
+        len(exact),
+        len(startswith),
+        len(contains),
     )
 
     for tier in (exact, startswith, contains):
@@ -292,19 +298,22 @@ def resolve_player(
                 if p.player_id == default_id:
                     _LOGGER.info(
                         "Generic player hint %r → resolved to default player %r",
-                        hint, p.name,
+                        hint,
+                        p.name,
                     )
                     return p
         if len(candidates) == 1:
             _LOGGER.info(
                 "Generic player hint %r → resolved to the only exposed player %r",
-                hint, candidates[0].name,
+                hint,
+                candidates[0].name,
             )
             return candidates[0]
         _LOGGER.warning(
             "Generic player hint %r matches no specific player and there are "
             "%d exposed players — caller will ask for clarification",
-            hint, len(candidates),
+            hint,
+            len(candidates),
         )
 
     return None
