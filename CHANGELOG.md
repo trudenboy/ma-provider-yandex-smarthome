@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.8.6] — 2026-05-05
+
+Three Copilot review findings on the upstream PR addressed.
+
+### Fixed
+- **Player-suffix splitter no longer eats content titles starting with «На».** The trailing `\s+на\s+(.+?)\s*$` regex used to greedily strip *"на заре"* from *"включи песню На заре"*, leaving the parser with an unusable `query="песню"` and a fake `player_hint="заре"`. Now `parse_command` checks the residual after the split: if a `player_hint` was extracted but the surviving intent collapsed to a kind-marker word (`песню` / `альбом` / `плейлист` / `артиста` / etc. — all listed in the new `_KIND_MARKER_WORDS` frozenset), the function recurses with `_split_player_hint=False` and re-parses without the suffix split. So *"включи песню На заре"* now parses as `kind=track, query="на заре", hint=None` — and a subsequent search finds the track. Genuine `<query> на <player>` (e.g. *"включи песню Yesterday на кухне"*) keeps its hint because the residual *"песню Yesterday"* is not a marker-only string.
+- **Slot elicitation triggers when the query slot is empty even if a player hint was given.** Saying *"включи на кухне"* used to fall through to *"Не нашёл такую музыку: ."* because the elicitation gate required `parsed.player_hint is None`. Now elicitation fires whenever `parsed.query == ""`; if the hint resolves unambiguously to a single exposed player, the player_id is saved as `awaiting_player_id` (mirrored to both `state.session` and `state.application`) and the next-turn `_handle_webhook` restores it as `default_id`. Result: *"Включи на кухне." → "Что включить?" → "Iron Maiden"* plays Iron Maiden on the kitchen player without the user re-stating *"на кухне"*.
+
+### Removed
+- **`DialogsSkillCreator.get_operations` dropped as dead code.** The polling helper that consumed it (`_unused_wait_for_deploy_completed_DEPRECATED`) was deleted in v1.7.18 (async-deploy is non-blocking — the user tracks status via the dev-console link surfaced in the UI). The `get_operations` method has been unreferenced since then; removing it cuts the maintenance surface (Yandex API drift, response-shape variants) for a feature that no longer exists.
+
 ## [1.8.5] — 2026-05-05
 
 User report: на screenless Яндекс-Станциях disambiguation prompt получает голосовой ответ ("Проигрыватель"), но навык переспрашивает прежним промптом, и так в цикле, пока не падает в "Не понял команду". С прямой формой "включи джаз на проигрывателе" всё работает — то есть resolver и стеммер сами по себе нормальные.
