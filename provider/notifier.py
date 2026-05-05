@@ -227,20 +227,16 @@ class StateNotifier:
                             "Yandex returned UNKNOWN_USER for state callback — this means "
                             "the skill has not been linked to a Yandex account yet. "
                             "Open https://yandex.ru/quasar/iot or the «Дом с Алисой» app, "  # noqa: RUF001
-                            "find the skill in Devices → +, and tap «Связать аккаунт». "  # noqa: RUF001
+                            "find the skill in Devices → +, and tap «Связать аккаунт». "
                             "State callback errors will be suppressed at debug level "
                             "until linking succeeds."
                         )
                         self._unknown_user_warned = True
                     else:
-                        self._logger.debug(
-                            "State callback still UNKNOWN_USER (account not linked)"
-                        )
+                        self._logger.debug("State callback still UNKNOWN_USER (account not linked)")
                     return  # silent — not a real error, don't raise
 
-                raise RuntimeError(
-                    f"State callback failed with HTTP {resp.status}: {body[:200]}"
-                )
+                raise RuntimeError(f"State callback failed with HTTP {resp.status}: {body[:200]}")
         except RuntimeError:
             self._logger.exception("State callback error")
             raise

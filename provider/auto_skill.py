@@ -1020,8 +1020,7 @@ async def _default_authenticator(  # noqa: PLR0915
             try:
                 await client.refresh_passport_cookies(cached_x_token)
                 _LOGGER.info(
-                    "auto-skill: reused cached Yandex Passport x_token "
-                    "(no Device Flow needed)"
+                    "auto-skill: reused cached Yandex Passport x_token (no Device Flow needed)"
                 )
                 yield client._session
                 return
@@ -1029,8 +1028,7 @@ async def _default_authenticator(  # noqa: PLR0915
                 raise
             except Exception as exc:
                 _LOGGER.info(
-                    "auto-skill: cached x_token rejected (%s) — falling back "
-                    "to fresh Device Flow",
+                    "auto-skill: cached x_token rejected (%s) — falling back to fresh Device Flow",
                     exc,
                 )
 
@@ -1122,8 +1120,7 @@ async def _default_authenticator(  # noqa: PLR0915
                 on_token_obtained(creds.x_token)
             except Exception:
                 _LOGGER.exception(
-                    "auto-skill: on_token_obtained callback failed; "
-                    "x_token will not be cached"
+                    "auto-skill: on_token_obtained callback failed; x_token will not be cached"
                 )
 
         yield client._session
