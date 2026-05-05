@@ -4,7 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [1.7.13] — 2026-05-05
+## [1.7.14] — 2026-05-05
+
+### Fixed
+- **Dialog skill `update_draft` no longer rejected by Yandex.** Despite the v1.7.12 fix to use the correct `category="music_audio"` value, Yandex was still returning HTTP 400 with an empty body — additional fields in `publishingSettings` (almost certainly `email=""`, but the API does not say) silently fail validation. Splitting the draft update into two PATCH passes:
+  1. Initial draft PATCH — only the fields we genuinely need to set (name, activation phrases, voice, backend URL, access flags). No `publishingSettings` at all, so Yandex keeps its server-side defaults (e.g. user's email pre-filled from Passport).
+  2. Pre-deploy PATCH — sends the `publishingSettings` block (category, description, examples, developerName) right before `request_deploy`. If this second PATCH fails, the skill is still created and reachable in the Yandex Dialogs dev console; the user can finish the form there.
+- **Dialog skill auto-create no longer crashes if `request_deploy` fails.** Yandex's `request_deploy` enforces strict validation rules on dialog skills that we don't fully understand yet — and the pre-deploy publishingSettings PATCH may itself fail. In both cases the auto-create now completes with `state=DONE` (skill_id saved, OAuth attached) and logs a WARNING with instructions; users can finish the publish step in the Yandex Dialogs dev console.
 
 ### Fixed
 - **Empty-body 400 diagnostic no longer dumps full response headers.** v1.7.5 logged the entire `resp.headers` dict at WARNING when Yandex returned a 4xx with an empty body, which leaked `Set-Cookie` (and any other header Yandex sets in the response) into MA's log file. Now logs only a small safe subset: `Content-Type`, `Content-Length`, `X-Request-Id`, `X-RateLimit-Remaining`, `X-RateLimit-Limit`.
