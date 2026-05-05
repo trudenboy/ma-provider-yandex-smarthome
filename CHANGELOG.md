@@ -4,7 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [1.7.12] — 2026-05-05
+## [1.7.13] — 2026-05-05
+
+### Fixed
+- **Empty-body 400 diagnostic no longer dumps full response headers.** v1.7.5 logged the entire `resp.headers` dict at WARNING when Yandex returned a 4xx with an empty body, which leaked `Set-Cookie` (and any other header Yandex sets in the response) into MA's log file. Now logs only a small safe subset: `Content-Type`, `Content-Length`, `X-Request-Id`, `X-RateLimit-Remaining`, `X-RateLimit-Limit`.
 
 ### Fixed
 - **Dialog skill `category` value corrected to `"music_audio"`.** The previous best-guess `"music_and_sounds"` is not a recognised Yandex category — `PATCH /draft/update` was returning HTTP 400 with an empty body (no JSON `validationErrors` payload) which made the failure cause invisible. The correct API key for the *«Аудио и подкасты»* category was captured from `GET /snapshot` (which exposes the full catalogue: `[{"type":"music_audio","title":"Аудио и подкасты"}, ...]`). Other categories also have non-obvious mappings (e.g. *«Игры и развлечения»* → `games_trivia_accessories`, *«Видео»* → `movies_tv`).
