@@ -222,6 +222,29 @@ def _normalize_player_token(name: str) -> str:
     return " ".join(parts)
 
 
+def list_exposed_players(
+    mass: MusicAssistant,
+    *,
+    exposed_ids: set[str] | None = None,
+) -> list[Any]:
+    """Return all available, enabled, non-synced players (filtered by exposure).
+
+    Same filter as ``resolve_player_candidates`` uses for its candidate set,
+    extracted so the dialog handler can answer "what speakers do you see?"
+    queries (P0.6 ``list_players`` action) without re-implementing it.
+    """
+    out: list[Any] = []
+    for player in mass.players.all_players():
+        if not player.available or not player.enabled:
+            continue
+        if getattr(player, "synced_to", None):
+            continue
+        if exposed_ids and player.player_id not in exposed_ids:
+            continue
+        out.append(player)
+    return out
+
+
 def resolve_player_candidates(
     mass: MusicAssistant,
     hint: str | None,
@@ -237,36 +260,47 @@ def resolve_player_candidates(
     generic-word fallback. The caller decides what to do with multiple
     matches (typically: ask the user to disambiguate).
 
+    Logs a single DEBUG-level summary on every call describing the
+    decision: chosen tier, candidate count, and the names of the
+    candidates returned.
+
     Returns:
         A list with all players in the best non-empty tier. ``[]`` if
         nothing matched. ``[player]`` for an unambiguous resolution.
     """
-    candidates: list[Any] = []
-    for player in mass.players.all_players():
-        if not player.available or not player.enabled:
-            continue
-        if getattr(player, "synced_to", None):
-            continue
-        if exposed_ids and player.player_id not in exposed_ids:
-            continue
-        candidates.append(player)
+    candidates = list_exposed_players(mass, exposed_ids=exposed_ids)
+
+    def _label(p: Any) -> str:
+        return getattr(p, "name", None) or p.player_id
+
+    def _result(result: list[Any], reason: str) -> list[Any]:
+        _LOGGER.debug(
+            "resolve_player: hint=%r default=%s exposed=%d -> %d candidate(s) %s [%s]",
+            hint,
+            default_id,
+            len(candidates),
+            len(result),
+            [_label(p) for p in result],
+            reason,
+        )
+        return result
 
     if not candidates:
-        return []
+        return _result([], "no exposed players")
 
     # Single-player install or no hint → default / only candidate.
     if not hint:
         if default_id:
             for p in candidates:
                 if p.player_id == default_id:
-                    return [p]
+                    return _result([p], "no hint, matched default_id")
         if len(candidates) == 1:
-            return candidates[:]
-        return []
+            return _result(candidates[:], "no hint, single exposed player")
+        return _result([], "no hint, ambiguous")
 
     needle = _normalize_player_token(hint)
     if not needle:
-        return []
+        return _result([], "hint normalised to empty string")
 
     exact: list[Any] = []
     startswith: list[Any] = []
@@ -285,7 +319,7 @@ def resolve_player_candidates(
             contains.append(p)
 
     _LOGGER.debug(
-        "resolve_player: hint=%r → needle=%r; candidates=%s; "
+        "resolve_player tiers: hint=%r needle=%r candidates=%s "
         "matches: exact=%d startswith=%d contains=%d",
         hint,
         needle,
@@ -295,10 +329,14 @@ def resolve_player_candidates(
         len(contains),
     )
 
-    for tier in (exact, startswith, contains):
+    for tier_name, tier in (
+        ("exact", exact),
+        ("startswith", startswith),
+        ("contains", contains),
+    ):
         if tier:
             tier.sort(key=lambda p: (p.name or p.player_id).lower())
-            return tier
+            return _result(tier, f"tier={tier_name}")
 
     # Generic-word fallback: "на колонке" / "на проигрывателе" / "на динамике"
     # mean "any speaker" — resolve unambiguously only when the choice is
@@ -312,22 +350,23 @@ def resolve_player_candidates(
                         hint,
                         p.name,
                     )
-                    return [p]
+                    return _result([p], "generic word, matched default_id")
         if len(candidates) == 1:
             _LOGGER.info(
                 "Generic player hint %r → resolved to the only exposed player %r",
                 hint,
                 candidates[0].name,
             )
-            return candidates[:]
+            return _result(candidates[:], "generic word, single exposed player")
         _LOGGER.warning(
             "Generic player hint %r matches no specific player and there are "
             "%d exposed players — caller will ask for clarification",
             hint,
             len(candidates),
         )
+        return _result([], "generic word, multiple players, no default")
 
-    return []
+    return _result([], "no tier matched")
 
 
 def resolve_player(

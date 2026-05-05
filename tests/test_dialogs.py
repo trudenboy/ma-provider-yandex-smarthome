@@ -522,6 +522,61 @@ class TestControlCommandsIntegration:
         body_out = _response_body(resp)
         assert "Не нашёл колонку «гостиной»" in body_out["response"]["text"]
 
+    async def test_list_players_returns_player_names(self) -> None:
+        """'сколько колонок видишь' → response with the count and names of exposed players."""
+        mass = self._setup_mass_with_control_methods(
+            [
+                MockPlayer(player_id="p1", name="Кухня"),
+                MockPlayer(player_id="p2", name="Спальня"),
+                MockPlayer(player_id="p3", name="Гостиная"),
+            ]
+        )
+        handler = DialogsWebhookHandler(
+            mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET
+        )
+        body = {
+            "session": {"skill_id": "skill-uuid-1", "session_id": "s1", "new": False},
+            "request": {"command": "сколько колонок видишь"},
+        }
+        resp = await handler._handle_webhook(_build_request(body))
+        assert resp.status == 200
+        body_out = _response_body(resp)
+        text = body_out["response"]["text"]
+        assert "Вижу 3 колонки" in text
+        assert "Кухня" in text
+        assert "Спальня" in text
+        assert "Гостиная" in text
+        # Informational query — keep the mic open for follow-ups.
+        assert body_out["response"]["end_session"] is False
+        # No playback or control was dispatched.
+        mass.player_queues.pause.assert_not_awaited()
+        mass.player_queues.play_media.assert_not_awaited()
+
+    async def test_list_players_skips_unavailable(self) -> None:
+        """Only available + enabled + non-synced players are counted."""
+        mass = self._setup_mass_with_control_methods(
+            [
+                MockPlayer(player_id="p1", name="Кухня"),
+                MockPlayer(player_id="p2", name="Disabled", enabled=False),
+                MockPlayer(player_id="p3", name="Unavailable", available=False),
+                MockPlayer(player_id="p4", name="Synced", synced_to="leader"),
+            ]
+        )
+        handler = DialogsWebhookHandler(
+            mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET
+        )
+        body = {
+            "session": {"skill_id": "skill-uuid-1", "session_id": "s1", "new": False},
+            "request": {"command": "какие колонки"},
+        }
+        resp = await handler._handle_webhook(_build_request(body))
+        body_out = _response_body(resp)
+        text = body_out["response"]["text"]
+        assert "Вижу одну колонку: Кухня" in text
+        assert "Disabled" not in text
+        assert "Unavailable" not in text
+        assert "Synced" not in text
+
     async def test_control_no_hint_no_default_asks_for_player(self) -> None:
         """Control with no hint + no default + multi-player → ask for the player.
 

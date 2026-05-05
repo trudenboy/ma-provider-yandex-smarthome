@@ -46,10 +46,16 @@ from .constants import (
     DIALOG_RESOLVE_TIMEOUT,
     DIALOG_WEBHOOK_BASE_PATH,
 )
-from .dialogs_control import control_confirmation, execute_control, parse_control
+from .dialogs_control import (
+    control_confirmation,
+    execute_control,
+    format_list_players,
+    parse_control,
+)
 from .dialogs_nlu import (
     _VERB_RE,
     ParsedCommand,
+    list_exposed_players,
     parse_command,
     resolve_player,
     resolve_player_candidates,
@@ -236,6 +242,22 @@ class DialogsWebhookHandler:
         is_new = bool(session.get("new"))
         command = str(req.get("command") or "").strip()
 
+        # Single summary log per incoming request — surfaces the wire-shape
+        # bits we route on. Sensitive fields (skill_id, webhook_secret,
+        # raw payload IDs) are excluded; user/session IDs are opaque
+        # opaque tokens and DEBUG is opt-in, so they're included as-is.
+        self._logger.debug(
+            "Webhook recv: cmd=%r req_type=%s is_new=%s pending=%s "
+            "awaiting=%s default_player=%s session_id=%s",
+            command,
+            req.get("type", "SimpleUtterance"),
+            is_new,
+            bool(session_state_in.get("pending_command")),
+            bool(session_state_in.get("awaiting_query")),
+            default_id,
+            session.get("session_id", ""),
+        )
+
         if is_new and not command:
             text = "Привет! Скажи, что включить и на какой колонке."
             return self._yandex_response(
@@ -263,6 +285,7 @@ class DialogsWebhookHandler:
         # the synthetic prefix if the user already said one of the verbs.
         if session_state_in.get("awaiting_query") and not _VERB_RE.match(command):
             command = f"включи {command}"
+            self._logger.debug("Awaiting-query branch: synthesised cmd=%r", command)
 
         # P0.6 — try control commands (pause/next/volume/...) before the
         # play parser. parse_control returns None if the utterance isn't a
@@ -282,6 +305,14 @@ class DialogsWebhookHandler:
         # button press) carries the answer; replay the saved play intent.
         pending = session_state_in.get("pending_command")
         if isinstance(pending, dict):
+            self._logger.debug(
+                "Pending-command branch: kind=%s query=%r radio=%s; cmd=%r payload=%s",
+                pending.get("kind"),
+                pending.get("query"),
+                pending.get("radio_mode"),
+                command,
+                bool(_safe_dict(req.get("payload")).get("player_id")),
+            )
             replay_response = await self._try_resume_pending(
                 session=session,
                 req=req,
@@ -292,13 +323,16 @@ class DialogsWebhookHandler:
             )
             if replay_response is not None:
                 return replay_response
-            # Fell through: still ambiguous / unresolved — drop to normal parse.
+            self._logger.debug(
+                "Pending-command branch: could not resume — falling through to parse_command"
+            )
 
         parsed = parse_command(command)
         self._logger.debug("Parsed dialog command %r → %r", command, parsed)
 
         # P0.4 — slot elicitation: bare verb with no actionable content.
         if parsed.kind == "search" and not parsed.query and not parsed.player_hint:
+            self._logger.debug("Slot-elicit branch: empty query, asking 'Что включить?'")
             text = "Что включить? Можно сказать имя артиста, песни или плейлиста."
             return self._yandex_response(
                 incoming_session=session,
@@ -319,6 +353,12 @@ class DialogsWebhookHandler:
         )
         if not candidates:
             hint = parsed.player_hint or "(не указано)"
+            self._logger.info(
+                "Play branch: no player resolved for hint=%r (default_id=%s); "
+                "responding 'не нашёл колонку'",
+                parsed.player_hint,
+                default_id,
+            )
             text = f"Не нашёл колонку «{hint}». Скажи, например: на кухне."
             return self._yandex_response(
                 incoming_session=session,
@@ -328,6 +368,10 @@ class DialogsWebhookHandler:
                 session_state=session_state_in,
             )
         if len(candidates) > 1:
+            self._logger.debug(
+                "Play branch: ambiguous, %d candidates → disambiguation prompt",
+                len(candidates),
+            )
             return self._build_disambiguation_response(
                 session=session,
                 parsed=parsed,
@@ -335,6 +379,11 @@ class DialogsWebhookHandler:
                 session_state_in=session_state_in,
             )
 
+        self._logger.debug(
+            "Play branch: resolved → player %s (%s)",
+            candidates[0].name or candidates[0].player_id,
+            candidates[0].player_id,
+        )
         return await self._play_with_player(
             session=session,
             parsed=parsed,
@@ -357,6 +406,25 @@ class DialogsWebhookHandler:
         app_state_in: dict[str, Any],
     ) -> web.Response:
         """Resolve player + dispatch a control action; build response."""
+        # list_players is informational — no player resolution / dispatch.
+        if control.action == "list_players":
+            players = list_exposed_players(
+                self._mass, exposed_ids=self._exposed_player_ids
+            )
+            text = format_list_players(players)
+            self._logger.debug(
+                "Control list_players → %d player(s): %s",
+                len(players),
+                [getattr(p, "name", None) or p.player_id for p in players],
+            )
+            return self._yandex_response(
+                incoming_session=session,
+                text=text,
+                tts=_tts_for(text),
+                end_session=False,
+                session_state=session_state_in,
+            )
+
         player = resolve_player(
             self._mass,
             control.player_hint,
@@ -364,6 +432,12 @@ class DialogsWebhookHandler:
             exposed_ids=self._exposed_player_ids,
         )
         if player is None:
+            self._logger.info(
+                "Control %s: no player resolved (hint=%r, default_id=%s)",
+                control.action,
+                control.player_hint,
+                default_id,
+            )
             # Distinguish "no hint + ambiguous" from "hint given but unknown"
             # so the message matches the actual cause.
             if control.player_hint:
@@ -380,6 +454,13 @@ class DialogsWebhookHandler:
                 end_session=False,
                 session_state=session_state_in,
             )
+        self._logger.debug(
+            "Control %s → player %s (%s) value=%s",
+            control.action,
+            player.name or player.player_id,
+            player.player_id,
+            control.value,
+        )
         self._mass.create_task(execute_control(self._mass, control, player))
         new_session_state = {**session_state_in, "last_player_id": player.player_id}
         new_app_state = {**app_state_in, "last_player_id": player.player_id}

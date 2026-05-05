@@ -33,6 +33,7 @@ ControlAction = Literal[
     "volume_set",
     "mute",
     "unmute",
+    "list_players",
 ]
 
 
@@ -48,6 +49,28 @@ class ParsedControl:
 # Pattern catalogue. Order matters within each tier — first match wins.
 # All patterns are anchored (^...$) to require a whole-phrase match.
 _CONTROL_PATTERNS: tuple[tuple[re.Pattern[str], ControlAction], ...] = (
+    # list_players — informational query "what speakers do you see?".
+    # Matched before the play-verb-strip can interpret "покажи колонки"
+    # as a play kind=search query="колонки".
+    (
+        re.compile(
+            r"^сколько\s+колонок(?:\s+(?:ты\s+)?(?:видишь|знаешь))?$",
+            re.IGNORECASE,
+        ),
+        "list_players",
+    ),
+    (
+        re.compile(
+            r"^какие\s+колонки(?:\s+(?:ты\s+)?(?:видишь|знаешь|есть))?$",
+            re.IGNORECASE,
+        ),
+        "list_players",
+    ),
+    (re.compile(r"^какие\s+у\s+тебя\s+колонки$", re.IGNORECASE), "list_players"),
+    (re.compile(r"^перечисли\s+колонки$", re.IGNORECASE), "list_players"),
+    (re.compile(r"^список\s+колонок$", re.IGNORECASE), "list_players"),
+    (re.compile(r"^покажи\s+колонки$", re.IGNORECASE), "list_players"),
+    (re.compile(r"^назови\s+колонки$", re.IGNORECASE), "list_players"),
     # mute / unmute — explicit "звук" disambiguates from play-verb "включи"
     (re.compile(r"^включи\s+звук$", re.IGNORECASE), "unmute"),
     (re.compile(r"^сделай\s+звук$", re.IGNORECASE), "unmute"),
@@ -156,8 +179,44 @@ def parse_control(text: str) -> ParsedControl | None:
 # ---------------------------------------------------------------------------
 
 
+def _plural_ru(n: int, forms: tuple[str, str, str]) -> str:
+    """Pick the correct Russian quantitative form for `n`.
+
+    Args:
+        n: The number.
+        forms: ``(form_for_1, form_for_2_to_4, form_for_5_plus)``.
+
+    Russian quantitative agreement:
+      1, 21, 31, … → form_for_1 (e.g. "колонку")
+      2-4, 22-24, … → form_for_2_to_4 ("колонки")
+      0, 5-20, 25-30, … → form_for_5_plus ("колонок")
+    """
+    n_abs = abs(n)
+    if n_abs % 10 == 1 and n_abs % 100 != 11:
+        return forms[0]
+    if 2 <= n_abs % 10 <= 4 and not 12 <= n_abs % 100 <= 14:
+        return forms[1]
+    return forms[2]
+
+
+def format_list_players(players: list[Any]) -> str:
+    """Build the spoken response listing exposed players for `list_players` action."""
+    n = len(players)
+    if n == 0:
+        return "Не вижу ни одной колонки."
+    names = ", ".join(getattr(p, "name", None) or p.player_id for p in players)
+    if n == 1:
+        return f"Вижу одну колонку: {names}."
+    word = _plural_ru(n, ("колонку", "колонки", "колонок"))
+    return f"Вижу {n} {word}: {names}."
+
+
 def control_confirmation(control: ParsedControl) -> str:
-    """User-facing confirmation text for a control action."""
+    """User-facing confirmation text for a control action.
+
+    Caveat: ``list_players`` is **not** confirmed here — the handler builds
+    the response text from the live player list via ``format_list_players``.
+    """
     action = control.action
     if action == "pause":
         return "Пауза."
@@ -177,8 +236,10 @@ def control_confirmation(control: ParsedControl) -> str:
         return f"Громкость {control.value}."
     if action == "mute":
         return "Звук выключен."
-    # unmute (the only remaining action; Literal exhaustive)
-    return "Звук включен."
+    if action == "unmute":
+        return "Звук включен."
+    # list_players (the only remaining action; Literal is exhaustive)
+    return "Готово."  # placeholder; handler computes the real text
 
 
 async def execute_control(

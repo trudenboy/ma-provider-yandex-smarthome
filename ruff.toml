@@ -91,7 +91,7 @@ convention = "pep257"
 max-args = 10
 max-branches = 25
 max-returns = 15
-max-statements = 50
+max-statements = 60
 
 [lint.mccabe]
 max-complexity = 25

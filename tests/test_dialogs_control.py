@@ -8,8 +8,10 @@ import pytest
 
 from provider.dialogs_control import (
     ParsedControl,
+    _plural_ru,
     control_confirmation,
     execute_control,
+    format_list_players,
     parse_control,
 )
 
@@ -72,6 +74,19 @@ class TestParseControl:
             ("беззвучно", "mute", None, None),
             ("включи звук", "unmute", None, None),
             ("сделай звук", "unmute", None, None),
+            # list_players (no player_hint, no value)
+            ("сколько колонок", "list_players", None, None),
+            ("сколько колонок ты видишь", "list_players", None, None),
+            ("сколько колонок ты знаешь", "list_players", None, None),
+            ("какие колонки", "list_players", None, None),
+            ("какие колонки видишь", "list_players", None, None),
+            ("какие колонки ты видишь", "list_players", None, None),
+            ("какие колонки есть", "list_players", None, None),
+            ("какие у тебя колонки", "list_players", None, None),
+            ("перечисли колонки", "list_players", None, None),
+            ("список колонок", "list_players", None, None),
+            ("покажи колонки", "list_players", None, None),
+            ("назови колонки", "list_players", None, None),
             # alice prefix tolerated
             ("Алиса, пауза", "pause", None, None),
         ],
@@ -105,6 +120,70 @@ class TestParseControl:
     def test_play_phrases_return_none(self, phrase: str) -> None:
         """Phrases that should fall through to the play parser return None."""
         assert parse_control(phrase) is None
+
+
+class TestPluralRu:
+    """Tests for the Russian quantitative-form picker."""
+
+    @pytest.mark.parametrize(
+        ("n", "expected"),
+        [
+            (1, "колонку"),
+            (2, "колонки"),
+            (3, "колонки"),
+            (4, "колонки"),
+            (5, "колонок"),
+            (10, "колонок"),
+            (11, "колонок"),  # 11 is exception — uses 5+ form
+            (12, "колонок"),
+            (14, "колонок"),
+            (21, "колонку"),  # 21 → 1-form
+            (22, "колонки"),
+            (25, "колонок"),
+            (101, "колонку"),
+            (111, "колонок"),
+            (0, "колонок"),
+        ],
+    )
+    def test_plural(self, n: int, expected: str) -> None:
+        """Russian quantitative agreement matches expected form for `n`."""
+        assert _plural_ru(n, ("колонку", "колонки", "колонок")) == expected
+
+
+class TestFormatListPlayers:
+    """Tests for the `list_players` confirmation builder."""
+
+    def test_zero_players(self) -> None:
+        """Empty list → 'не вижу'."""
+        assert format_list_players([]) == "Не вижу ни одной колонки."
+
+    def test_one_player(self) -> None:
+        """Single player → singular form."""
+        p = MagicMock()
+        p.name = "Кухня"
+        p.player_id = "p1"
+        assert format_list_players([p]) == "Вижу одну колонку: Кухня."
+
+    def test_three_players(self) -> None:
+        """Three players → 2-4 form ('колонки') with comma-separated names."""
+        ps = []
+        for name, pid in [("Кухня", "p1"), ("Спальня", "p2"), ("Гостиная", "p3")]:
+            p = MagicMock()
+            p.name = name
+            p.player_id = pid
+            ps.append(p)
+        assert format_list_players(ps) == "Вижу 3 колонки: Кухня, Спальня, Гостиная."
+
+    def test_five_players(self) -> None:
+        """Five players → 5+ form ('колонок')."""
+        ps = []
+        for i in range(5):
+            p = MagicMock()
+            p.name = f"Player{i}"
+            p.player_id = f"p{i}"
+            ps.append(p)
+        text = format_list_players(ps)
+        assert text.startswith("Вижу 5 колонок:")
 
 
 class TestControlConfirmation:

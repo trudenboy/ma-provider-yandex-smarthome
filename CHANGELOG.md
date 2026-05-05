@@ -6,12 +6,16 @@ All notable changes to this project will be documented in this file.
 
 ## [1.8.1] — 2026-05-05
 
-Three Copilot-review findings on the v1.8.0 voice-UX refactor + a docs fix.
+Three Copilot-review findings on the v1.8.0 voice-UX refactor + observability + a "list speakers" voice query.
 
 ### Fixed
 - **`_yandex_response.user_id` echo falls back to nested `session.user.user_id`.** Yandex envelopes carry both a deprecated root `session.user_id` and a nested `session.user.user_id` (set when the user is account-linked). Previously we only read the root, which would emit an empty echo if a future Yandex API revision drops the deprecated field. Now uses the root with a fallback to the nested form.
 - **Disambiguation no longer leaks `awaiting_query` into the next turn.** `_build_disambiguation_response` previously copied `session_state_in` verbatim. If the multi-match was reached via slot elicitation (`Включи.` → `Что включить?` → `Metallica на кухне` → multiple "Кухня"), `awaiting_query=True` stayed in the response state. The user's answer to the disambiguation question (e.g. *"Кухня маленькая"*) would then get auto-prefixed with `включи `, breaking pending-command resolution. Fix: clear both `awaiting_query` and `pending_command` via `_without_pending(...)` before writing the new pending entry.
 - **Control commands without a player hint now ask "на какой колонке?".** Saying *"пауза"* on a fresh multi-player install (no `default_id` in any state tier) used to respond with the misleading `Не нашёл колонку «(не указано)»`. The message now distinguishes "hint given but unknown" (kept the same) from "no hint, ambiguous" (new: *"Скажи, на какой колонке. Например: пауза на кухне."*).
+
+### Added
+- **Voice query "сколько колонок видишь" / "какие колонки".** New informational `list_players` control action — Alice answers with the count and names of the speakers exposed to the skill. Recognised phrasings (no `на <player>` suffix; not dispatched to MA): `сколько колонок (ты)? (видишь|знаешь)?`, `какие колонки (ты)? (видишь|знаешь|есть)?`, `какие у тебя колонки`, `перечисли колонки`, `список колонок`, `покажи колонки`, `назови колонки`. Response uses correct Russian quantitative agreement: *"Вижу одну колонку: Кухня."* / *"Вижу 3 колонки: Кухня, Спальня, Гостиная."* / *"Вижу 5 колонок: …"*.
+- **DEBUG-level observability of the dialog pipeline.** Every webhook request now logs a one-line summary on entry (`Webhook recv: cmd=… req_type=… is_new=… pending=… awaiting=… default_player=… session_id=…`) and one log line per branch decision (awaiting-query synthesis, pending-command resume / fall-through, slot-elicit prompt, play-branch resolution outcome, control-branch outcome). The `resolve_player_candidates` resolver now emits a single summary line on **every** call (instead of only when a hint is given) describing the chosen tier (`exact` / `startswith` / `contains` / `generic-word` / `none`), the candidate count, and the names of the candidates returned — so a "не нашёл колонку" reply has a matching DEBUG line explaining *why*. Failures (no player resolved) are also logged at INFO.
 
 ### Docs
 - **Wire-format snippet in `VOICE_COMMANDS.md` accurately describes the two `user_id` fields.** Root `session.user_id` clarified as deprecated-but-always-present (per-app-instance); nested `session.user.user_id` clarified as account-linked-only.

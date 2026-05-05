@@ -130,6 +130,7 @@ Supported phrases (case-insensitive; trailing `на <player>` accepted):
 | `громкость 50` / `громкость на 30` / `сделай громкость 75` / `громкость на 30 процентов` | `volume_set` (clamped 0–100) |
 | `приглуши` / `выключи звук` / `беззвучно` | `mute` |
 | `включи звук` / `сделай звук` | `unmute` |
+| `сколько колонок (ты)? (видишь\|знаешь)?` / `какие колонки (ты)? (видишь\|знаешь\|есть)?` / `какие у тебя колонки` / `перечисли колонки` / `список колонок` / `покажи колонки` / `назови колонки` | `list_players` (informational — replies with count + names) |
 
 Note: bare `выключи` maps to `stop` (safer / reversible). Saying
 "выключи колонку" to actually power-off the player is not yet
@@ -294,7 +295,28 @@ direct mapping table above).
 
 ## Debug
 
-Set log level for `music_assistant.providers.yandex_smarthome.dialogs_nlu`
-to `DEBUG` to see the parsed command + player resolution details for
-every voice request. The control parser logs at the same level via
-`dialogs.py`.
+Enable DEBUG for the two dialog loggers to see the full pipeline:
+
+- `music_assistant.providers.yandex_smarthome.dialogs` — handler-side
+  events: one summary line per incoming webhook (`Webhook recv: cmd=…
+  req_type=… is_new=… pending=… awaiting=… default_player=…
+  session_id=…`), then one line per branch decision (awaiting-query
+  synthesis, pending-command resume or fall-through, slot-elicit prompt,
+  play-branch resolution outcome, control-branch outcome incl.
+  `list_players` count).
+- `music_assistant.providers.yandex_smarthome.dialogs_nlu` —
+  resolver-side events: one summary line per `resolve_player_candidates`
+  call (`resolve_player: hint=… default=… exposed=N -> M candidate(s) […]
+  [reason]`) where `reason` is `exact` / `startswith` / `contains` /
+  `generic word, …` / `no exposed players` / `no hint, ambiguous` /
+  `no tier matched`. So a "Не нашёл колонку «<hint>»" reply has a paired
+  DEBUG line above it explaining *why* it didn't match.
+
+INFO-level events surface only the rarer "no player resolved" failures
+so users get a signal without needing DEBUG. WARN/ERROR are kept for
+real misconfiguration (e.g. a generic player word matching no specific
+player when there are multiple candidates).
+
+To list the exposed speakers without inspecting logs, just ask Alice
+*"Алиса, попроси \<skill\> сколько колонок видишь"* — that's the
+`list_players` action documented in the control table above.
