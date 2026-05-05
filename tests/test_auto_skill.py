@@ -948,8 +948,7 @@ class TestAutoCreateSkillDirectMode:
 
         draft_payload = creator.update_draft.call_args.args[2]
         assert (
-            draft_payload["backendSettings"]["uri"]
-            == "https://ma.example.com/api/yandex_smarthome"
+            draft_payload["backendSettings"]["uri"] == "https://ma.example.com/api/yandex_smarthome"
         )
         oauth_call = creator.create_oauth_app.call_args
         assert oauth_call.kwargs["client_id"] == "https://social.yandex.net/"
