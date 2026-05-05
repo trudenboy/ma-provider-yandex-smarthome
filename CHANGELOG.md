@@ -4,7 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [1.7.20] — 2026-05-05
+## [1.7.21] — 2026-05-05
+
+### Fixed
+- **"включи Iron Maiden" no longer plays a random playlist.** Three issues compounded:
+  1. **Verb regex missed infinitives.** Yandex's voice-to-text sometimes returns the infinitive (`включить`, `поставить`, `запустить`) even if the user spoke the imperative. The regex only matched imperatives, so the unparsed verb leaked into the search query (`query="включить iron maiden"`) which made `mass.music.search` return arbitrary matches. Now also accepts infinitives plus `сыграй(те)?`, `сыграть`, `играй(те)?`, `послушай(те)?`, `послушать`.
+  2. **`kind=search` preferred playlists over artists.** The result picker order was `playlists > albums > artists > tracks` for unqualified queries, so a tangentially-matching playlist (e.g. *"Тяжелее, чем танк"*) won over the actual artist. Reordered to `artists > albums > tracks > playlists` — when users say a band name without the `плейлист` / `альбом` qualifier they almost always want the artist.
+  3. **`kind=search` ran without `radio_mode`.** Even when the picker did pick the right artist or track, playback would stop after one item. Now `radio_mode=True` for `search` so artists and tracks both start a continuous radio (matches the typical "play X" intent).
 
 ### Added
 - **`resolve_player` debug log** — when MA log level is DEBUG for the dialog provider, every voice-command resolution now logs the raw hint, the normalised needle, all candidate (raw_name, normalised_name) pairs, and how many matched at each tier (exact / startswith / contains). Lets users see exactly why a hint failed to resolve to a player.
