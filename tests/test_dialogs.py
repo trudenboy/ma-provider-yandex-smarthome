@@ -137,9 +137,12 @@ class TestDialogsWebhookHandler:
         assert resp.status == 404
 
     async def test_secret_parsed_from_path_when_no_match_info(self) -> None:
-        """Production registers an exact path (no `{secret}` route var), so the
-        handler must parse the secret from `request.path`. This test exercises
-        the production code path by passing an empty match_info.
+        """Cover the production secret-from-path fallback in `_handle_webhook`.
+
+        Production registers an exact route (no `{secret}` variable), so
+        `request.match_info` is empty and the handler parses the secret
+        from `request.path`. This test passes `match_info={}` to exercise
+        that branch.
         """
         track = MagicMock(uri="library://track/123", spec_set=["uri"])
         mass = _make_mass([MockPlayer(player_id="p1", name="Кухня")], search_track=track)
