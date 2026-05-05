@@ -971,13 +971,25 @@ def _build_device_code_page(user_code: str, verification_url: str, status_url: s
 </html>"""
 
 
-async def _default_authenticator(
+async def _default_authenticator(  # noqa: PLR0915
     *,
     mass: MusicAssistant,
     session_id: str,
     timeout: float,
+    cached_x_token: str | None = None,
+    on_token_obtained: Callable[[str], None] | None = None,
 ) -> AsyncIterator[aiohttp.ClientSession]:
     """Real-world authentication path — runs Device Flow and yields a session.
+
+    Cache fast-path: if ``cached_x_token`` is provided and Yandex still
+    accepts it, ``refresh_passport_cookies`` succeeds without a fresh
+    Device Flow, so subsequent auto-create runs (e.g. Smart Home → Dialog)
+    do not prompt the user to confirm the device code again. On any
+    failure during refresh the cache is treated as stale and the full
+    Device Flow runs as before.
+
+    After a successful Device Flow, ``on_token_obtained`` (if provided)
+    is invoked with the fresh ``x_token`` so the caller can persist it.
 
     Serves an intermediate HTML page through MA's webserver so the user
     sees the short ``user_code`` (Yandex's ya.ru/device does not pre-fill
@@ -1002,6 +1014,26 @@ async def _default_authenticator(
     config = ClientConfig(allowed_hosts=allowed)
 
     async with PassportClient.create(config=config) as client:
+        # Cache fast-path: try cached x_token first. If the token is still
+        # valid Yandex returns fresh session cookies and we skip Device Flow.
+        if cached_x_token:
+            try:
+                await client.refresh_passport_cookies(cached_x_token)
+                _LOGGER.info(
+                    "auto-skill: reused cached Yandex Passport x_token "
+                    "(no Device Flow needed)"
+                )
+                yield client._session
+                return
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                _LOGGER.info(
+                    "auto-skill: cached x_token rejected (%s) — falling back "
+                    "to fresh Device Flow",
+                    exc,
+                )
+
         device_session = await client.start_device_login()
         # Don't log user_code — it's a time-limited credential (grants
         # Yandex sign-in for the device-flow window) and writing it to
@@ -1082,6 +1114,18 @@ async def _default_authenticator(
             mass.webserver.unregister_dynamic_route(status_path, "GET")
 
         await client.refresh_passport_cookies(creds.x_token)
+
+        # Persist the new x_token so subsequent auto-create runs can skip
+        # Device Flow. Best-effort: a callback failure must not break auth.
+        if on_token_obtained is not None:
+            try:
+                on_token_obtained(creds.x_token)
+            except Exception:
+                _LOGGER.exception(
+                    "auto-skill: on_token_obtained callback failed; "
+                    "x_token will not be cached"
+                )
+
         yield client._session
 
 
@@ -1091,6 +1135,8 @@ def _build_authenticator_cm(
     mass: MusicAssistant,
     session_id: str,
     timeout: float,
+    cached_x_token: str | None = None,
+    on_token_obtained: Callable[[str], None] | None = None,
 ) -> Any:
     """Wrap *authenticator* so it supports ``async with`` uniformly.
 
@@ -1099,8 +1145,18 @@ def _build_authenticator_cm(
     a CM factory with ``asynccontextmanager`` is *not* idempotent — the
     outer wrapper would call ``__anext__`` on the inner CM object and
     crash — so detect the CM result and pass it through unchanged.
+
+    ``cached_x_token`` and ``on_token_obtained`` are forwarded to the
+    default authenticator for fast-path / persistence; injected
+    test authenticators (which take ``**kwargs``) get them as well.
     """
-    result = authenticator(mass=mass, session_id=session_id, timeout=timeout)
+    result = authenticator(
+        mass=mass,
+        session_id=session_id,
+        timeout=timeout,
+        cached_x_token=cached_x_token,
+        on_token_obtained=on_token_obtained,
+    )
     if hasattr(result, "__aenter__") and hasattr(result, "__aexit__"):
         return result
 
@@ -1139,6 +1195,8 @@ async def auto_create_skill(  # noqa: PLR0913
     skill_type: Literal["smart_home", "dialog"] = "smart_home",
     dialog_backend_uri: str | None = None,
     base_url_override: str | None = None,
+    cached_x_token: str | None = None,
+    on_token_obtained: Callable[[str], None] | None = None,
     progress_cb: Callable[[SkillCreationArtifacts], Awaitable[None]] | None = None,
     authenticator: Callable[..., AsyncIterator[aiohttp.ClientSession]] | None = None,
     creator_factory: Callable[[aiohttp.ClientSession], DialogsSkillCreator] | None = None,
@@ -1183,7 +1241,12 @@ async def auto_create_skill(  # noqa: PLR0913
 
     try:
         async with _build_authenticator_cm(
-            auth_fn, mass=mass, session_id=session_id, timeout=timeout
+            auth_fn,
+            mass=mass,
+            session_id=session_id,
+            timeout=timeout,
+            cached_x_token=cached_x_token,
+            on_token_obtained=on_token_obtained,
         ) as session:
             creator = (
                 creator_factory(session)
@@ -1415,6 +1478,8 @@ async def auto_rename_dialog_skill(
     new_name: str,
     dialog_backend_uri: str,
     session_id: str,
+    cached_x_token: str | None = None,
+    on_token_obtained: Callable[[str], None] | None = None,
     authenticator: Callable[..., AsyncIterator[aiohttp.ClientSession]] | None = None,
     creator_factory: Callable[[aiohttp.ClientSession], DialogsSkillCreator] | None = None,
     timeout: float = DEVICE_FLOW_TIMEOUT_SECONDS,
@@ -1438,7 +1503,12 @@ async def auto_rename_dialog_skill(
 
     try:
         async with _build_authenticator_cm(
-            auth_fn, mass=mass, session_id=session_id, timeout=timeout
+            auth_fn,
+            mass=mass,
+            session_id=session_id,
+            timeout=timeout,
+            cached_x_token=cached_x_token,
+            on_token_obtained=on_token_obtained,
         ) as session:
             creator = (
                 creator_factory(session)

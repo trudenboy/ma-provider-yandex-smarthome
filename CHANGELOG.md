@@ -4,7 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [1.7.6] — 2026-05-05
+## [1.7.7] — 2026-05-05
+
+### Added
+- **Cache Yandex Passport `x_token` between auto-create runs.** The first successful Device Flow now stores the long-lived `x_token` in plugin config (SECURE_STRING). Subsequent `auto_create_skill` / `auto_rename_dialog_skill` calls — including switching from the Smart Home pipeline to the Dialog pipeline — try `client.refresh_passport_cookies(cached_x_token)` first; if Yandex still accepts it, the device-code popup is skipped entirely. On any failure during refresh (token expired / revoked) the cache is silently dropped and the regular Device Flow runs as before. New private config key `CONF_AUTH_X_TOKEN`.
+
+
 
 ### Fixed
 - **Dialog skill auto-create now uses the real Yandex API contract.** Captured a live `POST /apps` and `PATCH /draft/update` from the Yandex Dialogs developer console (DevTools Network) — both shapes were wrong in our previous guess. Concrete fixes:
