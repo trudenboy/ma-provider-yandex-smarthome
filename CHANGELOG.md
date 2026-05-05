@@ -4,7 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [1.7.11] — 2026-05-05
+## [1.7.12] — 2026-05-05
+
+### Fixed
+- **Dialog skill `category` value corrected to `"music_audio"`.** The previous best-guess `"music_and_sounds"` is not a recognised Yandex category — `PATCH /draft/update` was returning HTTP 400 with an empty body (no JSON `validationErrors` payload) which made the failure cause invisible. The correct API key for the *«Аудио и подкасты»* category was captured from `GET /snapshot` (which exposes the full catalogue: `[{"type":"music_audio","title":"Аудио и подкасты"}, ...]`). Other categories also have non-obvious mappings (e.g. *«Игры и развлечения»* → `games_trivia_accessories`, *«Видео»* → `movies_tv`).
 
 ### Fixed
 - **DIALOG_CHANNEL hint comments / user-facing text reflect the actual default** — `_run_auto_create_dialog_action` previously claimed the default channel was `"dialog"` (it had been the placeholder before v1.7.6) and suggested fall-back values (`general`, `alice`, `skill`) for an override. The default is now `"aliceSkill"` (captured from a live `POST /apps` in the dev console) and the hint text and suggested overrides have been updated to match.
