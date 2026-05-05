@@ -83,9 +83,7 @@ class TestResolveQuery:
         artist = MagicMock(uri="library://artist/1", spec_set=["uri"])
         playlist = MagicMock(uri="library://playlist/1", spec_set=["uri"])
         track = MagicMock(uri="library://track/1", spec_set=["uri"])
-        mass = _make_mass(
-            _SearchResults(artists=[artist], playlists=[playlist], tracks=[track])
-        )
+        mass = _make_mass(_SearchResults(artists=[artist], playlists=[playlist], tracks=[track]))
         result = await resolve_query(mass, ParsedCommand(kind="search", query="iron maiden"))
         assert result is artist
 
