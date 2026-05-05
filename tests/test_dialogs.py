@@ -758,11 +758,13 @@ class TestDisambiguation:
         button_titles = {b["title"] for b in body_out["response"]["buttons"]}
         assert button_titles == {"Кухня", "Спальня"}
         # pending_command saved with the original play intent + candidate_ids.
+        # Order is significant — used as the index space for voice ordinal
+        # resolution ("первая" → candidate_ids[0]).
         pending = body_out["session_state"]["pending_command"]
         assert pending["kind"] == "search"
         assert pending["query"] == "metallica"
         assert pending["radio_mode"] is True
-        assert sorted(pending["candidate_ids"]) == ["p1", "p2"]
+        assert pending["candidate_ids"] == ["p1", "p2"]
         mass.player_queues.play_media.assert_not_awaited()
 
     async def test_button_payload_validated_against_exposed_set(self) -> None:
@@ -895,6 +897,83 @@ class TestDisambiguation:
         await handler._handle_webhook(_build_request(body))
         await asyncio.sleep(0)
         assert mass.player_queues.play_media.call_args.kwargs["queue_id"] == "p2"
+
+    async def test_ordinal_out_of_range_reasks_does_not_fall_through(self) -> None:
+        """User says 'третья' when only 2 candidates → re-ask, don't search for 'третья'.
+
+        Without this, the ordinal would be parsed but skip the lookup,
+        the free-text path would parse the utterance as a search query,
+        and a default-player resolution might play "третья" on some
+        random player.
+        """
+        track = MagicMock(uri="library://track/1", spec_set=["uri"])
+        mass = _make_mass(
+            [
+                MockPlayer(player_id="p1", name="Кухня"),
+                MockPlayer(player_id="p2", name="Спальня"),
+            ],
+            search_track=track,
+        )
+        handler = DialogsWebhookHandler(
+            mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET
+        )
+        body = {
+            "session": {"skill_id": "skill-uuid-1", "session_id": "s1", "new": False},
+            "request": {"command": "третья"},
+            "state": {
+                "session": {
+                    "pending_command": {
+                        "kind": "search",
+                        "query": "metallica",
+                        "radio_mode": True,
+                        "candidate_ids": ["p1", "p2"],
+                    },
+                },
+            },
+        }
+        resp = await handler._handle_webhook(_build_request(body))
+        await asyncio.sleep(0)
+        assert resp.status == 200
+        body_out = _response_body(resp)
+        # Disambiguation re-asked, not played.
+        assert body_out["response"]["end_session"] is False
+        assert "buttons" in body_out["response"]
+        # pending_command still set (with same candidate set).
+        assert body_out["session_state"]["pending_command"]["candidate_ids"] == ["p1", "p2"]
+        mass.player_queues.play_media.assert_not_awaited()
+
+    async def test_ordinal_targets_unexposed_player_reasks(self) -> None:
+        """User picks a valid ordinal but the indexed player has been removed → re-ask."""
+        track = MagicMock(uri="library://track/1", spec_set=["uri"])
+        # Only p1 exposed now — p2 is gone since the buttons were sent.
+        mass = _make_mass(
+            [MockPlayer(player_id="p1", name="Кухня")],
+            search_track=track,
+        )
+        handler = DialogsWebhookHandler(
+            mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET
+        )
+        body = {
+            "session": {"skill_id": "skill-uuid-1", "session_id": "s1", "new": False},
+            "request": {"command": "вторая"},
+            "state": {
+                "session": {
+                    "pending_command": {
+                        "kind": "search",
+                        "query": "metallica",
+                        "radio_mode": True,
+                        "candidate_ids": ["p1", "p2"],
+                    },
+                },
+            },
+        }
+        resp = await handler._handle_webhook(_build_request(body))
+        await asyncio.sleep(0)
+        body_out = _response_body(resp)
+        # Re-asked with the remaining exposed candidate (p1).
+        assert body_out["response"]["end_session"] is False
+        assert body_out["session_state"]["pending_command"]["candidate_ids"] == ["p1"]
+        mass.player_queues.play_media.assert_not_awaited()
 
     async def test_voice_ordinal_digit(self) -> None:
         """A bare digit ('2') also works as an ordinal."""

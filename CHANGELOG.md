@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ## [1.8.2] — 2026-05-05
 
-Voice-first disambiguation. Suggestion buttons aren't visible on screenless Yandex Stations, so the disambiguation prompt now leads with a voice channel.
+Voice-first disambiguation. Suggestion buttons aren't visible on screenless Yandex Stations, so the disambiguation prompt now leads with a voice channel. Two Copilot-review findings on the initial implementation also rolled in.
 
 ### Changed
 - **Disambiguation prompt is voice-first.** Previous text was *"На какой колонке: A, B?"* — fine on a phone screen but unhelpful on smart speakers, where the user couldn't see (or tap) the buttons. New prompt enumerates candidates with Russian ordinals and explicitly asks for a voice answer:
@@ -18,6 +18,9 @@ Voice-first disambiguation. Suggestion buttons aren't visible on screenless Yand
 ### Added
 - **Voice ordinal disambiguation.** A new `_parse_ordinal_choice(text)` helper recognises *первая / первый / первое / первую / один / 1*, …, *пятая* / *пять* / *5* (incl. `номер N`-prefix and `четвёртая` / `четвертая` spelling variants) as 0-based indices into the candidate list. The handler tries the ordinal **first** in `_try_resume_pending`, before button payload, before free-text — so on a screenless device the user can answer the disambiguation prompt by voice alone.
 - **Disambiguation `pending_command` carries the candidate IDs.** New `candidate_ids: list[str]` field saved alongside `kind` / `query` / `radio_mode`. Used by `_try_resume_pending` for two purposes: (a) ordinal lookup `candidate_ids[index]`, (b) **narrowing free-text resolution** to just the saved candidate set so a one-word distinguisher like *"большая"* picks the right player even when other unrelated players elsewhere also match.
+
+### Fixed
+- **Out-of-range / unresolvable ordinal re-asks instead of falling through.** Previously, if the user said *"третья"* with only 2 candidates (or picked an ordinal whose target player had been removed since the buttons were sent), the handler skipped the ordinal block and the free-text fallback parsed *"третья"* as a play-search query — leading to playback of *"третья"* on a default player. Fix: a recognised ordinal that can't resolve to an exposed player now triggers a re-ask of the disambiguation prompt with whatever candidates remain exposed. If none remain, falls through to the regular "не нашёл колонку" path.
 
 ## [1.8.1] — 2026-05-05
 

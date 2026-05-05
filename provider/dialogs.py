@@ -768,21 +768,47 @@ class DialogsWebhookHandler:
         # outright. On screenless smart speakers this is the primary
         # channel since buttons aren't visible to the user.
         ordinal = _parse_ordinal_choice(command)
-        if ordinal is not None and 0 <= ordinal < len(candidate_ids):
-            target_pid = candidate_ids[ordinal]
-            chosen_player = exposed_by_id.get(target_pid)
+        if ordinal is not None:
+            target_pid: str | None = (
+                candidate_ids[ordinal] if 0 <= ordinal < len(candidate_ids) else None
+            )
+            if target_pid is not None:
+                chosen_player = exposed_by_id.get(target_pid)
+                if chosen_player is not None:
+                    self._logger.debug(
+                        "Pending replay: voice ordinal %d → player %s",
+                        ordinal,
+                        chosen_player.name or chosen_player.player_id,
+                    )
+            # If the ordinal couldn't be resolved (out of range, or the
+            # indexed player is no longer exposed), the user clearly
+            # *meant* to pick from the disambiguation list — falling
+            # through to free-text would mis-interpret "третья" as a
+            # play query "search for третья". Re-ask with whichever
+            # candidates are still exposed instead.
             if chosen_player is None:
-                self._logger.warning(
-                    "Pending replay: ordinal=%d → player_id=%r is no longer exposed",
-                    ordinal,
-                    target_pid,
-                )
-            else:
-                self._logger.debug(
-                    "Pending replay: voice ordinal %d → player %s",
-                    ordinal,
-                    chosen_player.name or chosen_player.player_id,
-                )
+                still_available = [
+                    exposed_by_id[pid] for pid in candidate_ids if pid in exposed_by_id
+                ]
+                if still_available:
+                    self._logger.info(
+                        "Pending replay: ordinal=%d unresolvable; "
+                        "re-asking with %d remaining candidate(s)",
+                        ordinal,
+                        len(still_available),
+                    )
+                    return self._build_disambiguation_response(
+                        session=session,
+                        parsed=ParsedCommand(
+                            kind=str(pending.get("kind", "search")),  # type: ignore[arg-type]
+                            query=str(pending.get("query", "")),
+                            radio_mode=bool(pending.get("radio_mode", False)),
+                        ),
+                        candidates=still_available,
+                        session_state_in=session_state_in,
+                    )
+                # else: no candidates remain at all — fall through to
+                # normal flow, which will reply with "не нашёл колонку".
 
         # Step 2 — Button press. Validate against the currently exposed
         # set (defence-in-depth: stale or crafted payloads pointing to a
