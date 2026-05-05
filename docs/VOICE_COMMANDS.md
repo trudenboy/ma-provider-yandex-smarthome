@@ -241,20 +241,38 @@ default in this priority: `session > application > user`. After a
 successful play or control action, all three are updated (where
 applicable).
 
-## Disambiguation flow (P0.3)
+## Disambiguation flow (P0.3, voice-first since 1.8.2)
+
+Most Yandex Stations are screenless. The disambiguation prompt is
+therefore voice-first; buttons stay on the response for surfaces with a
+screen but the user is expected to answer with their voice.
 
 When `resolve_player_candidates` returns more than one match, the
 handler:
 
-1. Saves `{kind, query, radio_mode}` into `session_state.pending_command`.
-2. Returns `end_session=False` with text *"На какой колонке: A, B, C?"*
-   and one button per candidate (≤5; Yandex `ItemsList` cap):
-   `{"title": <player.name>, "payload": {"player_id": "..."}, "hide": true}`.
-3. On the next turn, either a `ButtonPressed` event with that payload
-   or a free-text follow-up like *"на кухне"* / *"кухня маленькая"*
-   resolves the player; the saved `pending_command` is replayed and
-   played.
-4. If the follow-up itself is still ambiguous, we re-ask once more.
+1. Saves `{kind, query, radio_mode, candidate_ids}` into
+   `session_state.pending_command`. `candidate_ids` is the ordered list
+   of player IDs we offered (capped at 5 — Yandex `ItemsList` limit).
+2. Returns `end_session=False` with prompt
+   *"На какой колонке? Первая — A, вторая — B. Скажи название или номер."*
+   plus one suggestion button per candidate (visible only on screen
+   surfaces).
+3. On the next turn, `_try_resume_pending` tries three resolution
+   strategies in order:
+   1. **Voice ordinal** — *"первая"* / *"вторая"* / *"номер три"* / *"3"*
+      (recognises feminine / masculine / neuter forms; cardinals;
+      digits; `четвёртая`/`четвертая` spelling variants) → looks up
+      `candidate_ids[index]` and resolves the player.
+   2. **Button press** — `request.payload.player_id` validated against
+      the currently exposed-player set (defence-in-depth against stale
+      payloads).
+   3. **Free-text** — utterance is parsed and resolved against a
+      *narrowed* exposed set restricted to `candidate_ids`. This means
+      a short distinguisher like *"большая"* picks the right player even
+      when an unrelated *"Гостиная большая"* exists outside the
+      disambiguation set.
+4. If the follow-up itself is still ambiguous, the handler re-asks once
+   more with the new (narrower) candidate set.
 
 ## Slot elicitation (P0.4)
 
