@@ -4,7 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [1.7.10] — 2026-05-05
+## [1.7.11] — 2026-05-05
+
+### Fixed
+- **DIALOG_CHANNEL hint comments / user-facing text reflect the actual default** — `_run_auto_create_dialog_action` previously claimed the default channel was `"dialog"` (it had been the placeholder before v1.7.6) and suggested fall-back values (`general`, `alice`, `skill`) for an override. The default is now `"aliceSkill"` (captured from a live `POST /apps` in the dev console) and the hint text and suggested overrides have been updated to match.
+- **`StateNotifier._send_state_callback` logs all transport-level failures.** Previously only `RuntimeError` was caught/logged, so `aiohttp.ClientError`, DNS failures, connection resets, etc. bubbled up without the `"State callback error"` log path — making production failures harder to diagnose. Now catches `Exception` (lets `asyncio.CancelledError` propagate) and re-raises after logging so the caller's re-queue logic still runs.
 
 ### Fixed
 - **`structuredExamples` populated for `request_deploy`** — Yandex enforces non-empty structured examples in `publishingSettings.structuredExamples` at deploy time, even for private skills (quality check), failing with `400 "Draft is not allowed to deploy"` / `validationErrors: [{"key":"publishingSettings/structuredExamples","type":"VALIDATION_ERROR"}]`. The payload now ships three sample phrases that actually match the patterns recognised by `parse_command` in `dialogs_nlu.py` (so the published catalogue text reflects what users can really say).
