@@ -314,9 +314,7 @@ class TestExecuteControl:
         """
         mass = self._make_mass()
         with caplog.at_level(logging.WARNING, logger="provider.dialogs_control"):
-            await execute_control(
-                mass, ParsedControl(action="list_players"), self._player()
-            )
+            await execute_control(mass, ParsedControl(action="list_players"), self._player())
         # No MA command dispatched.
         mass.player_queues.pause.assert_not_awaited()
         mass.player_queues.resume.assert_not_awaited()
