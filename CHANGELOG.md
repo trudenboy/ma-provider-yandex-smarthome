@@ -4,7 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [1.7.3] — 2026-05-05
+## [1.7.4] — 2026-05-05
+
+### Fixed
+- **`UNKNOWN_USER` state-callback errors no longer flood the logs.** After auto-create completes the plugin starts pushing state callbacks to Yandex, but until the user opens *Дом с Алисой* and links the skill via the Account Linking flow, every callback returns `HTTP 400 UNKNOWN_USER` — that's the expected first-run state, not a code bug. Notifier now emits one clear `WARNING` with linking instructions on the first occurrence, then drops further `UNKNOWN_USER` responses to debug level. As soon as Yandex accepts a callback (linking complete) the warning latch resets and an INFO line confirms recovery.
 
 ### Fixed
 - **`_resolve_base_url` strips whitespace before stripping trailing slash** — a copy-pasted External Base URL like `" https://ma.example.com/ "` would have failed the `https://` HTTPS check and produced malformed callback / webhook URIs. Both the override and `mass.webserver.base_url` fallback are now normalized via `.strip().rstrip('/')`.
