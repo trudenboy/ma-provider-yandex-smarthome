@@ -947,9 +947,7 @@ def _dialog_skill_entries(
     # Once a skill exists, surface a direct link to its dev-console page so
     # the user can verify the publish status / tweak the form fields manually.
     if artifacts.skill_id:
-        skill_url = (
-            f"https://dialogs.yandex.ru/developer/skills/{artifacts.skill_id}"
-        )
+        skill_url = f"https://dialogs.yandex.ru/developer/skills/{artifacts.skill_id}"
         entries.append(
             ConfigEntry(
                 key="label_dialog_skill_link",

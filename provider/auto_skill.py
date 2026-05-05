@@ -1570,18 +1570,10 @@ async def _wait_for_deploy_completed(
             continue
 
         for op in ops:
-            if (
-                op.get("type") == "deployCompleted"
-                and op.get("itemId") == skill_id
-            ):
-                _LOGGER.info(
-                    "auto-skill: deployCompleted observed for skill %s", skill_id
-                )
+            if op.get("type") == "deployCompleted" and op.get("itemId") == skill_id:
+                _LOGGER.info("auto-skill: deployCompleted observed for skill %s", skill_id)
                 return True
-            if (
-                op.get("type") == "deployFailed"
-                and op.get("itemId") == skill_id
-            ):
+            if op.get("type") == "deployFailed" and op.get("itemId") == skill_id:
                 _LOGGER.warning(
                     "auto-skill: deployFailed for skill %s: %s",
                     skill_id,
