@@ -721,6 +721,33 @@ class TestDisambiguation:
         # awaiting_query is cleared on success.
         assert "awaiting_query" not in body_out["session_state"]
 
+    async def test_control_during_awaiting_query_dispatches_control(self) -> None:
+        """Slot-elicit was active, but the user pivots to a control phrase.
+
+        "Включи." → "Что включить?" (awaiting_query=True). Then the user
+        says "пауза на кухне" — this must dispatch a control command, not
+        get prefixed with "включи " and turned into a search query.
+        """
+        mass = _make_mass([MockPlayer(player_id="p1", name="Кухня")])
+        mass.player_queues.pause = AsyncMock()
+        handler = DialogsWebhookHandler(
+            mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET
+        )
+        body = {
+            "session": {"skill_id": "skill-uuid-1", "session_id": "s1", "new": False},
+            "request": {"command": "пауза на кухне"},
+            "state": {"session": {"awaiting_query": True}},
+        }
+        resp = await handler._handle_webhook(_build_request(body))
+        await asyncio.sleep(0)
+        assert resp.status == 200
+        mass.player_queues.pause.assert_awaited_once_with("p1")
+        # awaiting_query must be cleared on successful control dispatch.
+        body_out = _response_body(resp)
+        assert "awaiting_query" not in body_out["session_state"]
+        # play_media not called — this was a control, not a play.
+        mass.player_queues.play_media.assert_not_awaited()
+
     async def test_followup_full_play_command_does_not_double_prefix(self) -> None:
         """Follow-up like 'включи Yesterday' is parsed as-is, not double-prefixed."""
         track = MagicMock(uri="library://track/1", spec_set=["uri"])
@@ -743,6 +770,78 @@ class TestDisambiguation:
         # not "включи yesterday".
         search_query = mass.music.search.call_args.kwargs["search_query"]
         assert search_query == "yesterday"
+
+    async def test_play_no_hint_no_default_offers_disambiguation(self) -> None:
+        """Play branch: no hint + no default + 2+ players → disambiguation prompt.
+
+        Without this, the user would see "Не нашёл колонку «(не указано)»".
+        """
+        track = MagicMock(uri="library://track/1", spec_set=["uri"])
+        mass = _make_mass(
+            [
+                MockPlayer(player_id="p1", name="Кухня"),
+                MockPlayer(player_id="p2", name="Спальня"),
+            ],
+            search_track=track,
+        )
+        handler = DialogsWebhookHandler(
+            mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET
+        )
+        body = {
+            "session": {"skill_id": "skill-uuid-1", "session_id": "s1", "new": False},
+            "request": {"command": "включи Metallica"},
+        }
+        resp = await handler._handle_webhook(_build_request(body))
+        body_out = _response_body(resp)
+        assert body_out["response"]["end_session"] is False
+        assert "buttons" in body_out["response"]
+        button_titles = {b["title"] for b in body_out["response"]["buttons"]}
+        assert button_titles == {"Кухня", "Спальня"}
+        # pending_command saved with the original play intent.
+        assert body_out["session_state"]["pending_command"] == {
+            "kind": "search",
+            "query": "metallica",
+            "radio_mode": True,
+        }
+        mass.player_queues.play_media.assert_not_awaited()
+
+    async def test_button_payload_validated_against_exposed_set(self) -> None:
+        """ButtonPressed with a payload targeting a non-exposed player is rejected.
+
+        Defence-in-depth: even though Yandex echoes our own payload back,
+        we never trust the player_id without re-checking it's currently
+        exposed/enabled/available.
+        """
+        track = MagicMock(uri="library://track/1", spec_set=["uri"])
+        mass = _make_mass(
+            [
+                MockPlayer(player_id="p1", name="Кухня"),
+                MockPlayer(player_id="p2", name="Спальня"),
+            ],
+            search_track=track,
+        )
+        handler = DialogsWebhookHandler(
+            mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET
+        )
+        body = {
+            "session": {"skill_id": "skill-uuid-1", "session_id": "s1", "new": False},
+            "request": {
+                "type": "ButtonPressed",
+                "command": "Гостиная",
+                "payload": {"player_id": "p99-not-in-set"},
+            },
+            "state": {
+                "session": {
+                    "pending_command": {"kind": "search", "query": "metallica", "radio_mode": True},
+                },
+            },
+        }
+        resp = await handler._handle_webhook(_build_request(body))
+        await asyncio.sleep(0)
+        # play_media must NOT be awaited — invalid payload should not play.
+        mass.player_queues.play_media.assert_not_awaited()
+        # Status is still 200; the handler falls through, but no playback.
+        assert resp.status == 200
 
     async def test_disambiguation_clears_awaiting_query(self) -> None:
         """Slot-elicit → multi-match → disambiguation prompt drops awaiting_query.

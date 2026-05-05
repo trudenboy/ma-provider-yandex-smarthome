@@ -278,27 +278,32 @@ class DialogsWebhookHandler:
                 session_state=session_state_in,
             )
 
-        # P0.4 — awaiting-query re-entry. If the previous turn asked "Что
-        # включить?", treat the new utterance as the missing query slot.
-        # Prepend a synthetic "включи " so the existing kind classifier
-        # runs (handles "песню X", "альбом Y", "мою волну", etc.). Skip
-        # the synthetic prefix if the user already said one of the verbs.
-        if session_state_in.get("awaiting_query") and not _VERB_RE.match(command):
-            command = f"включи {command}"
-            self._logger.debug("Awaiting-query branch: synthesised cmd=%r", command)
-
-        # P0.6 — try control commands (pause/next/volume/...) before the
-        # play parser. parse_control returns None if the utterance isn't a
-        # control phrase, in which case we fall through to the play flow.
+        # P0.6 — try control commands (pause/next/volume/...) FIRST, on
+        # the raw command. Doing this before the awaiting-query synthesis
+        # lets the user pivot from a slot-elicit prompt straight into a
+        # control intent ("Включи." → "Что включить?" → "пауза на кухне")
+        # without the prefix-prepend turning it into "включи пауза…".
+        # If control matches, drop any pending/awaiting state — the user
+        # is no longer in either of those flows.
         if control := parse_control(command):
             self._logger.debug("Parsed dialog control %r → %r", command, control)
             return self._handle_control(
                 session=session,
                 control=control,
                 default_id=default_id,
-                session_state_in=session_state_in,
+                session_state_in=_without_pending(session_state_in),
                 app_state_in=app_state_in,
             )
+
+        # P0.4 — awaiting-query re-entry. If the previous turn asked "Что
+        # включить?" and the new utterance isn't a control phrase, treat
+        # it as the missing query slot. Prepend a synthetic "включи " so
+        # the existing kind classifier runs ("песню X", "альбом Y",
+        # "мою волну", etc.). Skip the synthetic prefix if the user
+        # already said one of the verbs.
+        if session_state_in.get("awaiting_query") and not _VERB_RE.match(command):
+            command = f"включи {command}"
+            self._logger.debug("Awaiting-query branch: synthesised cmd=%r", command)
 
         # P0.3 — pending-command re-entry. If a previous turn asked the
         # user to disambiguate which player to use, the new utterance (or
@@ -329,7 +334,28 @@ class DialogsWebhookHandler:
 
         parsed = parse_command(command)
         self._logger.debug("Parsed dialog command %r → %r", command, parsed)
+        return await self._dispatch_play(
+            session=session,
+            parsed=parsed,
+            default_id=default_id,
+            session_state_in=session_state_in,
+            app_state_in=app_state_in,
+        )
 
+    # -------------------------------------------------------------------
+    # Play dispatch (slot-elicit + resolve + disambiguate + play)
+    # -------------------------------------------------------------------
+
+    async def _dispatch_play(
+        self,
+        *,
+        session: dict[str, Any],
+        parsed: ParsedCommand,
+        default_id: str | None,
+        session_state_in: dict[str, Any],
+        app_state_in: dict[str, Any],
+    ) -> web.Response:
+        """Slot-elicit / resolve player / disambiguate / play (or fail)."""
         # P0.4 — slot elicitation: bare verb with no actionable content.
         if parsed.kind == "search" and not parsed.query and not parsed.player_hint:
             self._logger.debug("Slot-elicit branch: empty query, asking 'Что включить?'")
@@ -352,6 +378,28 @@ class DialogsWebhookHandler:
             exposed_ids=self._exposed_player_ids,
         )
         if not candidates:
+            # Special case: no hint, no default, multiple exposed players.
+            # `resolve_player_candidates` returns [] with no hint when it
+            # can't pick deterministically — for the user that's ambiguity,
+            # not "not found". Surface all exposed players for
+            # disambiguation instead of the misleading "не нашёл колонку
+            # «(не указано)»".
+            if parsed.player_hint is None and default_id is None:
+                all_exposed = list_exposed_players(
+                    self._mass, exposed_ids=self._exposed_player_ids
+                )
+                if len(all_exposed) >= 2:
+                    self._logger.debug(
+                        "Play branch: no hint + no default + %d exposed → "
+                        "disambiguation across all exposed players",
+                        len(all_exposed),
+                    )
+                    return self._build_disambiguation_response(
+                        session=session,
+                        parsed=parsed,
+                        candidates=all_exposed,
+                        session_state_in=session_state_in,
+                    )
             hint = parsed.player_hint or "(не указано)"
             self._logger.info(
                 "Play branch: no player resolved for hint=%r (default_id=%s); "
@@ -620,11 +668,28 @@ class DialogsWebhookHandler:
         chosen_player: Any = None
 
         # Button press: payload.player_id is what we sent on the previous turn.
+        # Validate against the *currently exposed* player set rather than
+        # blindly trusting the payload — guards against stale or crafted
+        # payloads that target a player that's been disabled / removed /
+        # un-exposed since we offered the buttons. Payload integrity is
+        # already enforced upstream by `body.session.skill_id`, but
+        # defence-in-depth is cheap here.
         payload = req.get("payload")
         if isinstance(payload, dict):
             pid = payload.get("player_id")
             if isinstance(pid, str):
-                chosen_player = self._mass.players.get_player(pid)
+                exposed = list_exposed_players(
+                    self._mass, exposed_ids=self._exposed_player_ids
+                )
+                chosen_player = next(
+                    (p for p in exposed if p.player_id == pid), None
+                )
+                if chosen_player is None:
+                    self._logger.warning(
+                        "Pending replay: ButtonPressed payload player_id=%r "
+                        "not in exposed-player set; ignoring",
+                        pid,
+                    )
 
         if chosen_player is None:
             # Free-text follow-up: treat the utterance as a player hint.
