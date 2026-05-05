@@ -4,7 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [1.7.19] — 2026-05-05
+## [1.7.20] — 2026-05-05
+
+### Added
+- **`resolve_player` debug log** — when MA log level is DEBUG for the dialog provider, every voice-command resolution now logs the raw hint, the normalised needle, all candidate (raw_name, normalised_name) pairs, and how many matched at each tier (exact / startswith / contains). Lets users see exactly why a hint failed to resolve to a player.
 
 ### Added
 - **Generic Russian "speaker" / "player" words resolve to the default / only exposed player.** If the user says *"на колонке"*, *"на проигрывателе"*, *"на плеере"*, *"на динамике"* etc. instead of a specific player name, `resolve_player` now treats it as "any speaker" and returns either the configured default player (last-used in this session, or `default_id`) or the only exposed candidate when there's just one. Previously these generic words failed fuzzy matching and Alice replied "не нашёл колонку". Stems covered: `колонк`, `плеер`, `пле`, `проигрыватель`, `проигрывател`, `динамик`, `акустик`, `устройств`.

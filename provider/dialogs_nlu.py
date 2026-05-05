@@ -249,8 +249,10 @@ def resolve_player(
     exact: list[Any] = []
     startswith: list[Any] = []
     contains: list[Any] = []
+    haystacks: list[tuple[str, str]] = []  # (raw, normalised) for debug
     for p in candidates:
         haystack = _normalize_player_token(p.name or p.player_id)
+        haystacks.append((p.name or p.player_id, haystack))
         if not haystack:
             continue
         if haystack == needle:
@@ -259,6 +261,13 @@ def resolve_player(
             startswith.append(p)
         elif needle in haystack or haystack in needle:
             contains.append(p)
+
+    _LOGGER.debug(
+        "resolve_player: hint=%r → needle=%r; candidates=%s; "
+        "matches: exact=%d startswith=%d contains=%d",
+        hint, needle, haystacks,
+        len(exact), len(startswith), len(contains),
+    )
 
     for tier in (exact, startswith, contains):
         if not tier:
