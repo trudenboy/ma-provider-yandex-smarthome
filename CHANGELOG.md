@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.8.7] — 2026-05-06
+
+One Copilot review finding from upstream PR #3834 addressed.
+
+### Fixed
+- **`execute_control` now has an explicit `list_players` branch.** The action exists in the `ControlAction` `Literal` for typing convenience, but it's an *informational* query that `DialogsWebhookHandler._handle_control` short-circuits before dispatch. Previously a stray call into `execute_control` with `action="list_players"` would silently no-op (no `if/elif` matched) — easy to miss if a future caller bug routed it there. Now the function emits a `WARNING` log and returns; new test `test_list_players_is_a_safe_noop_with_warning` pins the contract. Defensive fix only — no behaviour change on the happy path.
+
 ## [1.8.6] — 2026-05-05
 
 Three Copilot review findings on the upstream PR addressed.
