@@ -4,7 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [1.7.5] — 2026-05-05
+## [1.7.6] — 2026-05-05
+
+### Fixed
+- **Dialog skill auto-create now uses the real Yandex API contract.** Captured a live `POST /apps` and `PATCH /draft/update` from the Yandex Dialogs developer console (DevTools Network) — both shapes were wrong in our previous guess. Concrete fixes:
+  - `DIALOG_CHANNEL`: default changed from `"dialog"` to `"aliceSkill"` (was a placeholder pending a manual probe). Confirmed correct by Yandex's own dev console — `POST /apps {"channel":"aliceSkill", ...}` returns 200.
+  - `build_dialog_draft_payload` rewritten to match the real PATCH shape: voice `"good_oksana"` (was `"shitova.us"` — Smart-Home value); flat `publishingSettings` fields (`description`, `email`, `category`, `developerName`, `brandVerificationWebsite`, `explicitContent`, `structuredExamples`) instead of the Smart-Home `multilingualSettings`/`secondaryTitle` blocks; required top-level fields added: `activationPhrases`, `yaCloudGrant`, `requiredInterfaces`, `exactSurfaces`, `surfaceWhitelist`, `surfaceBlacklist`, `appMetricaApiKey`, `useStateStorage`, `rsyPlatformId`. Removed: `enableAllAvailableRegions`, `selectedRegions` (those are Smart-Home-only).
+  - **`activationPhrases` is globally unique across all Yandex skills.** If the user-set name (`CONF_DIALOG_SKILL_NAME`) is taken, Yandex returns `400 "Это активационное имя уже зарегистрировано"`. The plugin defaults to the user-set value, so users picking generic names like "Music Assistant" may need to choose something distinctive.
 
 ### Fixed
 - **Better diagnostics for `create_app` HTTP 400** — Yandex sometimes rejects requests with an empty body, leaving users unable to tell what went wrong. The plugin now logs full response headers (Content-Type, etc.) at WARNING when a non-success response has an empty body, and the error string now reads `<empty>` instead of trailing whitespace.

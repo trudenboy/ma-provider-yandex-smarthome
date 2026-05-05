@@ -160,12 +160,10 @@ DIALOG_WEBHOOK_BASE_PATH = "/api/yandex_dialogs/webhook"
 DIALOG_RESOLVE_TIMEOUT = 2.5
 DIALOG_DEFAULT_NAME = "Music Assistant"
 # Yandex Dialogs app-store-api channel string for «Навык» (custom dialog skill).
-# Smart Home uses "smartHome"; the Dialogs «Навык» channel string is not
-# documented in the public app-store-api. Default below ("dialog") is our best
-# guess. If Yandex returns a 4xx during auto-create with this value, the user
-# can override via the MA_YANDEX_DIALOG_CHANNEL environment variable without
-# editing the code (e.g. set MA_YANDEX_DIALOG_CHANNEL=general for a probe).
-DIALOG_CHANNEL = os.environ.get("MA_YANDEX_DIALOG_CHANNEL", "dialog")
+# Smart Home uses "smartHome"; the Dialogs «Навык» channel value was captured
+# from the dev console DevTools (POST /apps): channel="aliceSkill".
+# Override via MA_YANDEX_DIALOG_CHANNEL env var if Yandex changes the contract.
+DIALOG_CHANNEL = os.environ.get("MA_YANDEX_DIALOG_CHANNEL", "aliceSkill")
 DIALOG_NAME_MIN_LEN = 2
 DIALOG_NAME_MAX_LEN = 64
 DIALOG_SESSION_CACHE_MAX = 200

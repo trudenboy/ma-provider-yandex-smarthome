@@ -687,21 +687,27 @@ def build_dialog_draft_payload(
 ) -> dict[str, Any]:
     """Compose the PATCH /draft/update body for a Yandex Dialogs «Навык».
 
-    Mirrors :func:`build_draft_payload` but uses
-    ``publishingSettings.category="music_and_sounds"`` and drops
-    the ``smartHome`` deepLinks block. ⚠️ Exact required-field set
-    for «Навык» is not documented — this matches the most common shape
-    seen in Dialogs developer UI HARs and may need adjustment after a
-    manual probe (see plan probe checklist).
+    Captured from a live PATCH /draft/update request made by the Yandex
+    Dialogs developer console — fields and shape match exactly. Notes:
+
+    - ``activationPhrases``: globally unique across all Yandex skills, so
+      the user must pick something distinctive (Yandex returns 400
+      ``"Это активационное имя уже зарегистрировано"`` if the name is taken).
+    - ``voice="good_oksana"``: default female voice in Dialogs (older
+      ``"shitova.us"`` constant was Smart-Home-specific).
+    - ``publishingSettings``: flat fields (no ``multilingualSettings`` /
+      ``secondaryTitle`` blocks — those are Smart-Home shape).
+    - ``skillAccess="private"`` + ``hideInStore=true`` keep the skill
+      out of the public store; only the creator can link it.
     """
     return {
         "logo2": None,
         "name": skill_name,
-        "voice": "shitova.us",
+        "voice": "good_oksana",
+        "activationPhrases": [skill_name],
         "logoId": logo_id,
-        "skillAccess": "private",
-        "hideInStore": True,
         "noteForModerator": "",
+        "yaCloudGrant": False,
         "backendSettings": {
             "uri": backend_uri,
             "functionId": "",
@@ -711,25 +717,21 @@ def build_dialog_draft_payload(
             "brandVerificationWebsite": "",
             "category": "music_and_sounds",
             "developerName": developer_name,
-            "secondaryTitle": skill_name,
+            "explicitContent": False,
+            "structuredExamples": [],
+            "description": "Free-form voice playback bridge for Music Assistant.",
             "email": "",
-            "multilingualSettings": {
-                "ru": {
-                    "name": skill_name,
-                    "secondaryTitle": skill_name,
-                    "description": "Free-form voice playback bridge for Music Assistant.",
-                    "shortDescription": "Music Assistant voice control",
-                    "examplePhrases": [
-                        "включи Metallica на кухне",
-                        "включи мою волну",
-                        "включи плейлист джаз",
-                    ],
-                },
-            },
         },
+        "requiredInterfaces": [],
+        "exactSurfaces": [],
+        "surfaceWhitelist": [],
+        "surfaceBlacklist": [],
         "oauthAppId": None,
-        "enableAllAvailableRegions": True,
-        "selectedRegions": [],
+        "appMetricaApiKey": "",
+        "useStateStorage": False,
+        "rsyPlatformId": "",
+        "skillAccess": "private",
+        "hideInStore": True,
         "channel": DIALOG_CHANNEL,
     }
 
