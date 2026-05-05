@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.6.5] — 2026-05-05
+
+### Fixed
+- **`asyncio.CancelledError` propagation across all blanket exception handlers around `await` calls** — eight `try / except Exception` blocks (and one `contextlib.suppress(Exception)`) wrapped awaited I/O without re-raising `CancelledError`, which would have absorbed task cancellation during MA shutdown / config-flow abort and turned cancellations into silent no-ops or "not found" responses. Affected sites: `dialogs_player.py` (`mass.music.search` ×2, `get_rotor_station_tracks` ×2, `cmd_power`), `dialogs.py` (`request.json`), `playlists.py` (`iter_library_items`), `__init__.py` (`fetch_playlist_options`). Each now re-raises `asyncio.CancelledError` before the generic handler.
+
 ## [1.6.4] — 2026-05-05
 
 ### Fixed
