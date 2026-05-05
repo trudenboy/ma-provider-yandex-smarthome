@@ -1,6 +1,6 @@
 # Research: Yandex Alice custom skill capabilities + voice UX best practices
 
-**Date:** 2026-05-05  
+**Date:** 2026-05-05
 **Source:** Yandex Dialogs official docs (yandex.ru/dev/dialogs/alice/doc), browsed via Playwright; Cathy Pearl *Designing Voice User Interfaces* (O'Reilly), Amazon Alexa Skills Kit conversational design docs, Google VUI guidelines; competitor analysis of music-category skills in dialogs.yandex.ru/store; DevTools captures of live skill traffic.
 
 **Goal:** Identify which Yandex Dialogs features the MA dialog skill is *not* using, and which voice-UX patterns from Alexa/Google apply, so we can prioritise improvements that maximise everyday usability.
