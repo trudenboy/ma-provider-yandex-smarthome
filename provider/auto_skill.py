@@ -1471,7 +1471,7 @@ async def _execute_pipeline(  # noqa: PLR0913, PLR0915
     return artifacts
 
 
-async def auto_rename_dialog_skill(
+async def auto_rename_dialog_skill(  # noqa: PLR0913
     *,
     mass: MusicAssistant,
     artifacts: SkillCreationArtifacts,
