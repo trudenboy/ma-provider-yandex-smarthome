@@ -4,7 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [1.7.9] — 2026-05-05
+## [1.7.10] — 2026-05-05
+
+### Fixed
+- **`structuredExamples` populated for `request_deploy`** — Yandex enforces non-empty structured examples in `publishingSettings.structuredExamples` at deploy time, even for private skills (quality check), failing with `400 "Draft is not allowed to deploy"` / `validationErrors: [{"key":"publishingSettings/structuredExamples","type":"VALIDATION_ERROR"}]`. The payload now ships three sample phrases that actually match the patterns recognised by `parse_command` in `dialogs_nlu.py` (so the published catalogue text reflects what users can really say).
 
 ### Fixed
 - **Pre-validate dialog skill name has ≥2 words.** Yandex Dialogs rejects single-word skill names with `400 Validation error: "Название должно содержать минимум два слова"`, but the validation runs at `update_draft` step — *after* `create_app` already produced a half-broken skill (and Device Flow already burned a fresh device code). The plugin now checks `len(skill_name.split()) >= 2` before kicking off the pipeline; if violated, surfaces an immediate `FAILED` artifact with a clear message and returns without creating anything on Yandex's side. UI description updated to spell out the constraint.
