@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.6.6] — 2026-05-05
+
+### Added
+- **`MA_YANDEX_DIALOG_CHANNEL` env var override for `DIALOG_CHANNEL`** — the Yandex Dialogs app-store-api channel string for «Навык» is not publicly documented; we ship a best-guess default of `"dialog"`. If a future Yandex change or our guess is wrong and auto-create returns 4xx, users can override the value at MA startup (e.g. `MA_YANDEX_DIALOG_CHANNEL=general`) without editing source code.
+
+### Fixed
+- **Webhook test now exercises the production secret-from-path fallback** — `_handle_webhook` reads the URL secret from `request.match_info["secret"]` first, then falls back to parsing the last path segment. The route is registered as an exact path (no `{secret}` variable), so production always hits the fallback. Added `test_secret_parsed_from_path_when_no_match_info` which builds a request with empty `match_info` to cover that branch.
+
 ## [1.6.5] — 2026-05-05
 
 ### Fixed
