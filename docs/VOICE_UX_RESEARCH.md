@@ -84,15 +84,71 @@ Response envelope:
 
 Even **without** declaring intents in the dev console, every `SimpleUtterance` request includes:
 
+- `request.command` — **already normalised** by Yandex: lowercase, punctuation stripped, written numbers converted to digits (*"тридцать"* → `"30"`).
+- `request.original_utterance` — raw user phrase (≤1024 chars), kept verbatim.
 - `request.nlu.tokens` — pre-tokenised words (the parser already split on whitespace + punctuation).
-- `request.nlu.entities` — typed extractions:
-  - `YANDEX.NUMBER` → integer or float
-  - `YANDEX.DATETIME` → relative or absolute date/time (e.g. "завтра", "в 6 утра", "через 2 часа")
-  - `YANDEX.GEO` → addresses, cities, airports
-  - `YANDEX.FIO` → personal names with first/last/patronymic
-- `request.markup.dangerous_context` — flag set by Yandex when the phrase has suicide / hate / threat content (we should respond gracefully).
+- `request.nlu.entities` — typed extractions, each with `tokens: {start, end}` (token offsets into `nlu.tokens`) and a typed `value` block:
+
+  | Entity type | `value` shape | Triggers / examples |
+  |---|---|---|
+  | `YANDEX.NUMBER` | `<integer or float>` (single scalar) | "тридцать процентов" → 30; "пять с половиной" → 5.5. Captures both numerals and spelled-out numbers. |
+  | `YANDEX.DATETIME` | `{year, month, day, hour, minute, year_is_relative, …}` | "завтра", "в 6 утра", "через 2 часа", "14:00". Relative fields flagged with `*_is_relative`. |
+  | `YANDEX.GEO` | `{country, city, street, house_number, airport}` (subset present) | Addresses, cities, airport codes. |
+  | `YANDEX.FIO` | `{first_name, patronymic_name, last_name}` (subset present) | Russian personal names. Foreign names typically *not* picked up. |
+  | `YANDEX.STRING` | `<arbitrary substring>` | **Only emitted when declared as a slot type in a custom-intent grammar** — not present in the implicit set. |
+
+- `request.markup.dangerous_context: true` — flag set by Yandex when the phrase contains suicide / hate / threat content (we should respond gracefully).
 
 If we *do* declare custom intents in the dev console (grammar-based, with slots), Yandex's NLU pre-classifies and gives us `request.nlu.intents.<name>.slots.<slot>.value` ready to go — we don't have to write our own regex parser. This is a meaningful refactor opportunity (see § 4.2).
+
+#### 1.2.1 Custom-intent grammar DSL
+
+Declared in the **dev console**, not in the request payload. Sketch:
+
+```
+intent: play.search
+
+root:
+    $Verb $Query
+    $Verb $Query на $Player
+    $Verb $Marker $Query
+    $Verb $Marker $Query на $Player
+
+slots:
+    kind:    { source: $Marker, type: YANDEX.STRING }
+    query:   { source: $Query,  type: YANDEX.STRING }
+    player:  { source: $Player, type: YANDEX.STRING }
+
+filler: пожалуйста | мне | сейчас
+
+$Verb:   включи | поставь | запусти | сыграй | найди | открой | покажи
+$Marker: песню | трек | альбом | плейлист | подборку | артиста | группу
+```
+
+Available directives inside grammar rules:
+- `%lemma` — match without word-form variation (`%lemma включить` matches *включи / включите / включай / включить / включим*).
+- `%exact` — precise string match (no morphology — useful for proper names).
+- `%negative` — exclude phrasings.
+
+Slots accept `type:` of any built-in entity (`YANDEX.NUMBER`, etc.) or `YANDEX.STRING` for free text.
+
+#### 1.2.2 Applicability to music skill — what we use vs. leave on the table
+
+| NLU feature | We use it? | Music-skill applicability |
+|---|---|---|
+| `request.command` (normalised) | ✅ | This is what our regex parser consumes. Correct choice — `original_utterance` is rarely useful (we don't need the raw casing/punctuation). |
+| `request.nlu.tokens` | ❌ | Low value. We re-tokenise via `_PUNCT_RE` + `_SPACE_RE` ourselves; the duplication isn't material. |
+| `YANDEX.NUMBER` entity | ❌ | **Notable miss for relative-volume.** "Громкость 30" works because Yandex normalises *тридцать* → `30` in `command` — our regex catches that. But "**прибавь на двадцать**" / "**сделай громче на пять**" don't carry the keyword *громкость*, so our `_VOLUME_SET_RE` misses them. `YANDEX.NUMBER` would surface the integer regardless of surrounding phrasing. See § 4 P1.7. |
+| `YANDEX.DATETIME` | ❌ | Nothing in MA's current command surface needs a date or time. Future "включи через 5 минут" / sleep-timer would benefit, but that's feature creep, not UX-fix. |
+| `YANDEX.GEO` | ❌ | Irrelevant — addresses/cities don't appear in music commands. |
+| `YANDEX.FIO` | ❌ | Tempting for artist names but the entity is trained on *Russian* personal-name patterns. Foreign band names ("Iron Maiden", "Metallica") won't trigger; native artists ("Цой", "Гребенщиков") work fine through `mass.music.search` already. Net: not worth wiring. |
+| `YANDEX.STRING` (declared in grammar) | ❌ | Only useful in combination with custom intents (§ 1.2.1). |
+| Custom intents (grammar DSL) | ❌ | Replaces our regex parser with Yandex pre-classification. **Big architectural change**, see § 4 P1.1. Pros: free morphology, free synonyms, free filler-word handling. Cons: grammar lives in dev-console (outside repo), requires `auto_skill.py` extension to PATCH the grammar in draft, every grammar change = new `request_deploy` (5–15 min for private aliceSkill moderation), local testing impossible, harder to debug than regex. |
+| `%lemma` / `%exact` / `%negative` directives | ❌ | Only relevant inside the grammar. |
+| `request.markup.dangerous_context` | ❌ | We just blindly search for whatever the user said. See § 4 P1.6. |
+| NLU block on `ButtonPressed` | n/a | `payload` is what we sent verbatim — no NLU needed. |
+
+**Bottom line:** the only NLU primitive that pays off without going all-in on grammar is **`YANDEX.NUMBER` for relative-volume phrasings**. Custom intents are a P1 architectural lift, valuable but premature until the regex parser shows real-world coverage gaps (which it hasn't yet).
 
 ### 1.3 Persistent state (verified)
 
@@ -279,12 +335,13 @@ Ranked by **impact × effort**, with trade-offs noted. Status as of v1.7.21.
 
 | # | Recommendation | Why | Sketch |
 |---|----------------|-----|--------|
-| **P1.1** | **Declare custom intents in the dev console grammar.** | Replaces our hand-rolled regex with Yandex's NLU pre-classification. Free benefit: handles synonyms, declensions, filler words automatically. Trade-off: locks our parser logic into a Yandex-side grammar definition (which is editable but lives outside our repo). | Define intents `play.specific` (slots: `kind`, `query`, `player`), `play.my_wave`, `play.genre`, `control.*`. Rebuild `auto_skill.py:build_dialog_draft_payload` to ship these in `nlu` block. Backfill `parse_command` as fallback if `request.nlu.intents` is empty. |
+| **P1.1** | **Declare custom intents in the dev console grammar.** | Replaces our hand-rolled regex with Yandex's NLU pre-classification. Free benefit: handles synonyms, declensions, filler words ("пожалуйста, мне, сейчас"), and morphology automatically — none of which our suffix-stripper covers. Status as of v1.8.0: not blocking any concrete user complaint, but the upper bound on regex flexibility is being approached. | Define intents `play.specific` (slots: `kind`, `query`, `player`), `play.my_wave`, `play.genre`, `control.*`. **Trade-offs to accept first**: (a) grammar lives in Yandex dev console, outside the repo — every change is a `PATCH /draft` + `request_deploy`, with 5–15 min moderation latency per change for a private aliceSkill; (b) the API field name for the grammar block in `app-store-api`'s draft payload is undocumented — needs a Playwright DevTools probe of a manually-grammar-edited skill, same as we did for `structuredExamples`; (c) local unit-testing impossible (no offline NLU runner), so regression tests would have to be E2E against a real skill draft; (d) keep `parse_command` + `parse_control` regex parsers as fallback for when `request.nlu.intents` is empty (Yandex returns nothing when grammar doesn't match). |
 | **P1.2** | **Rich responses on screen surfaces.** | On `meta.interfaces.screen` present, attach a `BigImage` card with album art for the resolved item. Voice-only surfaces fall back to text gracefully (Yandex auto-handles this). | After resolving media, fetch its `image` attribute and include `card: {type: "BigImage", image_id: <upload>, title: track.name, description: artist.name}`. |
 | **P1.3** | **Suggestion buttons for likely follow-ups.** | After `включи Metallica`, the most likely follow-up is "следующая", "пауза", "громче". Adding suggestion buttons short-circuits the activation-phrase requirement on screen surfaces. | Always append `[{"title": "Следующая", "hide": false}, {"title": "Пауза"}, {"title": "Громче"}]` to playback responses on `meta.interfaces.screen`. |
 | **P1.4** | **Session continuation (`end_session: false`) + 30 s window.** | Lets the user issue follow-ups without saying "Алиса, попроси \<name\>" again. Trade-off: voice surfaces enter a "listening" indicator that some users find intrusive. Make it opt-in via plugin config. | Keep session open after playback action; close on explicit "выход / стоп / спасибо". |
 | **P1.5** | **Activation-phrase variants** (`activationPhrases` array). | More variants = better ASR catch rate. Today we ship `[skill_name]` only. | Submit `[skill_name, skill_name + " plus"]` plus user-configurable additional phrases via plugin config. |
 | **P1.6** | **Graceful response for `markup.dangerous_context`.** | Yandex flags suicide/violence content. Music skill responding "Не нашёл такую музыку: убей себя" is bad PR. | If `markup.dangerous_context` is set, respond with a generic "Не понял команду." and end session. |
+| **P1.7** | **Use `YANDEX.NUMBER` entity for relative-volume phrasings.** | Phrases like *"прибавь на двадцать"*, *"сделай громче на пять"*, *"на 10 тише"* don't include the keyword *громкость*, so the existing `_VOLUME_SET_RE` regex doesn't capture the digit. `YANDEX.NUMBER` in `request.nlu.entities` surfaces the integer regardless of surrounding phrasing — the only NLU primitive that pays off without going all-in on grammar (P1.1). Independent of P1.1: works against the implicit entity set Yandex always emits. | Extend `parse_control` signature with `entities: list[Entity] | None`. New action `volume_relative(delta: int, sign: +1/-1)`. New patterns: `^прибавь(?:\s+на\s+\d+)?$`, `^убавь(?:\s+на\s+\d+)?$`, `^на\s+\d+\s+(?:громче\|тише)$`. When pattern matches but no digit captured, look up `YANDEX.NUMBER` from entities. Executor: `cmd_volume_set(player_id, current_volume + sign * delta)` with clamping. ~30 lines of code + tests with mocked NLU payloads. |
 
 ### Priority 2 — Future / lower priority
 
@@ -315,6 +372,7 @@ Ranked by **impact × effort**, with trade-offs noted. Status as of v1.7.21.
   - [SimpleUtterance](https://yandex.ru/dev/dialogs/alice/doc/ru/request-simpleutterance)
   - [Настройка генерации речи](https://yandex.ru/dev/dialogs/alice/doc/ru/speech-tuning)
   - [Хранение состояния](https://yandex.ru/dev/dialogs/alice/doc/ru/session-persistence)
+  - [NLU — токены, сущности, кастомные интенты](https://yandex.ru/dev/dialogs/alice/doc/ru/nlu)
 - Cathy Pearl, *Designing Voice User Interfaces: Principles of Conversational Experiences* (O'Reilly, 2017) — VUI fundamentals; cognitive load, error recovery, persona design.
 - Amazon Alexa Skills Kit:
   - [Conversational Voice Design Principles](https://developer.amazon.com/en-US/blogs/alexa/post/57d0bb9c-19a6-4c51-bfa2-fc6753d14b68/4-principles-of-conversational-voice-desig)
