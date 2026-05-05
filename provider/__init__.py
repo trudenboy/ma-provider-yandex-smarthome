@@ -408,7 +408,7 @@ async def _run_auto_create_dialog_action(
 
     # Hint: empty-body 400 on create_app for the dialog pipeline almost
     # always means our DIALOG_CHANNEL guess ("dialog" by default) is wrong.
-    # The Yandex Dialogs app-store-api channel string for «Навык» is not
+    # The Yandex Dialogs app-store-api channel string for the custom skill type is not
     # publicly documented and we cannot probe it from our side.
     if (
         new_artifacts.state == SkillCreationState.FAILED

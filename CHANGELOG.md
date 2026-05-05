@@ -4,7 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [1.7.7] — 2026-05-05
+## [1.7.8] — 2026-05-05
+
+### Fixed
+- **`x_token` cache passes `SecretStr` to ya_passport_auth correctly** — `client.refresh_passport_cookies` requires a `SecretStr` (not `str`), and `creds.x_token` is `SecretStr` (cannot be passed verbatim to a `str`-typed callback). v1.7.7 plumbing was correct functionally but failed mypy strict; now we wrap the cached string via `SecretStr(cached_x_token)` before refresh, and unwrap with `creds.x_token.get_secret()` before passing to the persistence callback.
+- **English-only comments / docstrings** — translated remaining Russian fragments in code documentation (e.g. references to «Навык», «Дом с Алисой», «Моя волна») to English equivalents so future contributors don't need Russian to read the codebase. Functional Russian (regex patterns matching Russian voice commands, inflection suffixes, user-facing reply strings) intentionally stays as-is — translating would break the feature.
+
+
 
 ### Added
 - **Cache Yandex Passport `x_token` between auto-create runs.** The first successful Device Flow now stores the long-lived `x_token` in plugin config (SECURE_STRING). Subsequent `auto_create_skill` / `auto_rename_dialog_skill` calls — including switching from the Smart Home pipeline to the Dialog pipeline — try `client.refresh_passport_cookies(cached_x_token)` first; if Yandex still accepts it, the device-code popup is skipped entirely. On any failure during refresh (token expired / revoked) the cache is silently dropped and the regular Device Flow runs as before. New private config key `CONF_AUTH_X_TOKEN`.

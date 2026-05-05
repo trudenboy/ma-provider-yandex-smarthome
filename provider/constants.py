@@ -148,7 +148,7 @@ ERROR_INTERNAL_ERROR = "INTERNAL_ERROR"
 ERROR_DEVICE_NOT_FOUND = "DEVICE_NOT_FOUND"
 
 # ---------------------------------------------------------------------------
-# Dialog skill (Yandex Dialogs «Навык» — free-form voice playback) — experimental
+# Dialog skill (Yandex Dialogs custom skill — free-form voice playback) — experimental
 # ---------------------------------------------------------------------------
 CONF_DIALOG_SKILL_ENABLED = "dialog_skill_enabled"
 CONF_DIALOG_SKILL_NAME = "dialog_skill_name"
@@ -164,8 +164,8 @@ CONF_ACTION_RENAME_DIALOG_SKILL = "rename_dialog_skill"
 DIALOG_WEBHOOK_BASE_PATH = "/api/yandex_dialogs/webhook"
 DIALOG_RESOLVE_TIMEOUT = 2.5
 DIALOG_DEFAULT_NAME = "Music Assistant"
-# Yandex Dialogs app-store-api channel string for «Навык» (custom dialog skill).
-# Smart Home uses "smartHome"; the Dialogs «Навык» channel value was captured
+# Yandex Dialogs app-store-api channel string for the custom dialog skill.
+# Smart Home uses "smartHome"; the Dialogs custom-skill channel value was captured
 # from the dev console DevTools (POST /apps): channel="aliceSkill".
 # Override via MA_YANDEX_DIALOG_CHANNEL env var if Yandex changes the contract.
 DIALOG_CHANNEL = os.environ.get("MA_YANDEX_DIALOG_CHANNEL", "aliceSkill")

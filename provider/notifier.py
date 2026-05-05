@@ -68,10 +68,10 @@ class StateNotifier:
         self._unsub: Callable[[], None] | None = None
 
         # Track UNKNOWN_USER state — Yandex returns this until the user
-        # has linked the skill in the «Дом с Алисой» app via OAuth. We
-        # surface the first occurrence as a clear WARNING with instructions
-        # and then silence further errors at debug level so logs don't
-        # flood while the user is in the middle of linking.
+        # has linked the skill in the Yandex Smart Home / Alice mobile
+        # app via OAuth. We surface the first occurrence as a clear
+        # WARNING with instructions and then silence further errors at
+        # debug level so logs don't flood while linking is in progress.
         self._unknown_user_warned: bool = False
 
     async def start(self) -> None:
@@ -195,10 +195,10 @@ class StateNotifier:
         """POST state callback to Yandex.
 
         Yandex returns ``UNKNOWN_USER`` (HTTP 400) until the user has
-        linked the skill in the *Дом с Алисой* app. That is a normal
-        first-run state, not a code bug — we emit one WARNING with
+        linked the skill in the Yandex Alice / Smart Home app. That is a
+        normal first-run state, not a code bug — we emit one WARNING with
         linking instructions, then quiet down to debug level so logs
-        don't flood while the user is in the middle of linking.
+        don't flood while linking is in progress.
         """
         payload = CallbackRequest(
             ts=time.time(),

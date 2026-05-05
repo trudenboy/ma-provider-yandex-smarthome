@@ -685,7 +685,7 @@ def build_dialog_draft_payload(
     logo_id: str | None,
     developer_name: str = "Music Assistant user",
 ) -> dict[str, Any]:
-    """Compose the PATCH /draft/update body for a Yandex Dialogs «Навык».
+    """Compose the PATCH /draft/update body for a Yandex Dialogs custom skill.
 
     Captured from a live PATCH /draft/update request made by the Yandex
     Dialogs developer console — fields and shape match exactly. Notes:
@@ -1003,6 +1003,7 @@ async def _default_authenticator(  # noqa: PLR0915
     from aiohttp import web  # noqa: PLC0415
     from ya_passport_auth import ClientConfig, PassportClient  # noqa: PLC0415
     from ya_passport_auth.config import DEFAULT_ALLOWED_HOSTS  # noqa: PLC0415
+    from ya_passport_auth.credentials import SecretStr  # noqa: PLC0415
 
     from music_assistant.helpers.auth import AuthenticationHelper  # noqa: PLC0415
 
@@ -1016,9 +1017,11 @@ async def _default_authenticator(  # noqa: PLR0915
     async with PassportClient.create(config=config) as client:
         # Cache fast-path: try cached x_token first. If the token is still
         # valid Yandex returns fresh session cookies and we skip Device Flow.
+        # The cache stores the raw string; ya_passport_auth wraps it in
+        # SecretStr for redacted logging on its side.
         if cached_x_token:
             try:
-                await client.refresh_passport_cookies(cached_x_token)
+                await client.refresh_passport_cookies(SecretStr(cached_x_token))
                 _LOGGER.info(
                     "auto-skill: reused cached Yandex Passport x_token (no Device Flow needed)"
                 )
@@ -1115,9 +1118,11 @@ async def _default_authenticator(  # noqa: PLR0915
 
         # Persist the new x_token so subsequent auto-create runs can skip
         # Device Flow. Best-effort: a callback failure must not break auth.
+        # Unwrap SecretStr → str so the callback can store it via the MA
+        # config plumbing (SECURE_STRING serialiser expects a plain str).
         if on_token_obtained is not None:
             try:
-                on_token_obtained(creds.x_token)
+                on_token_obtained(creds.x_token.get_secret())
             except Exception:
                 _LOGGER.exception(
                     "auto-skill: on_token_obtained callback failed; x_token will not be cached"
