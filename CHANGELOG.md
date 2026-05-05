@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.8.2] — 2026-05-05
+
+Voice-first disambiguation. Suggestion buttons aren't visible on screenless Yandex Stations, so the disambiguation prompt now leads with a voice channel.
+
+### Changed
+- **Disambiguation prompt is voice-first.** Previous text was *"На какой колонке: A, B?"* — fine on a phone screen but unhelpful on smart speakers, where the user couldn't see (or tap) the buttons. New prompt enumerates candidates with Russian ordinals and explicitly asks for a voice answer:
+
+  > На какой колонке? Первая — A, вторая — B. Скажи название или номер.
+
+  Buttons stay on the response for screen surfaces but are no longer the primary channel.
+
+### Added
+- **Voice ordinal disambiguation.** A new `_parse_ordinal_choice(text)` helper recognises *первая / первый / первое / первую / один / 1*, …, *пятая* / *пять* / *5* (incl. `номер N`-prefix and `четвёртая` / `четвертая` spelling variants) as 0-based indices into the candidate list. The handler tries the ordinal **first** in `_try_resume_pending`, before button payload, before free-text — so on a screenless device the user can answer the disambiguation prompt by voice alone.
+- **Disambiguation `pending_command` carries the candidate IDs.** New `candidate_ids: list[str]` field saved alongside `kind` / `query` / `radio_mode`. Used by `_try_resume_pending` for two purposes: (a) ordinal lookup `candidate_ids[index]`, (b) **narrowing free-text resolution** to just the saved candidate set so a one-word distinguisher like *"большая"* picks the right player even when other unrelated players elsewhere also match.
+
 ## [1.8.1] — 2026-05-05
 
 Six Copilot-review findings on the v1.8.0 voice-UX refactor + observability + a "list speakers" voice query.
