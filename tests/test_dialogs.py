@@ -983,9 +983,7 @@ class TestDisambiguation:
             ],
             search_track=track,
         )
-        handler = DialogsWebhookHandler(
-            mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET
-        )
+        handler = DialogsWebhookHandler(mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET)
         body = {
             "session": {"skill_id": "skill-uuid-1", "session_id": "s1", "new": False},
             "request": {"command": "выбираю первую"},
@@ -1017,9 +1015,7 @@ class TestDisambiguation:
             ],
             search_track=track,
         )
-        handler = DialogsWebhookHandler(
-            mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET
-        )
+        handler = DialogsWebhookHandler(mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET)
         body = {
             "session": {"skill_id": "skill-uuid-1", "session_id": "s1", "new": False},
             "request": {"command": "большую"},
@@ -1048,9 +1044,7 @@ class TestDisambiguation:
             ],
             search_track=track,
         )
-        handler = DialogsWebhookHandler(
-            mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET
-        )
+        handler = DialogsWebhookHandler(mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET)
         body = {
             "session": {"skill_id": "skill-uuid-1", "session_id": "s1", "new": False},
             "request": {"command": "Кухню"},
