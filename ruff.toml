@@ -91,7 +91,11 @@ convention = "pep257"
 max-args = 10
 max-branches = 25
 max-returns = 15
-max-statements = 60
+# Match upstream music-assistant's pylint cap so local lint catches
+# upstream-CI failures. Functions that legitimately exceed the cap
+# carry an inline `# noqa: PLR0915` so the noqa survives the upstream
+# sync (file-level overrides in this ruff.toml don't propagate).
+max-statements = 50
 
 [lint.mccabe]
 max-complexity = 25
@@ -103,16 +107,10 @@ mark-parentheses = false
 [lint.isort]
 known-first-party = ["music_assistant"]
 
-[lint.per-file-ignores]
-# Dialog-skill modules are inherently Cyrillic — Russian voice commands +
-# user-facing Russian replies. Suppress the RUF001/002/003 family file-wide;
-# inline noqa would clutter every regex pattern and string literal.
-"provider/dialogs.py" = ["RUF001", "RUF002", "RUF003"]
-"provider/dialogs_control.py" = ["RUF001", "RUF002", "RUF003"]
-"provider/dialogs_nlu.py" = ["RUF001", "RUF002", "RUF003"]
-"provider/dialogs_player.py" = ["RUF001", "RUF002", "RUF003"]
-"provider/notifier.py" = ["RUF002", "RUF003"]
-"tests/test_dialogs.py" = ["RUF001", "RUF002", "RUF003"]
-"tests/test_dialogs_control.py" = ["RUF001", "RUF002", "RUF003"]
-"tests/test_dialogs_nlu.py" = ["RUF001", "RUF002", "RUF003"]
-"tests/test_dialogs_player.py" = ["RUF001", "RUF002", "RUF003"]
+# RUF001/RUF002/RUF003 (ambiguous Cyrillic) suppression for the
+# dialog-skill modules is done via inline `# ruff: noqa: RUF001, RUF002,
+# RUF003` directives at the top of each source file, NOT here. Reason:
+# this `ruff.toml` does not propagate when the upstream music-assistant
+# sync workflow copies provider files into `music_assistant/providers/
+# yandex_smarthome/`; only inline directives in the source files
+# survive the sync and are honoured by upstream's lint pre-commit.

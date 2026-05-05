@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.8.3] — 2026-05-05
+
+Upstream-sync lint fix. The upstream `music-assistant/server` CI ran with the v1.8.2 sync and surfaced 57 ruff errors + 3 mypy errors that this repo's local checks were silencing via `ruff.toml` rules that don't propagate when the sync workflow copies provider files into `music_assistant/providers/yandex_smarthome/`. All purely lint configuration — no behaviour change.
+
+### Fixed
+- **`# ruff: noqa: RUF001, RUF002, RUF003` directives moved into the source files.** Previously the per-file Cyrillic-string suppression lived in `ruff.toml`'s `[lint.per-file-ignores]` block. That config is local-only — upstream's lint pre-commit runs against its own ruff config which doesn't have those entries, so the sync surfaced ~50 RUF001/002/003 errors. Each Cyrillic-heavy module now carries the directive at the top of the file (`provider/dialogs.py`, `dialogs_control.py`, `dialogs_nlu.py`, `dialogs_player.py`, plus `tests/test_dialogs*.py`). `ruff.toml` correspondingly drops the per-file overrides.
+- **`# noqa: PLR0915` re-added to three functions** — `provider/__init__.py:get_config_entries` (59 stmts), `provider/auto_skill.py:_execute_pipeline` (59 stmts), `provider/device.py:execute_capability_action` (55 stmts). All exceed the 50-statement default cap; ruff had stripped the markers earlier when this repo's local cap was bumped to 60. Local cap restored to 50 to match upstream.
+- **`tests/test_dialogs.py:_response_body` mypy `no-any-return`** fixed by binding the `json.loads` result to an explicitly-typed local before returning.
+
 ## [1.8.2] — 2026-05-05
 
 Voice-first disambiguation. Suggestion buttons aren't visible on screenless Yandex Stations, so the disambiguation prompt now leads with a voice channel. Two Copilot-review findings on the initial implementation also rolled in.
