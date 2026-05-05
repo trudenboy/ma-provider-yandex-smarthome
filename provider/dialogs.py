@@ -386,9 +386,8 @@ class DialogsWebhookHandler:
         # that player. Surface it as `default_id` so the resolver picks
         # it without the user re-stating "на кухне".
         if awaiting_in and not default_id:
-            saved_pid = (
-                session_state_in.get("awaiting_player_id")
-                or app_state_in.get("awaiting_player_id")
+            saved_pid = session_state_in.get("awaiting_player_id") or app_state_in.get(
+                "awaiting_player_id"
             )
             if saved_pid:
                 default_id = str(saved_pid)

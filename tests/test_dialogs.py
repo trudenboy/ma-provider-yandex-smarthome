@@ -671,9 +671,7 @@ class TestDisambiguation:
             ],
             search_track=track,
         )
-        handler = DialogsWebhookHandler(
-            mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET
-        )
+        handler = DialogsWebhookHandler(mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET)
         # Turn 1: "включи на кухне" — no query, hint=кухне
         body1 = {
             "session": {"skill_id": "skill-uuid-1", "session_id": "s1", "new": False},
