@@ -170,7 +170,7 @@ _INFLECTION_SUFFIXES = (
 _GENERIC_PLAYER_STEMS = frozenset({
     "колонк",  # колонка / на колонке / колонку
     "плеер",  # плеер / на плеере / плеера
-    "пле",  # short for «плеер» after stripping the «-ер» suffix
+    "пле",  # short for "плеер" after stripping the trailing -ер suffix  # noqa: RUF003
     "проигрыватель",  # full word survives stem (no matching suffix)
     "проигрывател",  # stripped «-ь»
     "динамик",  # динамик / на динамике

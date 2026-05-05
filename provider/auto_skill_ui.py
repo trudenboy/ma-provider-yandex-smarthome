@@ -957,9 +957,9 @@ def _dialog_skill_entries(
                     "Status indicator at the top of that page shows whether "
                     "the skill is *on air* yet. Yandex deploys aliceSkills "
                     "asynchronously — for private skills this typically "
-                    "takes a few minutes (sometimes 5–10 under load) after "
+                    "takes a few minutes (sometimes 5-10 under load) after "
                     "auto-create completes. The skill is unusable on Alice "
-                    "until the dev console shows «На воздухе»."
+                    "until the dev console shows «На воздухе»."  # noqa: RUF001
                 ),
                 category=_CAT_DIALOG_SKILL,
             )
