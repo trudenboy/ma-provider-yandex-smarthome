@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.7.3] — 2026-05-05
+
+### Fixed
+- **`_resolve_base_url` strips whitespace before stripping trailing slash** — a copy-pasted External Base URL like `" https://ma.example.com/ "` would have failed the `https://` HTTPS check and produced malformed callback / webhook URIs. Both the override and `mass.webserver.base_url` fallback are now normalized via `.strip().rstrip('/')`.
+- **Dialog-skill HTTPS warning text correctly identifies the source URL** — previously it said *"MA's Base URL is …"* even when the External Base URL plugin override was in effect; now reads *"Resolved Base URL is …"* and points users at the External Base URL field first (with the global setting as a fallback), matching the Smart Home warning above.
+
 ## [1.7.2] — 2026-05-05
 
 ### Fixed
