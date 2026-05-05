@@ -4,7 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [1.7.14] — 2026-05-05
+## [1.7.15] — 2026-05-05
+
+### Fixed
+- **Dialogs webhook docstring matches actual routing.** The module docstring claimed the route was `POST /api/yandex_dialogs/webhook/{secret}` (templated `{secret}` variable), but `register_routes` registers the secret as a *literal* path segment baked into the URL string at registration time. In production `request.match_info` is empty and the secret is parsed from `request.path`. Updated the docstring so future contributors don't accidentally remove the production hot-path branch. (Thanks Copilot review.)
+- **`device.execute_capability_action` lets `CancelledError` propagate.** The broad `except Exception` in the action dispatcher converted shutdown / config-flow cancellations into an `INTERNAL_ERROR` action result. Added an explicit `except asyncio.CancelledError: raise` before the generic handler so cooperative cancellation propagates untouched.
 
 ### Fixed
 - **Dialog skill `update_draft` no longer rejected by Yandex.** Despite the v1.7.12 fix to use the correct `category="music_audio"` value, Yandex was still returning HTTP 400 with an empty body — additional fields in `publishingSettings` (almost certainly `email=""`, but the API does not say) silently fail validation. Splitting the draft update into two PATCH passes:
