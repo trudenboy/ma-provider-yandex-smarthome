@@ -4,7 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [1.7.15] — 2026-05-05
+## [1.7.16] — 2026-05-05
+
+### Fixed
+- **`structuredExamples` shape captured correctly via DevTools.** The previous guess `{"phrase": "..."}` was completely wrong — the real shape is `{"marker": <activator>, "activationPhrase": <skill_name>, "request": <phrase>, "is_valid": true}`, captured from a successful `PATCH /draft/update` issued by the Yandex Dialogs dev console after the user filled the form. This wrong shape was the actual cause of all the previous silent HTTP 400 + empty-body rejections (not the category, not the email — those worked fine, but Yandex aborts validation of the whole publishingSettings block when *any* nested validator fails). Reverted v1.7.14's split-PATCH workaround now that we know the right shape: dialog draft is sent in a single PATCH again.
 
 ### Fixed
 - **Dialogs webhook docstring matches actual routing.** The module docstring claimed the route was `POST /api/yandex_dialogs/webhook/{secret}` (templated `{secret}` variable), but `register_routes` registers the secret as a *literal* path segment baked into the URL string at registration time. In production `request.match_info` is empty and the secret is parsed from `request.path`. Updated the docstring so future contributors don't accidentally remove the production hot-path branch. (Thanks Copilot review.)
