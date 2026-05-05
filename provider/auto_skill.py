@@ -401,6 +401,35 @@ class DialogsSkillCreator:
                     http_status=resp.status,
                 )
 
+    async def get_operations(self, csrf: str, skill_id: str) -> list[dict[str, Any]]:
+        """Fetch the recent operations log for a skill.
+
+        Returns entries like ``{"type": "deployCompleted", "itemId": "<id>", "createdAt": "..."}``.
+        Used to poll for ``deployCompleted`` after ``request_deploy``.
+        """
+        url = f"{DIALOGS_API_BASE}/apps/{skill_id}/operations"
+        headers = {"x-csrf-token": csrf}
+        async with self._session.get(url, headers=headers) as resp:
+            body = await resp.text()
+            if resp.status != 200:
+                raise DialogsApiError(
+                    f"get_operations HTTP {resp.status}: {body[:200]}",
+                    step="get_operations",
+                    http_status=resp.status,
+                )
+            data = _try_json(body)
+        if isinstance(data, dict):
+            result = data.get("result", data)
+            if isinstance(result, list):
+                return [op for op in result if isinstance(op, dict)]
+            if isinstance(result, dict):
+                ops = result.get("operations") or result.get("items")
+                if isinstance(ops, list):
+                    return [op for op in ops if isinstance(op, dict)]
+        if isinstance(data, list):
+            return [op for op in data if isinstance(op, dict)]
+        return []
+
     # -----------------------------------------------------------------------
     # Internal helpers
     # -----------------------------------------------------------------------
@@ -1504,10 +1533,71 @@ async def _execute_pipeline(  # noqa: PLR0913, PLR0915
     if state == SkillCreationState.DEPLOY_REQUESTED:
         _LOGGER.info("auto-skill: [5/5] publishing skill")
         await creator.request_deploy(csrf, skill_id)
+        # Poll the operations log for deployCompleted (typically a few
+        # seconds for private skills; up to ~minute under load). Don't
+        # fail the whole pipeline if polling times out — the deploy was
+        # accepted, Yandex will eventually finish on its side.
+        await _wait_for_deploy_completed(creator, csrf, skill_id)
         artifacts = dataclasses.replace(artifacts, state=SkillCreationState.DONE)
         await _maybe_save(progress_cb, artifacts)
 
     return artifacts
+
+
+async def _wait_for_deploy_completed(
+    creator: DialogsSkillCreator,
+    csrf: str,
+    skill_id: str,
+    *,
+    timeout: float = 120.0,
+    poll_interval: float = 3.0,
+) -> bool:
+    """Poll /apps/<id>/operations until a deployCompleted event appears.
+
+    Returns True if deployCompleted was observed; False on timeout. Does
+    not raise on transient errors — keeps retrying inside the timeout
+    window. The caller marks the skill as DONE either way; the operation
+    log only confirms publication, the skill's draft is committed at
+    request_deploy time.
+    """
+    deadline = asyncio.get_event_loop().time() + timeout
+    while asyncio.get_event_loop().time() < deadline:
+        try:
+            ops = await creator.get_operations(csrf, skill_id)
+        except DialogsApiError as exc:
+            _LOGGER.debug("operations poll failed (transient): %s", exc)
+            await asyncio.sleep(poll_interval)
+            continue
+
+        for op in ops:
+            if (
+                op.get("type") == "deployCompleted"
+                and op.get("itemId") == skill_id
+            ):
+                _LOGGER.info(
+                    "auto-skill: deployCompleted observed for skill %s", skill_id
+                )
+                return True
+            if (
+                op.get("type") == "deployFailed"
+                and op.get("itemId") == skill_id
+            ):
+                _LOGGER.warning(
+                    "auto-skill: deployFailed for skill %s: %s",
+                    skill_id,
+                    op.get("comment", "(no comment)"),
+                )
+                return False
+
+        await asyncio.sleep(poll_interval)
+
+    _LOGGER.warning(
+        "auto-skill: timed out waiting for deployCompleted on %s after %.0fs — "
+        "request_deploy was accepted, Yandex will finish on its side",
+        skill_id,
+        timeout,
+    )
+    return False
 
 
 async def auto_rename_dialog_skill(  # noqa: PLR0913

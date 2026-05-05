@@ -4,7 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [1.7.16] — 2026-05-05
+## [1.7.17] — 2026-05-05
+
+### Added
+- **Direct link to the skill in Yandex Dialogs dev console.** Once a dialog skill has been auto-created, the plugin's config UI now shows a clickable URL of the form `https://dialogs.yandex.ru/developer/skills/<skill_id>` so the user can jump to the draft view (and verify the on-air status indicator at the top of the page).
+- **Poll deploy completion after `request_deploy`.** Yandex's `request_deploy` returns immediately, but the actual publish takes a few seconds (private skills) up to ~minute (under load). The pipeline now polls `/apps/<id>/operations` every 3 s with a 120 s ceiling, looking for a `deployCompleted` event for the just-deployed skill_id; logs an INFO line when seen, a WARNING on `deployFailed` or timeout (the request itself was accepted, Yandex finishes on its side either way).
 
 ### Fixed
 - **`structuredExamples` shape captured correctly via DevTools.** The previous guess `{"phrase": "..."}` was completely wrong — the real shape is `{"marker": <activator>, "activationPhrase": <skill_name>, "request": <phrase>, "is_valid": true}`, captured from a successful `PATCH /draft/update` issued by the Yandex Dialogs dev console after the user filled the form. This wrong shape was the actual cause of all the previous silent HTTP 400 + empty-body rejections (not the category, not the email — those worked fine, but Yandex aborts validation of the whole publishingSettings block when *any* nested validator fails). Reverted v1.7.14's split-PATCH workaround now that we know the right shape: dialog draft is sent in a single PATCH again.

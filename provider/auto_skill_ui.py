@@ -944,6 +944,25 @@ def _dialog_skill_entries(
         )
     )
 
+    # Once a skill exists, surface a direct link to its dev-console page so
+    # the user can verify the publish status / tweak the form fields manually.
+    if artifacts.skill_id:
+        skill_url = (
+            f"https://dialogs.yandex.ru/developer/skills/{artifacts.skill_id}"
+        )
+        entries.append(
+            ConfigEntry(
+                key="label_dialog_skill_link",
+                type=ConfigEntryType.LABEL,
+                label=(
+                    f"🔗 Skill in Yandex Dialogs dev console: {skill_url} "
+                    "(opens the draft view; status indicator at the top "
+                    "shows whether the skill is on air)."
+                ),
+                category=_CAT_DIALOG_SKILL,
+            )
+        )
+
     # HTTPS prerequisite warning
     direct_https_missing = not base_url.startswith("https://")
     if direct_https_missing:
