@@ -4,7 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [1.7.8] — 2026-05-05
+## [1.7.9] — 2026-05-05
+
+### Fixed
+- **Pre-validate dialog skill name has ≥2 words.** Yandex Dialogs rejects single-word skill names with `400 Validation error: "Название должно содержать минимум два слова"`, but the validation runs at `update_draft` step — *after* `create_app` already produced a half-broken skill (and Device Flow already burned a fresh device code). The plugin now checks `len(skill_name.split()) >= 2` before kicking off the pipeline; if violated, surfaces an immediate `FAILED` artifact with a clear message and returns without creating anything on Yandex's side. UI description updated to spell out the constraint.
 
 ### Fixed
 - **`x_token` cache passes `SecretStr` to ya_passport_auth correctly** — `client.refresh_passport_cookies` requires a `SecretStr` (not `str`), and `creds.x_token` is `SecretStr` (cannot be passed verbatim to a `str`-typed callback). v1.7.7 plumbing was correct functionally but failed mypy strict; now we wrap the cached string via `SecretStr(cached_x_token)` before refresh, and unwrap with `creds.x_token.get_secret()` before passing to the persistence callback.
