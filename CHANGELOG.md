@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.7.0] — 2026-05-05
+
+### Added
+- **Plugin-local "External Base URL" override (direct mode)** — a new optional config field exposed only when *Connection Type = Direct*. Lets users keep MA's global `Base URL` pointing at the local address (so Home Assistant Ingress and local frontend access keep working) while exposing a public HTTPS URL only to Yandex via a reverse proxy. The override is used by:
+  - the Smart Home callback URL (`derive_backend_uri`) and OAuth URLs (`derive_auth_urls`) sent to Yandex during auto-create,
+  - the HTTPS precondition check (`check_preconditions`),
+  - the Dialogs «Навык» webhook URL (`_build_dialog_backend_uri`),
+  - the read-only base-URL display in cloud_plus / direct UI status panels.
+  - The auto-create pipeline functions accept it via a new keyword-only `base_url_override: str | None = None` parameter (back-compatible default `None` falls back to `mass.webserver.base_url`).
+- The HTTPS-warning label now points users at the new field first ("recommended — doesn't affect MA's local access / HA Ingress") and only mentions the global `Settings → Core → Webserver → Base URL` as a fallback.
+
 ## [1.6.6] — 2026-05-05
 
 ### Added
