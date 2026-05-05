@@ -770,9 +770,11 @@ async def test_start_direct_mode_registers_routes(mock_mass: MagicMock) -> None:
 
 @pytest.mark.asyncio
 async def test_start_direct_mode_missing_skill_id(mock_mass: MagicMock) -> None:
-    """Direct mode without skill_id still registers HTTP routes (so Yandex
-    backend validation can succeed during auto-create), but skips the
-    state notifier — there is no skill to push state to.
+    """Direct mode still registers HTTP routes when skill_id is missing.
+
+    HTTP routes need to be live so Yandex's backend validation during
+    auto-create can succeed; the state notifier is skipped because
+    there is no skill to push state to yet.
     """
     config = _make_direct_config(skill_id="")
     plugin = YandexSmartHomePlugin(
