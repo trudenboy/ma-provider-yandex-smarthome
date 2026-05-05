@@ -271,7 +271,7 @@ def resolve_player_candidates(
     candidates = list_exposed_players(mass, exposed_ids=exposed_ids)
 
     def _label(p: Any) -> str:
-        return getattr(p, "name", None) or p.player_id
+        return str(getattr(p, "name", None) or p.player_id)
 
     def _result(result: list[Any], reason: str) -> list[Any]:
         _LOGGER.debug(
