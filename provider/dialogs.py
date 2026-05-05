@@ -691,14 +691,8 @@ class DialogsWebhookHandler:
         # Example for 2 candidates:
         #   "На какой колонке? Первая — Кухня большая, вторая — Кухня
         #    маленькая. Скажи название или номер."
-        labelled = [
-            f"{_ORDINAL_LABELS[i]} — {name}" for i, name in enumerate(names)
-        ]
-        text = (
-            "На какой колонке? "
-            + ", ".join(labelled)
-            + ". Скажи название или номер."
-        )
+        labelled = [f"{_ORDINAL_LABELS[i]} — {name}" for i, name in enumerate(names)]
+        text = "На какой колонке? " + ", ".join(labelled) + ". Скажи название или номер."
         buttons = [
             {
                 "title": (p.name or p.player_id)[:64],

@@ -844,9 +844,7 @@ class TestDisambiguation:
             ],
             search_track=track,
         )
-        handler = DialogsWebhookHandler(
-            mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET
-        )
+        handler = DialogsWebhookHandler(mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET)
         body = {
             "session": {"skill_id": "skill-uuid-1", "session_id": "s1", "new": False},
             "request": {"command": "первая"},
@@ -877,9 +875,7 @@ class TestDisambiguation:
             ],
             search_track=track,
         )
-        handler = DialogsWebhookHandler(
-            mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET
-        )
+        handler = DialogsWebhookHandler(mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET)
         body = {
             "session": {"skill_id": "skill-uuid-1", "session_id": "s1", "new": False},
             "request": {"command": "вторая"},
@@ -914,9 +910,7 @@ class TestDisambiguation:
             ],
             search_track=track,
         )
-        handler = DialogsWebhookHandler(
-            mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET
-        )
+        handler = DialogsWebhookHandler(mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET)
         body = {
             "session": {"skill_id": "skill-uuid-1", "session_id": "s1", "new": False},
             "request": {"command": "третья"},
@@ -950,9 +944,7 @@ class TestDisambiguation:
             [MockPlayer(player_id="p1", name="Кухня")],
             search_track=track,
         )
-        handler = DialogsWebhookHandler(
-            mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET
-        )
+        handler = DialogsWebhookHandler(mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET)
         body = {
             "session": {"skill_id": "skill-uuid-1", "session_id": "s1", "new": False},
             "request": {"command": "вторая"},
@@ -985,9 +977,7 @@ class TestDisambiguation:
             ],
             search_track=track,
         )
-        handler = DialogsWebhookHandler(
-            mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET
-        )
+        handler = DialogsWebhookHandler(mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET)
         body = {
             "session": {"skill_id": "skill-uuid-1", "session_id": "s1", "new": False},
             "request": {"command": "2"},
@@ -1023,9 +1013,7 @@ class TestDisambiguation:
             ],
             search_track=track,
         )
-        handler = DialogsWebhookHandler(
-            mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET
-        )
+        handler = DialogsWebhookHandler(mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET)
         body = {
             "session": {"skill_id": "skill-uuid-1", "session_id": "s1", "new": False},
             "request": {"command": "большая"},
