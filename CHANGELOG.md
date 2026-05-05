@@ -4,7 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [1.7.18] — 2026-05-05
+## [1.7.19] — 2026-05-05
+
+### Added
+- **Generic Russian "speaker" / "player" words resolve to the default / only exposed player.** If the user says *"на колонке"*, *"на проигрывателе"*, *"на плеере"*, *"на динамике"* etc. instead of a specific player name, `resolve_player` now treats it as "any speaker" and returns either the configured default player (last-used in this session, or `default_id`) or the only exposed candidate when there's just one. Previously these generic words failed fuzzy matching and Alice replied "не нашёл колонку". Stems covered: `колонк`, `плеер`, `пле`, `проигрыватель`, `проигрывател`, `динамик`, `акустик`, `устройств`.
+
+### Note
+- Voice-command player names match against MA's `player.name` (not the alias the user might have set in the Yandex Smart Home app — Yandex doesn't forward those into the dialog skill payload). Use the generic words above, the player's MA name, or rename the player in MA itself.
 
 ### Changed
 - **Auto-create no longer blocks waiting for `deployCompleted`.** v1.7.17 added a polling loop after `request_deploy`; testing shows Yandex's moderation queue can take 5–10+ minutes for private aliceSkills under typical load, which is too long to block a config-flow action. Pipeline now returns as soon as `request_deploy` is accepted (200) and lets the user track on-air status via the dev-console link surfaced in the UI. The polling helper is kept in the codebase as a deprecated debugging aid.
