@@ -385,9 +385,7 @@ class DialogsWebhookHandler:
             # disambiguation instead of the misleading "не нашёл колонку
             # «(не указано)»".
             if parsed.player_hint is None and default_id is None:
-                all_exposed = list_exposed_players(
-                    self._mass, exposed_ids=self._exposed_player_ids
-                )
+                all_exposed = list_exposed_players(self._mass, exposed_ids=self._exposed_player_ids)
                 if len(all_exposed) >= 2:
                     self._logger.debug(
                         "Play branch: no hint + no default + %d exposed → "
@@ -456,9 +454,7 @@ class DialogsWebhookHandler:
         """Resolve player + dispatch a control action; build response."""
         # list_players is informational — no player resolution / dispatch.
         if control.action == "list_players":
-            players = list_exposed_players(
-                self._mass, exposed_ids=self._exposed_player_ids
-            )
+            players = list_exposed_players(self._mass, exposed_ids=self._exposed_player_ids)
             text = format_list_players(players)
             self._logger.debug(
                 "Control list_players → %d player(s): %s",
@@ -489,10 +485,7 @@ class DialogsWebhookHandler:
             # Distinguish "no hint + ambiguous" from "hint given but unknown"
             # so the message matches the actual cause.
             if control.player_hint:
-                text = (
-                    f"Не нашёл колонку «{control.player_hint}». "
-                    "Скажи, например: на кухне."
-                )
+                text = f"Не нашёл колонку «{control.player_hint}». Скажи, например: на кухне."
             else:
                 text = "Скажи, на какой колонке. Например: пауза на кухне."
             return self._yandex_response(
@@ -678,12 +671,8 @@ class DialogsWebhookHandler:
         if isinstance(payload, dict):
             pid = payload.get("player_id")
             if isinstance(pid, str):
-                exposed = list_exposed_players(
-                    self._mass, exposed_ids=self._exposed_player_ids
-                )
-                chosen_player = next(
-                    (p for p in exposed if p.player_id == pid), None
-                )
+                exposed = list_exposed_players(self._mass, exposed_ids=self._exposed_player_ids)
+                chosen_player = next((p for p in exposed if p.player_id == pid), None)
                 if chosen_player is None:
                     self._logger.warning(
                         "Pending replay: ButtonPressed payload player_id=%r "
@@ -762,9 +751,9 @@ class DialogsWebhookHandler:
         # historical reasons but fall back to the nested form so the
         # echo doesn't leak an empty string if a future Yandex API
         # revision drops the root field.
-        user_id = incoming_session.get("user_id") or _safe_dict(
-            incoming_session.get("user")
-        ).get("user_id", "")
+        user_id = incoming_session.get("user_id") or _safe_dict(incoming_session.get("user")).get(
+            "user_id", ""
+        )
         echoed = {
             "session_id": incoming_session.get("session_id", ""),
             "message_id": incoming_session.get("message_id", 0),

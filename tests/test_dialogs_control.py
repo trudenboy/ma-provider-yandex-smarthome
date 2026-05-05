@@ -279,17 +279,13 @@ class TestExecuteControl:
     async def test_volume_set(self) -> None:
         """action=volume_set invokes cmd_volume_set with the requested value."""
         mass = self._make_mass()
-        await execute_control(
-            mass, ParsedControl(action="volume_set", value=42), self._player()
-        )
+        await execute_control(mass, ParsedControl(action="volume_set", value=42), self._player())
         mass.players.cmd_volume_set.assert_awaited_once_with("p1", 42)
 
     async def test_volume_set_none_falls_back_to_zero(self) -> None:
         """volume_set with value=None defaults to 0 (defensive)."""
         mass = self._make_mass()
-        await execute_control(
-            mass, ParsedControl(action="volume_set", value=None), self._player()
-        )
+        await execute_control(mass, ParsedControl(action="volume_set", value=None), self._player())
         mass.players.cmd_volume_set.assert_awaited_once_with("p1", 0)
 
     async def test_mute(self) -> None:
