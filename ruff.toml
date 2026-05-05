@@ -104,11 +104,15 @@ mark-parentheses = false
 known-first-party = ["music_assistant"]
 
 [lint.per-file-ignores]
-# RUF002 (ambiguous Cyrillic in docstrings) is suppressed file-wide because
-# the docstrings contain Russian examples we want to keep verbatim. RUF001
-# (ambiguous Cyrillic in strings) is handled with inline `# noqa: RUF001` so
-# the suppression survives the upstream sync where this ruff config doesn't apply.
-"provider/dialogs_nlu.py" = ["RUF002"]
-"provider/dialogs_player.py" = ["RUF002"]
-"provider/dialogs.py" = ["RUF002"]
+# Dialog-skill modules are inherently Cyrillic — Russian voice commands +
+# user-facing Russian replies. Suppress the RUF001/002/003 family file-wide;
+# inline noqa would clutter every regex pattern and string literal.
+"provider/dialogs.py" = ["RUF001", "RUF002", "RUF003"]
+"provider/dialogs_control.py" = ["RUF001", "RUF002", "RUF003"]
+"provider/dialogs_nlu.py" = ["RUF001", "RUF002", "RUF003"]
+"provider/dialogs_player.py" = ["RUF001", "RUF002", "RUF003"]
 "provider/notifier.py" = ["RUF002", "RUF003"]
+"tests/test_dialogs.py" = ["RUF001", "RUF002", "RUF003"]
+"tests/test_dialogs_control.py" = ["RUF001", "RUF002", "RUF003"]
+"tests/test_dialogs_nlu.py" = ["RUF001", "RUF002", "RUF003"]
+"tests/test_dialogs_player.py" = ["RUF001", "RUF002", "RUF003"]

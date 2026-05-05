@@ -4,6 +4,37 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.8.0] — 2026-05-05
+
+Voice-UX overhaul of the experimental Dialogs skill, driven by the research write-up in [`docs/VOICE_UX_RESEARCH.md`](docs/VOICE_UX_RESEARCH.md). Seven P0 changes — together they turn the skill from "works most of the time" into "predictable" without any breaking config changes.
+
+### Added
+- **Playback control via the Dialogs skill (P0.6).** Pause / resume / stop / next / previous / volume up-down / volume set / mute / unmute now go through the same `Алиса, попроси <skill> …` path. New phrases recognised:
+  - `пауза`, `на паузу`, `поставь на паузу`, `останови музыку`
+  - `продолжи`, `включи снова`, `возобнови`
+  - `стоп`, `останови`, `выключи`, `выключи музыку`
+  - `следующая` / `следующий трек` / `дальше` / `переключи`
+  - `предыдущая` / `предыдущий трек` / `назад` / `вернись`
+  - `громче` / `сделай громче` / `прибавь` / `прибавь громкость`
+  - `тише` / `сделай тише` / `убавь` / `убавь громкость`
+  - `громкость 50` / `громкость на 30` / `сделай громкость 75` / `громкость на 30 процентов` (clamped to 0–100)
+  - `приглуши` / `выключи звук` / `беззвучно` (mute) / `включи звук` / `сделай звук` (unmute)
+  - All accept the trailing `на <player>` suffix; without it, the last-used player is reused.
+- **Disambiguation prompt with suggestion buttons (P0.3).** When a player hint matches multiple candidates, the response is now `На какой колонке: A, B, C?` with `end_session=False` and one button per candidate (`hide=True` so they vanish after one tap). Pressing the button or naming the player on the next turn replays the saved play intent. Previously the resolver silently picked the first candidate alphabetically.
+- **Slot elicitation for bare verbs (P0.4).** Saying just `Включи.` (no query, no player) now replies `Что включить? Можно сказать имя артиста, песни или плейлиста.` with `awaiting_query=true` in `state.session`. The next utterance is treated as the play query — including longer forms like `песню Yesterday` or `альбом Black Album`. Avoids the "Не нашёл такую музыку: " dead-end.
+- **More play-verb synonyms (P0.5).** `найди` / `найти` / `открой` / `открыть` / `покажи` / `показать` are now stripped same as `включи` so `найди Metallica`, `открой плейлист утренний джаз` etc. work.
+- **Search retries with stem-stripped query (P0.7).** Russian noun/adjective endings on the query (`включи металлику`, `включи песню утреннюю`) used to miss the music index because providers store nominative forms (`Металлика`, `утреннее`). After an empty result, the resolver now retries with the same suffix-stripping the player resolver uses (`металлику` → `металлик` → matches). ASCII-only queries skip the retry.
+- **Stress-mark TTS dictionary (P0.2).** Response `tts` is now distinct from `text` and includes `+` accent marks for the most common Alice mispronunciations (`включ+аю`, `гр+омче`, `кол+онке`, etc.). Non-Russian band/track names are still passed verbatim — a phoneme dictionary for those is tracked as P2.
+- **Two new Russian inflection endings recognised** by the player-name and search stemmer: `я` (feminine noun nominative — *"Кухня"*, *"Спальня"*) and `ая` (feminine adjective — *"большая"*, *"маленькая"*). Lets the multi-word player matching land *"на кухне маленькой"* → *"Кухня маленькая"* without an exact prefix.
+
+### Changed
+- **Session memory now persists via Yandex's state envelope (P0.1).** The dialog handler no longer keeps an in-memory `OrderedDict` LRU. Last-used player is round-tripped through `state.session.last_player_id`, `state.application.last_player_id`, and (when the user is account-linked) `state.user.preferred_player_id`. The `application` tier survives plugin reloads and MA restarts; the `user` tier survives across devices for the same Yandex account. Default-resolution priority: session > application > user.
+- **`resolve_player(...)` returns `None` on tied matches.** Multi-candidate hints used to silently pick the first by name and log a warning; that behaviour was the source of the "wrong room played" bug. Use the new `resolve_player_candidates(...)` to surface the ambiguity (the dialog handler does — see P0.3 above).
+- **The play-verb regex now matches end-of-string,** so a lone `включи` is fully stripped instead of leaving the verb in the query. Required to reach the slot-elicitation branch (P0.4).
+
+### Removed
+- **In-memory session-cache constants** — `DIALOG_SESSION_CACHE_MAX`, `DIALOG_SESSION_TTL_SEC` and the `OrderedDict` they backed are gone. State is now in Yandex.
+
 ## [1.7.21] — 2026-05-05
 
 ### Fixed
