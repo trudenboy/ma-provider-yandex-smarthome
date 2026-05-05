@@ -4,7 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [1.7.17] — 2026-05-05
+## [1.7.18] — 2026-05-05
+
+### Changed
+- **Auto-create no longer blocks waiting for `deployCompleted`.** v1.7.17 added a polling loop after `request_deploy`; testing shows Yandex's moderation queue can take 5–10+ minutes for private aliceSkills under typical load, which is too long to block a config-flow action. Pipeline now returns as soon as `request_deploy` is accepted (200) and lets the user track on-air status via the dev-console link surfaced in the UI. The polling helper is kept in the codebase as a deprecated debugging aid.
+- **UI link label calls out the async-deploy delay** and tells the user that the skill is unusable on Alice until the dev console shows «На воздухе».
 
 ### Added
 - **Direct link to the skill in Yandex Dialogs dev console.** Once a dialog skill has been auto-created, the plugin's config UI now shows a clickable URL of the form `https://dialogs.yandex.ru/developer/skills/<skill_id>` so the user can jump to the draft view (and verify the on-air status indicator at the top of the page).

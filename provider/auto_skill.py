@@ -1533,32 +1533,44 @@ async def _execute_pipeline(  # noqa: PLR0913, PLR0915
     if state == SkillCreationState.DEPLOY_REQUESTED:
         _LOGGER.info("auto-skill: [5/5] publishing skill")
         await creator.request_deploy(csrf, skill_id)
-        # Poll the operations log for deployCompleted (typically a few
-        # seconds for private skills; up to ~minute under load). Don't
-        # fail the whole pipeline if polling times out — the deploy was
-        # accepted, Yandex will eventually finish on its side.
-        await _wait_for_deploy_completed(creator, csrf, skill_id)
+        # Yandex's deploy is async — for smart_home it usually completes
+        # in a few seconds, but for aliceSkill ("Навык") it can take
+        # 5-15 minutes under typical moderation queue conditions. We
+        # don't block the config-flow waiting; the request was accepted,
+        # Yandex will finish on its side. The UI surfaces a direct link
+        # to the skill's dev-console page so the user can check the
+        # on-air indicator at their convenience.
+        _LOGGER.info(
+            "auto-skill: deploy requested for skill %s — Yandex processes "
+            "this asynchronously (a few seconds for smart_home, several "
+            "minutes for dialog skills). Watch on-air status at "
+            "https://dialogs.yandex.ru/developer/skills/%s",
+            skill_id,
+            skill_id,
+        )
         artifacts = dataclasses.replace(artifacts, state=SkillCreationState.DONE)
         await _maybe_save(progress_cb, artifacts)
 
     return artifacts
 
 
-async def _wait_for_deploy_completed(
+async def _unused_wait_for_deploy_completed_DEPRECATED(  # pragma: no cover
     creator: DialogsSkillCreator,
     csrf: str,
     skill_id: str,
     *,
-    timeout: float = 120.0,
+    timeout: float = 300.0,
     poll_interval: float = 3.0,
 ) -> bool:
-    """Poll /apps/<id>/operations until a deployCompleted event appears.
+    """Deprecated polling helper — kept for ad-hoc debugging only.
 
-    Returns True if deployCompleted was observed; False on timeout. Does
-    not raise on transient errors — keeps retrying inside the timeout
-    window. The caller marks the skill as DONE either way; the operation
-    log only confirms publication, the skill's draft is committed at
-    request_deploy time.
+    Yandex's actual deploy for aliceSkill takes 5+ minutes under typical
+    moderation queue conditions, which is too long to block a
+    config-flow action on. Pipeline now returns immediately after
+    ``request_deploy`` succeeds and lets the user check the dev-console
+    URL surfaced in the UI for status. This helper polls the operations
+    log if a caller really wants to wait for deployCompleted /
+    deployFailed; not used in the main pipeline.
     """
     deadline = asyncio.get_event_loop().time() + timeout
     while asyncio.get_event_loop().time() < deadline:

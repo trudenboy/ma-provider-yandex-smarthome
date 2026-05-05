@@ -953,9 +953,13 @@ def _dialog_skill_entries(
                 key="label_dialog_skill_link",
                 type=ConfigEntryType.LABEL,
                 label=(
-                    f"🔗 Skill in Yandex Dialogs dev console: {skill_url} "
-                    "(opens the draft view; status indicator at the top "
-                    "shows whether the skill is on air)."
+                    f"🔗 Skill in Yandex Dialogs dev console: {skill_url}\n\n"
+                    "Status indicator at the top of that page shows whether "
+                    "the skill is *on air* yet. Yandex deploys aliceSkills "
+                    "asynchronously — for private skills this typically "
+                    "takes a few minutes (sometimes 5–10 under load) after "
+                    "auto-create completes. The skill is unusable on Alice "
+                    "until the dev console shows «На воздухе»."
                 ),
                 category=_CAT_DIALOG_SKILL,
             )
