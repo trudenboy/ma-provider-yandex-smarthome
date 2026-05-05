@@ -8,7 +8,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 - **Webhook secret no longer logged in plain text** — `register_routes` now logs a redacted path (`…<last-4-chars>`) instead of the full secret-bearing URL. Full path is never written to logs.
-- **Track URI format corrected for My Wave and genre rotor** — URIs were built as `yandex_music://{instance_id}/track/{id}` (double-nesting the provider name), yielding an unparseable path. Now built as `{instance_id}://track/{id}` matching MA's `create_uri` format (`{provider_instance_id}://{media_type}/{item_id}`).
+- **Track URI format corrected for My Wave and genre rotor** — URIs were built as `yandex_music://{instance_id}/track/{id}` (double-nesting the provider name), yielding an unparsable path. Now built as `{instance_id}://track/{id}` matching MA's `create_uri` format (`{provider_instance_id}://{media_type}/{item_id}`).
 
 ## [1.6.2] — 2026-05-04
 
