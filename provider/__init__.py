@@ -375,6 +375,27 @@ async def _run_auto_create_dialog_action(
         )
         _LOGGER.exception("dialog auto-create hit unexpected error")
 
+    # Hint: empty-body 400 on create_app for the dialog pipeline almost
+    # always means our DIALOG_CHANNEL guess ("dialog" by default) is wrong.
+    # The Yandex Dialogs app-store-api channel string for «Навык» is not
+    # publicly documented and we cannot probe it from our side.
+    if (
+        new_artifacts.state == SkillCreationState.FAILED
+        and new_artifacts.last_error
+        and "create_app" in new_artifacts.last_error
+        and "HTTP 400" in new_artifacts.last_error
+    ):
+        new_artifacts = dataclasses.replace(
+            new_artifacts,
+            last_error=(
+                f"{new_artifacts.last_error}\n\n"
+                "Hint: This usually means the channel value sent to "
+                "Yandex Dialogs is wrong. Try overriding the "
+                "MA_YANDEX_DIALOG_CHANNEL environment variable at MA "
+                "startup (e.g. =general, =alice, =skill) and retry."
+            ),
+        )
+
     values[CONF_DIALOG_AUTO_CREATE_ARTIFACTS] = dump_artifacts(new_artifacts)
     if new_artifacts.state == SkillCreationState.DONE and new_artifacts.skill_id:
         values[CONF_DIALOG_SKILL_ID] = new_artifacts.skill_id

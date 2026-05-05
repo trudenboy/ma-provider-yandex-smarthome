@@ -462,8 +462,22 @@ class DialogsSkillCreator:
                     yandex_error=_extract_error_code(body),
                 )
             if resp.status not in (200, 201, 202):
+                # Empty / very short body 4xx — log response headers so the
+                # user can see what Yandex actually returned (helps diagnose
+                # e.g. wrong "channel" parameter where the API rejects the
+                # request before generating a body).
+                if not body.strip():
+                    _LOGGER.warning(
+                        "Yandex %s %s returned %s with empty body; response "
+                        "headers=%s, request payload channel=%r",
+                        method,
+                        url,
+                        resp.status,
+                        dict(resp.headers),
+                        payload.get("channel"),
+                    )
                 raise DialogsApiError(
-                    f"{method} {url} HTTP {resp.status}: {body[:200]}",
+                    f"{method} {url} HTTP {resp.status}: {body[:200] or '<empty>'}",
                     step=step,
                     http_status=resp.status,
                     yandex_error=_extract_error_code(body),

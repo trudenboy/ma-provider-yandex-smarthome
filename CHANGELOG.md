@@ -4,7 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [1.7.4] — 2026-05-05
+## [1.7.5] — 2026-05-05
+
+### Fixed
+- **Better diagnostics for `create_app` HTTP 400** — Yandex sometimes rejects requests with an empty body, leaving users unable to tell what went wrong. The plugin now logs full response headers (Content-Type, etc.) at WARNING when a non-success response has an empty body, and the error string now reads `<empty>` instead of trailing whitespace.
+- **Dialog skill `create_app` failure surfaces a channel hint** — when `create_app` returns HTTP 400 for the dialog pipeline (most common cause: the `DIALOG_CHANNEL` value is wrong — the «Навык» channel string is not publicly documented and our default `"dialog"` is a best guess), the FAILED artifact's `last_error` now contains a hint about overriding `MA_YANDEX_DIALOG_CHANNEL` at MA startup so users can self-diagnose without reading source code.
+
+
 
 ### Fixed
 - **`UNKNOWN_USER` state-callback errors no longer flood the logs.** After auto-create completes the plugin starts pushing state callbacks to Yandex, but until the user opens *Дом с Алисой* and links the skill via the Account Linking flow, every callback returns `HTTP 400 UNKNOWN_USER` — that's the expected first-run state, not a code bug. Notifier now emits one clear `WARNING` with linking instructions on the first occurrence, then drops further `UNKNOWN_USER` responses to debug level. As soon as Yandex accepts a callback (linking complete) the warning latch resets and an INFO line confirms recovery.
