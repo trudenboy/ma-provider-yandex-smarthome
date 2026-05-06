@@ -188,12 +188,31 @@ async def _run_auto_create_action(
     Never re-raises: failures are persisted in artifacts.last_error so the
     UI can render the message on the next form open.
     """
-    # MA's frontend supplies values["session_id"] when it triggers an action.
-    session_id = str(values.get("session_id") or uuid.uuid4().hex)
-    values[CONF_AUTO_CREATE_SESSION_ID] = session_id
-
     artifacts_raw = values.get(CONF_AUTO_CREATE_ARTIFACTS)
     artifacts = load_artifacts(str(artifacts_raw) if artifacts_raw else None)
+
+    # MA's frontend supplies values["session_id"] on every action invocation —
+    # AuthenticationHelper listens on that exact id to open and later close
+    # the popup. Generating our own UUID would tie the popup we open via
+    # auth_helper.send_url(...) to a channel nothing is listening on, leaving
+    # the user with a popup that doesn't appear or doesn't close. Fail loudly.
+    session_id_raw = values.get("session_id")
+    if not session_id_raw or not str(session_id_raw).strip():
+        new_artifacts = dataclasses.replace(
+            artifacts,
+            state=SkillCreationState.FAILED,
+            last_error=(
+                "Missing session_id from the config-flow frontend. "
+                "Auto-create needs a session id to open the Device Code "
+                "popup; the action must be invoked through the MA UI, not "
+                "programmatically."
+            ),
+        )
+        values[CONF_AUTO_CREATE_ARTIFACTS] = dump_artifacts(new_artifacts)
+        _LOGGER.warning("auto-create invoked without frontend session_id")
+        return
+    session_id = str(session_id_raw).strip()
+    values[CONF_AUTO_CREATE_SESSION_ID] = session_id
 
     base_url = resolve_base_url(mass, str(values.get(CONF_EXTERNAL_BASE_URL) or "") or None)
 
@@ -243,8 +262,19 @@ async def _run_auto_create_action(
     except asyncio.CancelledError:
         raise
     except Exception as exc:  # defensive — never crash the config form
+        # Use type-name + str(exc) instead of repr(exc): repr() of e.g.
+        # aiohttp.ClientResponseError includes request_info (URL, headers)
+        # which can leak into the UI-visible artifacts.last_error. The full
+        # traceback is captured via _LOGGER.exception below.
+        msg = str(exc).strip() or type(exc).__name__
+        # Cap the surfaced message so a runaway exception body can't bloat
+        # the round-tripped artifacts blob.
+        if len(msg) > 500:
+            msg = msg[:497] + "..."
         new_artifacts = dataclasses.replace(
-            artifacts, state=SkillCreationState.FAILED, last_error=repr(exc)
+            artifacts,
+            state=SkillCreationState.FAILED,
+            last_error=f"{type(exc).__name__}: {msg}",
         )
         _LOGGER.exception("auto-create hit unexpected error")
 

@@ -49,10 +49,13 @@ _LOGGER = logging.getLogger(__name__)
 DEVICE_FLOW_TIMEOUT_SECONDS = 300.0
 
 _DEVICE_CODE_PAGE_PATH = "/yandex_smarthome/device_code"
-# Keep the intermediate HTML page alive long enough for one more poll
-# after state flips to done/failed — ~1s is plenty, the page polls
-# every 2s so we're just covering the in-flight window.
-_POST_AUTH_GRACE_SECONDS = 1
+# Keep the intermediate HTML page alive long enough for the browser to
+# observe the done/failed state transition. The page polls every 2s
+# (see _build_device_code_page → setTimeout(pollStatus, 2000)), so we
+# need at least one full poll interval + RTT margin after flipping the
+# server-side state, otherwise the route gets unregistered before the
+# page can fetch the final state and self-close.
+_POST_AUTH_GRACE_SECONDS = 3
 # Server-suggested interval from Yandex is 5s (RFC 8628) but after the
 # user has confirmed the code we want to detect it promptly; 2s is the
 # RFC-recommended minimum. If Yandex returns SLOW_DOWN, ya-passport-auth

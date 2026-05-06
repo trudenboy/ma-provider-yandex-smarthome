@@ -25,13 +25,14 @@ All notable changes to this project will be documented in this file.
 
 ### Internal
 
-- New `provider/ma_authenticator.py` (~140 LOC) — adapter wrapping
+- New `provider/ma_authenticator.py` — adapter wrapping
   `ya-passport-auth.PassportClient` Device Flow + an MA-flavored activation
   HTML page hosted on `mass.webserver`. Conforms to the `AuthenticatorCM`
   Protocol expected by `ya-dialogs-api.auto_create_skill` (no-arg
   async-context-manager factory yielding an authorized
-  `aiohttp.ClientSession`).
-- New `provider/_smarthome_auto_create.py` (~80 LOC) — URL derivation
+  `aiohttp.ClientSession`). The bulk of the file is the activation page
+  HTML/CSS/JS template, ported verbatim from the deleted `auto_skill.py`.
+- New `provider/_smarthome_auto_create.py` — URL derivation
   helpers (`derive_smart_home_urls` returns the five pre-computed values
   required by `auto_create_skill`). Replaces the `derive_*` functions
   previously vendored inside the now-extracted `auto_skill.py`.
