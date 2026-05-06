@@ -4,6 +4,76 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.0.0] — 2026-05-06
+
+### Removed (BREAKING)
+
+- **Yandex Dialogs custom skill (voice control)** moved to a new dedicated provider,
+  [`ma-provider-yandex-alice`](https://github.com/trudenboy/ma-provider-yandex-alice).
+  All `dialogs*.py` modules, voice config keys (`CONF_DIALOG_*`), the
+  `auto_create_dialog_skill` and `rename_dialog_skill` actions, and the
+  experimental dialog-skill section of the config form have been removed from
+  this repository. This repository now focuses exclusively on the Yandex
+  **Smart Home** device-bridge integration.
+- **Auto-create Smart Home skill** action and its config UI entries (Device
+  Flow OAuth + automated skill registration) are temporarily removed. The
+  underlying `auto_skill.py` was extracted into the new `ya-dialogs-api` PyPI
+  package to be shared between this provider and `ma-provider-yandex-alice`,
+  but the new lib's API contract differs and re-wiring the config flow is
+  scheduled for **2.1.0**. Manual skill setup (paste `skill_id` + OAuth
+  token from the dev console) continues to work and is now the only option.
+
+### Migration
+
+If you previously used the **voice skill** (Dialogs custom skill — *«Алиса,
+попроси Music Assistant включи джаз на кухне»* etc.):
+
+1. Install [`ma-provider-yandex-alice`](https://github.com/trudenboy/ma-provider-yandex-alice).
+2. Settings → Add Provider → *Yandex Alice*. Paste the same `skill_id`,
+   skill OAuth token, and webhook secret you used here. Re-pick the players
+   you want voice-controlled (uses the same MA Player Filter UI).
+3. The next time the form for `ma-provider-yandex-smarthome` is opened in
+   2.0.0, the now-removed voice fields silently disappear; saved values for
+   `dialog_skill_*` keys are ignored on load.
+
+If you only used the **Smart Home device bridge** (Alice voice commands like
+*«Алиса, поставь на паузу Кухню»* via the standard Smart Home protocol —
+no custom skill webhook), no action required: your existing config and
+device set are unaffected.
+
+If you used the previous **auto-create Smart Home skill** action: that
+button is gone in 2.0.0. To set up a skill manually, follow the link in
+the config form to `https://dialogs.yandex.ru/developer`, create a Smart
+Home skill against your account, and paste the resulting `skill_id` + OAuth
+token into this provider. Auto-create returns in 2.1.0.
+
+### Changed
+
+- New runtime dependency: [`ya-dialogs-api`](https://pypi.org/project/ya-dialogs-api/)
+  re-exports `SecretStr` from `ya-passport-auth`. The provider's runtime
+  imports `SecretStr` from there instead of the deleted `provider/_compat.py`.
+  No user-visible behaviour change.
+
+### Files removed
+
+- `provider/dialogs.py` (1311 LOC), `dialogs_control.py` (468), `dialogs_nlu.py` (474),
+  `dialogs_player.py` (313) — moved to `ma-provider-yandex-alice`.
+- `provider/auto_skill.py` (1630 LOC), `auto_skill_state.py` (122),
+  `auto_skill_logo.png`, `_compat.py` — extracted to the
+  `ya-dialogs-api` PyPI package.
+- `provider/auto_skill_ui.py` (1124 LOC) and `tests/test_auto_skill_ui.py`
+  removed; the simplified config form lives directly in `provider/__init__.py`.
+- `tests/test_dialogs*.py`, `tests/test_auto_skill*.py`, `tests/test_config_actions.py`,
+  `tests/test_smarthome_config_ui.py` — removed alongside the source files
+  they covered.
+- `docs/VOICE_COMMANDS.md`, `docs/VOICE_UX_RESEARCH.md` — moved to alice repo.
+
+### Test surface
+
+`pytest -q` runs **196 tests** (down from 629 at v1.9.1). Coverage on the
+remaining smart-home code (cloud / direct / handlers / device / notifier /
+schema) is unaffected — every deleted test exercised a deleted module.
+
 ## [1.9.1] — 2026-05-06
 
 Three Copilot review findings on the v1.9.0 voice-commands batch.
