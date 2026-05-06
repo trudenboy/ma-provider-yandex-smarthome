@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.8.8] — 2026-05-06
+
+User shared a dev-console transcript that conclusively diagnosed the disambiguation-loop bug on Yandex Stations. The actual webhook request body for **every** turn after the first arrived **without a `state` field at all** — Yandex didn't echo back `state.session` OR `state.application` despite both being set on the previous response. The v1.8.5 application-state mirror was no help because Yandex was dropping that bucket too. Adding a third-tier in-process state cache fixes it.
+
+### Fixed
+- **In-process state cache as third-tier fallback when Yandex drops `state.*`.** Read priority is now `state.session` → `state.application` → in-process LRU cache (keyed by `session.user.user_id` if present, else `session.application.application_id`, else `session_id`). The cache has a 5-minute TTL (matching Alice's session inactivity timeout) and a 200-entry LRU cap. Every state-bearing response (greeting, slot-elicit, disambig prompt, play, control) writes the merged state into the cache via `_yandex_response`. So when the next turn arrives with no `state` at all (Yandex Station behaviour reproduced from the dev-console transcript), the handler still recovers `pending_command` / `awaiting_query` / `awaiting_player_id` / `last_player_id` and the disambiguation flow resolves correctly.
+- **DEBUG-recv log shows which tier provided the pending state.** New format: `pending=True (session=False app=False cache=True) …`. Lets users diagnose at a glance which fallback their device is hitting.
+
 ## [1.8.7] — 2026-05-06
 
 One Copilot review finding from upstream PR #3834 addressed.
