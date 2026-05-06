@@ -1032,9 +1032,7 @@ class TestDisambiguation:
             ],
             search_track=track,
         )
-        handler = DialogsWebhookHandler(
-            mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET
-        )
+        handler = DialogsWebhookHandler(mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET)
         sess_common = {
             "skill_id": "skill-uuid-1",
             "user": {"user_id": "yandex-user-1"},
@@ -1081,9 +1079,7 @@ class TestDisambiguation:
             ],
             search_track=track,
         )
-        handler = DialogsWebhookHandler(
-            mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET
-        )
+        handler = DialogsWebhookHandler(mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET)
         sess_common = {
             "skill_id": "skill-uuid-1",
             "user": {"user_id": "yandex-user-1"},
@@ -1112,9 +1108,7 @@ class TestDisambiguation:
     async def test_in_process_cache_ttl_expiry(self) -> None:
         """Cached state expires after `_STATE_CACHE_TTL_SEC`; later calls don't see it."""
         mass = _make_mass([MockPlayer(player_id="p1", name="Кухня")])
-        handler = DialogsWebhookHandler(
-            mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET
-        )
+        handler = DialogsWebhookHandler(mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET)
         # Inject an expired entry.
         handler._state_cache["user:u1"] = (
             {"pending_command": {"kind": "search", "query": "old"}},
