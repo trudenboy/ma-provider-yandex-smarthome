@@ -519,9 +519,7 @@ class TestControlCommandsIntegration:
                 MockPlayer(player_id="p2", name="Спальня"),
             ]
         )
-        handler = DialogsWebhookHandler(
-            mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET
-        )
+        handler = DialogsWebhookHandler(mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET)
         # Pre-seed cache with a stale default-player.
         handler._state_cache["user:u1"] = (
             {"last_player_id": "p1"},
