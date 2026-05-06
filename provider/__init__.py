@@ -29,6 +29,7 @@ import aiohttp
 from music_assistant_models.config_entries import ConfigEntry, ConfigValueOption
 from music_assistant_models.enums import ConfigEntryType, ProviderFeature
 from ya_dialogs_api import (
+    SMART_HOME_CHANNEL,
     SecretStr,
     SkillCreationArtifacts,
     SkillCreationState,
@@ -256,7 +257,7 @@ async def _run_auto_create_action(
             oauth_client_id=urls.oauth_client_id,
             oauth_client_secret=urls.oauth_client_secret,
             logo_bytes=load_default_logo_bytes(),
-            skill_type="smart_home",
+            channel=SMART_HOME_CHANNEL,
             progress_cb=_persist_artifacts,
         )
     except asyncio.CancelledError:

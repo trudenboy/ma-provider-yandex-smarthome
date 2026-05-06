@@ -23,6 +23,14 @@ All notable changes to this project will be documented in this file.
   *Continue* / *Re-create* based on the current artifacts state, with
   a status banner that surfaces `last_error` on failure.
 
+### Changed
+
+- **Adapted to `ya-dialogs-api 2.0.0`.** The lib's 2.0.0 release renamed
+  `skill_type="smart_home"` → `channel="smartHome"` (Yandex API wire value)
+  and made OAuth params optional. Smart-home call site now imports
+  `SMART_HOME_CHANNEL` and passes `channel=`. Manifest dependency bumped
+  to `ya-dialogs-api>=2.0.0`. No behavioural change for users.
+
 ### Internal
 
 - New `provider/ma_authenticator.py` — adapter wrapping
