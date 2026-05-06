@@ -79,6 +79,22 @@ class _MediaType(_StrEnum):
     UNKNOWN = "unknown"
 
 
+class _RepeatMode(_StrEnum):
+    OFF = "off"
+    ONE = "one"
+    ALL = "all"
+    UNKNOWN = "unknown"
+
+
+class _QueueOption(_StrEnum):
+    PLAY = "play"
+    REPLACE = "replace"
+    NEXT = "next"
+    REPLACE_NEXT = "replace_next"
+    ADD = "add"
+    UNKNOWN = "unknown"
+
+
 _ensure_module(
     "music_assistant_models.enums",
     {
@@ -87,6 +103,8 @@ _ensure_module(
         "ConfigEntryType": _ConfigEntryType,
         "ProviderFeature": _ProviderFeature,
         "MediaType": _MediaType,
+        "RepeatMode": _RepeatMode,
+        "QueueOption": _QueueOption,
     },
 )
 

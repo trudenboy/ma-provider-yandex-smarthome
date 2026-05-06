@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.9.0] — 2026-05-06
+
+Six new voice commands in one PR — driven by the gap analysis between MA's APIs and what we covered. All backed by stable MA controllers; no architectural changes.
+
+### Added
+- **`now_playing` info query.** *"Что играет"* / *"что играет на кухне"* / *"что мы слушаем"* / *"что за песня"* / *"какой трек"* — Alice replies with `queue.current_item.name` (MA pre-formats as *"Artist - Title"*, or stream title for radio). Idle queue → *"На <player> сейчас ничего не играет."*
+- **Shuffle on/off.** *"перемешай"* / *"включи перемешивание"* / *"случайный порядок"* → `mass.player_queues.set_shuffle(qid, True)`. *"выключи перемешивание"* / *"не перемешивай"* / *"по порядку"* → `set_shuffle(qid, False)`.
+- **Repeat mode.** *"повтор песни"* / *"повтори трек"* / *"повтор эту"* → `RepeatMode.ONE`. *"повтор всё"* / *"повтор очередь"* / *"повторяй"* / *"включи повтор"* → `RepeatMode.ALL`. *"выключи повтор"* / *"не повторяй"* → `RepeatMode.OFF`. NB: `set_repeat` is a *sync* MA method, not async — dispatched without `await`.
+- **Seek (relative + absolute).** *"перемотай вперёд на 30 секунд"* / *"вперёд на 1 минуту"* / *"назад на 5 секунд"* — relative skip via `mass.player_queues.skip(qid, ±N)`. Minutes auto-multiplied by 60. Bare-digit forms work too (*"вперёд 30"*). *"к началу"* / *"в начало"* / *"начни трек заново"* → absolute `seek(qid, position=0)`.
+- **Transfer playback.** *"переведи на спальню"* / *"перенеси на спальню"* / *"продолжи в спальне"* — moves the queue from the saved default player to the named target via `mass.player_queues.transfer_queue(source_queue_id, target_queue_id)`. Updates `last_player_id` to the target across all three state tiers + cache. Edge cases: target = current → *"Уже играет на …"*; no saved default → *"Сначала включи музыку на колонке"*; ambiguous target → clarification prompt.
+- **Add-to-queue.** *"добавь Metallica"* / *"добавьте альбом Black Album"* / *"добавить Iron Maiden на кухне"* — new `enqueue_option: Literal["replace","next","add"] | None` field on `ParsedCommand`; *"добавь"*-prefixed commands set it to `"add"`, which `play_for_alice` maps to `QueueOption.ADD` on `play_media`. Confirmation: *"Добавил <query> в очередь на <player>"*. `radio_mode` forced off — you add a track, not a station.
+
+### Implementation notes
+- `ControlAction` Literal extended with 10 new values: `now_playing`, `shuffle_on/off`, `repeat_off/one/all`, `seek_forward/back/start`, `transfer`. `now_playing` and `transfer` are special-cased in `_handle_control` (need handler-side logic — live data / cross-player); the rest dispatch through `execute_control`.
+- `ParsedCommand.enqueue_option` is optional with default `None`, so existing callers and tests are unaffected.
+- New seek-pattern parsers extract digit + optional Russian unit (*секунд / секунду / секунды* / *минут / минуту / минуты*); the `ParsedControl.value` carries seconds (negated at dispatch for `seek_back`).
+- `transfer` captures the target name into `ParsedControl.player_hint`; SOURCE comes from the caller's saved default. Multi-match target → clarification prompt (the disambiguation flow is play-coupled and not yet wired to replay transfers).
+- 83 new test cases (pattern coverage + execute_control units + 12 E2E in `test_dialogs.py`); 628 passing total. ruff + mypy clean.
+
 ## [1.8.10] — 2026-05-06
 
 User feedback: после disambiguation последующие play-команды без явного hint всегда играют на выбранной колонке (это by design — `last_player_id` сохраняется во всех state-tier'ах для удобства). Добавлена голосовая команда чтобы явно сбросить выбор.
