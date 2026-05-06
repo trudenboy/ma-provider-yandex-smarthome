@@ -131,6 +131,7 @@ Supported phrases (case-insensitive; trailing `на <player>` accepted):
 | `приглуши` / `выключи звук` / `беззвучно` | `mute` |
 | `включи звук` / `сделай звук` | `unmute` |
 | `сколько колонок (ты)? (видишь\|знаешь)?` / `какие колонки (ты)? (видишь\|знаешь\|есть)?` / `какие у тебя колонки` / `перечисли колонки` / `список колонок` / `покажи колонки` / `назови колонки` | `list_players` (informational — replies with count + names) |
+| `забудь колонку` / `сбрось колонку` / `забудь плеер` / `забудь выбор` / `сбрось выбор` / `выбери колонку заново` / `поменяй колонку` / `сменить колонку` | `forget_player` — clears the saved default-player so the next ambiguous command asks again (replies *"Хорошо, забыл колонку. В следующий раз спрошу."*) |
 
 Note: bare `выключи` maps to `stop` (safer / reversible). Saying
 "выключи колонку" to actually power-off the player is not yet

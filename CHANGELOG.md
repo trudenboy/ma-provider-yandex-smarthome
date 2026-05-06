@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.8.10] — 2026-05-06
+
+User feedback: после disambiguation последующие play-команды без явного hint всегда играют на выбранной колонке (это by design — `last_player_id` сохраняется во всех state-tier'ах для удобства). Добавлена голосовая команда чтобы явно сбросить выбор.
+
+### Added
+- **Voice command `forget_player`.** Phrasings recognised: *"забудь колонку"*, *"сбрось колонку"*, *"забудь плеер"*, *"забудь выбор"*, *"сбрось выбор"*, *"выбери колонку заново"*, *"поменяй колонку"*, *"сменить колонку"*. Clears `last_player_id` from `state.session`, `state.application`, AND the in-process cache, plus emits `user_state_update.preferred_player_id = None` (Yandex protocol: a `None` value tells the platform to delete the key from merged user-scoped state). Response: *"Хорошо, забыл колонку. В следующий раз спрошу."* The next play command without an explicit hint will then re-ask via the disambiguation flow. Note: the user can also override the saved default at any time by simply naming the player explicitly (*"включи джаз на спальне"*) — `forget_player` is the way to opt back into being asked.
+
 ## [1.8.9] — 2026-05-06
 
 Three Copilot review findings on the upstream PR — all docs/comment fixes, no behaviour change.
