@@ -646,9 +646,7 @@ class TestControlCommandsIntegration:
         queue.current_item = MagicMock(name="The Beatles - Let It Be")
         queue.current_item.name = "The Beatles - Let It Be"
         mass.player_queues.get = MagicMock(return_value=queue)
-        handler = DialogsWebhookHandler(
-            mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET
-        )
+        handler = DialogsWebhookHandler(mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET)
         body = {
             "session": {"skill_id": "skill-uuid-1", "session_id": "s1", "new": False},
             "request": {"command": "что играет на кухне"},
@@ -666,9 +664,7 @@ class TestControlCommandsIntegration:
         queue = MagicMock()
         queue.current_item = None
         mass.player_queues.get = MagicMock(return_value=queue)
-        handler = DialogsWebhookHandler(
-            mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET
-        )
+        handler = DialogsWebhookHandler(mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET)
         body = {
             "session": {"skill_id": "skill-uuid-1", "session_id": "s1", "new": False},
             "request": {"command": "что играет на кухне"},
@@ -680,9 +676,7 @@ class TestControlCommandsIntegration:
     async def test_shuffle_on(self) -> None:
         """'перемешай на кухне' → set_shuffle(p1, True)."""
         mass = self._setup_mass_with_control_methods([MockPlayer(player_id="p1", name="Кухня")])
-        handler = DialogsWebhookHandler(
-            mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET
-        )
+        handler = DialogsWebhookHandler(mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET)
         body = {
             "session": {"skill_id": "skill-uuid-1", "session_id": "s1", "new": False},
             "request": {"command": "перемешай на кухне"},
@@ -694,9 +688,7 @@ class TestControlCommandsIntegration:
     async def test_shuffle_off(self) -> None:
         """'выключи перемешивание на кухне' → set_shuffle(p1, False)."""
         mass = self._setup_mass_with_control_methods([MockPlayer(player_id="p1", name="Кухня")])
-        handler = DialogsWebhookHandler(
-            mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET
-        )
+        handler = DialogsWebhookHandler(mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET)
         body = {
             "session": {"skill_id": "skill-uuid-1", "session_id": "s1", "new": False},
             "request": {"command": "выключи перемешивание на кухне"},
@@ -708,9 +700,7 @@ class TestControlCommandsIntegration:
     async def test_repeat_one(self) -> None:
         """'повтор песни на кухне' → set_repeat(p1, RepeatMode.ONE) — sync, not awaited."""
         mass = self._setup_mass_with_control_methods([MockPlayer(player_id="p1", name="Кухня")])
-        handler = DialogsWebhookHandler(
-            mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET
-        )
+        handler = DialogsWebhookHandler(mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET)
         body = {
             "session": {"skill_id": "skill-uuid-1", "session_id": "s1", "new": False},
             "request": {"command": "повтор песни на кухне"},
@@ -722,9 +712,7 @@ class TestControlCommandsIntegration:
     async def test_seek_forward_minute(self) -> None:
         """'перемотай вперёд на 1 минуту на кухне' → skip(p1, 60)."""
         mass = self._setup_mass_with_control_methods([MockPlayer(player_id="p1", name="Кухня")])
-        handler = DialogsWebhookHandler(
-            mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET
-        )
+        handler = DialogsWebhookHandler(mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET)
         body = {
             "session": {"skill_id": "skill-uuid-1", "session_id": "s1", "new": False},
             "request": {"command": "перемотай вперёд на 1 минуту на кухне"},
@@ -736,9 +724,7 @@ class TestControlCommandsIntegration:
     async def test_seek_back_seconds(self) -> None:
         """'назад на 30 секунд на кухне' → skip(p1, -30)."""
         mass = self._setup_mass_with_control_methods([MockPlayer(player_id="p1", name="Кухня")])
-        handler = DialogsWebhookHandler(
-            mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET
-        )
+        handler = DialogsWebhookHandler(mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET)
         body = {
             "session": {"skill_id": "skill-uuid-1", "session_id": "s1", "new": False},
             "request": {"command": "перемотай назад на 30 секунд на кухне"},
@@ -750,9 +736,7 @@ class TestControlCommandsIntegration:
     async def test_seek_start(self) -> None:
         """'к началу на кухне' → seek(p1, position=0)."""
         mass = self._setup_mass_with_control_methods([MockPlayer(player_id="p1", name="Кухня")])
-        handler = DialogsWebhookHandler(
-            mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET
-        )
+        handler = DialogsWebhookHandler(mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET)
         body = {
             "session": {"skill_id": "skill-uuid-1", "session_id": "s1", "new": False},
             "request": {"command": "к началу на кухне"},
@@ -769,9 +753,7 @@ class TestControlCommandsIntegration:
                 MockPlayer(player_id="p2", name="Спальня"),
             ]
         )
-        handler = DialogsWebhookHandler(
-            mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET
-        )
+        handler = DialogsWebhookHandler(mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET)
         body = {
             "session": {"skill_id": "skill-uuid-1", "session_id": "s1", "new": False},
             "request": {"command": "переведи на спальню"},
@@ -792,9 +774,7 @@ class TestControlCommandsIntegration:
         mass = self._setup_mass_with_control_methods(
             [MockPlayer(player_id="p1", name="Кухня"), MockPlayer(player_id="p2", name="Спальня")]
         )
-        handler = DialogsWebhookHandler(
-            mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET
-        )
+        handler = DialogsWebhookHandler(mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET)
         body = {
             "session": {"skill_id": "skill-uuid-1", "session_id": "s1", "new": False},
             "request": {"command": "переведи на спальню"},
@@ -809,9 +789,7 @@ class TestControlCommandsIntegration:
         mass = self._setup_mass_with_control_methods(
             [MockPlayer(player_id="p1", name="Кухня"), MockPlayer(player_id="p2", name="Спальня")]
         )
-        handler = DialogsWebhookHandler(
-            mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET
-        )
+        handler = DialogsWebhookHandler(mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET)
         body = {
             "session": {"skill_id": "skill-uuid-1", "session_id": "s1", "new": False},
             "request": {"command": "переведи на кухню"},
@@ -838,9 +816,7 @@ class TestControlCommandsIntegration:
             ],
             search_track=track,
         )
-        handler = DialogsWebhookHandler(
-            mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET
-        )
+        handler = DialogsWebhookHandler(mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET)
         # Turn 1: ambiguous "добавь Iron Maiden на кухне" → disambig prompt.
         body1 = {
             "session": {"skill_id": "skill-uuid-1", "session_id": "s1", "new": False},
@@ -865,12 +841,8 @@ class TestControlCommandsIntegration:
     async def test_add_to_queue_uses_queue_option_add(self) -> None:
         """'добавь Metallica на кухне' → play_media(option=QueueOption.ADD)."""
         track = MagicMock(uri="library://track/1", spec_set=["uri"])
-        mass = _make_mass(
-            [MockPlayer(player_id="p1", name="Кухня")], search_track=track
-        )
-        handler = DialogsWebhookHandler(
-            mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET
-        )
+        mass = _make_mass([MockPlayer(player_id="p1", name="Кухня")], search_track=track)
+        handler = DialogsWebhookHandler(mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET)
         body = {
             "session": {"skill_id": "skill-uuid-1", "session_id": "s1", "new": False},
             "request": {"command": "добавь Metallica на кухне"},

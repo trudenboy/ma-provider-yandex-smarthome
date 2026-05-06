@@ -695,10 +695,7 @@ class DialogsWebhookHandler:
             )
             if target_player is None:
                 if control.player_hint:
-                    text = (
-                        f"Не нашёл колонку «{control.player_hint}». "
-                        "Скажи, например: на кухне."
-                    )
+                    text = f"Не нашёл колонку «{control.player_hint}». Скажи, например: на кухне."
                 else:
                     text = "Скажи, на какой колонке. Например: что играет на кухне."
                 return self._yandex_response(
@@ -738,9 +735,7 @@ class DialogsWebhookHandler:
         # TARGET = `control.player_hint` (parsed from "переведи на X").
         if control.action == "transfer":
             if not default_id:
-                text = (
-                    "Не понял, откуда переводить. Сначала включи музыку на колонке."
-                )
+                text = "Не понял, откуда переводить. Сначала включи музыку на колонке."
                 return self._yandex_response(
                     incoming_session=session,
                     text=text,

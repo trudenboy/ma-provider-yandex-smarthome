@@ -433,17 +433,13 @@ class TestExecuteControl:
     async def test_seek_forward(self) -> None:
         """action=seek_forward(value=N) invokes skip(qid, +N)."""
         mass = self._make_mass()
-        await execute_control(
-            mass, ParsedControl(action="seek_forward", value=60), self._player()
-        )
+        await execute_control(mass, ParsedControl(action="seek_forward", value=60), self._player())
         mass.player_queues.skip.assert_awaited_once_with("p1", seconds=60)
 
     async def test_seek_back_negates_value(self) -> None:
         """action=seek_back(value=N) invokes skip(qid, -N) — value is positive at parse time."""
         mass = self._make_mass()
-        await execute_control(
-            mass, ParsedControl(action="seek_back", value=30), self._player()
-        )
+        await execute_control(mass, ParsedControl(action="seek_back", value=30), self._player())
         mass.player_queues.skip.assert_awaited_once_with("p1", seconds=-30)
 
     async def test_seek_start(self) -> None:
@@ -452,21 +448,15 @@ class TestExecuteControl:
         await execute_control(mass, ParsedControl(action="seek_start"), self._player())
         mass.player_queues.seek.assert_awaited_once_with("p1", position=0)
 
-    async def test_now_playing_is_safe_noop(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    async def test_now_playing_is_safe_noop(self, caplog: pytest.LogCaptureFixture) -> None:
         """`now_playing` reaching execute_control logs warning and no-ops (handler dispatches)."""
         mass = self._make_mass()
         with caplog.at_level(logging.WARNING, logger="provider.dialogs_control"):
-            await execute_control(
-                mass, ParsedControl(action="now_playing"), self._player()
-            )
+            await execute_control(mass, ParsedControl(action="now_playing"), self._player())
         mass.player_queues.skip.assert_not_awaited()
         assert any("now_playing" in r.getMessage() for r in caplog.records)
 
-    async def test_transfer_is_safe_noop(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    async def test_transfer_is_safe_noop(self, caplog: pytest.LogCaptureFixture) -> None:
         """`transfer` reaching execute_control logs warning and no-ops (handler dispatches)."""
         mass = self._make_mass()
         with caplog.at_level(logging.WARNING, logger="provider.dialogs_control"):
