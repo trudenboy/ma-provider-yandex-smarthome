@@ -766,7 +766,7 @@ class DialogsWebhookHandler:
                     session_state=session_state_in,
                 )
             if len(target_candidates) > 1:
-                # Multi-match: re-use the disambiguation flow, but the
+                # Multi-match: reuse the disambiguation flow, but the
                 # pending intent for replay is "transfer this queue".
                 # We don't currently support resuming a transfer through
                 # `_try_resume_pending` (it's coupled to play intent),
