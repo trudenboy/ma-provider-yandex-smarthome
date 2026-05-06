@@ -279,9 +279,16 @@ async def play_for_alice(
     the matching :class:`QueueOption` and forwarded to
     ``mass.player_queues.play_media``. ``None`` lets MA pick the
     per-media-type default (typically REPLACE) — the historical
-    behaviour. ``"add"`` and ``"next"`` skip powering the player on
-    when it's already powered, since add-to-queue while idle should
-    queue without forcing playback to start (MA handles the sequencing).
+    behaviour.
+
+    Power-on policy: regardless of ``enqueue_option``, an off player
+    gets ``cmd_power(True)``. Voice intent is unambiguous — the user
+    just asked for music, so a player that's been off needs to wake up.
+    MA's ``play_media`` will then sequence ADD/NEXT correctly (queue
+    grows; playback may or may not start depending on current queue
+    state). If the user wants to enqueue without disturbing playback
+    on a different player, they should name that other player
+    explicitly via the ``на <player>`` suffix.
     """
     player = mass.players.get_player(player_id)
     if player is not None and _has_feature(player, "power"):

@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.9.1] — 2026-05-06
+
+Three Copilot review findings on the v1.9.0 voice-commands batch.
+
+### Fixed
+- **`enqueue_option` survives the disambiguation re-entry.** When the user said *«добавь Iron Maiden»* with an ambiguous player hint, the disambiguation prompt saved a `pending_command` without the enqueue intent — so after the user picked a player the replay hit `play_media()` with no option, defaulting to REPLACE instead of ADD. Now `pending_command` carries `enqueue_option`, and `_try_resume_pending` restores it on every `ParsedCommand` rebuild path (success replay + still-ambiguous re-prompt + ordinal-out-of-range re-prompt). New test `test_add_to_queue_preserved_through_disambiguation` walks the full two-turn round-trip.
+- **Removed dead `hint = …` assignment in the `now_playing` branch.** Copilot caught a leftover from the early refactor — the variable was set but never read.
+
+### Docs
+- **`play_for_alice` docstring corrected.** It claimed *"add and next skip powering the player on"* but the implementation always powers the player on when it's off. Aligned the docstring with reality and added the rationale (voice intent is unambiguous — user just asked for music, so an off player needs to wake up).
+
 ## [1.9.0] — 2026-05-06
 
 Six new voice commands in one PR — driven by the gap analysis between MA's APIs and what we covered. All backed by stable MA controllers; no architectural changes.

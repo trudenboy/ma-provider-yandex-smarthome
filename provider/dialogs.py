@@ -694,7 +694,6 @@ class DialogsWebhookHandler:
                 exposed_ids=self._exposed_player_ids,
             )
             if target_player is None:
-                hint = control.player_hint or "(не указано)"
                 if control.player_hint:
                     text = (
                         f"Не нашёл колонку «{control.player_hint}». "
@@ -1040,7 +1039,7 @@ class DialogsWebhookHandler:
         # per-device — it survives session resets and is honoured on
         # every surface we've tested. Reads in `_handle_webhook` merge
         # the two tiers (session preferred, application as fallback).
-        pending_command = {
+        pending_command: dict[str, Any] = {
             "kind": parsed.kind,
             "query": parsed.query[:200],
             "radio_mode": parsed.radio_mode,
@@ -1052,6 +1051,12 @@ class DialogsWebhookHandler:
             # disambiguation set.
             "candidate_ids": [p.player_id for p in capped],
         }
+        # Preserve the enqueue option (add / next) across the
+        # disambiguation re-entry — without this an ambiguous
+        # "добавь Iron Maiden" would resume as REPLACE after the
+        # user picks the player, defeating the add-to-queue intent.
+        if parsed.enqueue_option is not None:
+            pending_command["enqueue_option"] = parsed.enqueue_option
         new_session_state = {
             **_without_pending(session_state_in),
             "pending_command": pending_command,
@@ -1094,6 +1099,11 @@ class DialogsWebhookHandler:
             if isinstance(candidate_ids_raw, list)
             else []
         )
+        # Preserve enqueue intent (add / next) across the disambiguation
+        # re-entry; otherwise an ambiguous "добавь Iron Maiden" would
+        # replay as REPLACE after the user picks a player.
+        enqueue_raw = pending.get("enqueue_option")
+        pending_enqueue: str | None = enqueue_raw if isinstance(enqueue_raw, str) else None
         exposed = list_exposed_players(self._mass, exposed_ids=self._exposed_player_ids)
         exposed_by_id = {p.player_id: p for p in exposed}
 
@@ -1149,6 +1159,7 @@ class DialogsWebhookHandler:
                         kind=str(pending.get("kind", "search")),  # type: ignore[arg-type]
                         query=str(pending.get("query", "")),
                         radio_mode=bool(pending.get("radio_mode", False)),
+                        enqueue_option=pending_enqueue,  # type: ignore[arg-type]
                     ),
                     candidates=candidates,
                     session_state_in=session_state_in,
@@ -1197,6 +1208,7 @@ class DialogsWebhookHandler:
                                 kind=str(pending.get("kind", "search")),  # type: ignore[arg-type]
                                 query=str(pending.get("query", "")),
                                 radio_mode=bool(pending.get("radio_mode", False)),
+                                enqueue_option=pending_enqueue,  # type: ignore[arg-type]
                             ),
                             candidates=still_available,
                             session_state_in=session_state_in,
@@ -1211,6 +1223,7 @@ class DialogsWebhookHandler:
             kind=str(pending.get("kind", "search")),  # type: ignore[arg-type]
             query=str(pending.get("query", "")),
             radio_mode=bool(pending.get("radio_mode", False)),
+            enqueue_option=pending_enqueue,  # type: ignore[arg-type]
         )
         return await self._play_with_player(
             session=session,

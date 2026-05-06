@@ -824,6 +824,46 @@ class TestControlCommandsIntegration:
         assert "Уже играет" in body_out["response"]["text"]
         mass.player_queues.transfer_queue.assert_not_awaited()
 
+    async def test_add_to_queue_preserved_through_disambiguation(self) -> None:
+        """Ambiguous "добавь Iron Maiden" → disambiguation → user picks → ADD survives.
+
+        Without this fix, the disambiguation flow rebuilt ParsedCommand
+        from `pending_command` without `enqueue_option`, so the replay
+        would hit play_media() without `option` (default REPLACE)
+        instead of `QueueOption.ADD`.
+        """
+        track = MagicMock(uri="library://track/1", spec_set=["uri"])
+        mass = _make_mass(
+            [
+                MockPlayer(player_id="p1", name="Кухня большая"),
+                MockPlayer(player_id="p2", name="Кухня маленькая"),
+            ],
+            search_track=track,
+        )
+        handler = DialogsWebhookHandler(
+            mass, skill_id="skill-uuid-1", webhook_secret=_TEST_SECRET
+        )
+        # Turn 1: ambiguous "добавь Iron Maiden на кухне" → disambig prompt.
+        body1 = {
+            "session": {"skill_id": "skill-uuid-1", "session_id": "s1", "new": False},
+            "request": {"command": "добавь Iron Maiden на кухне"},
+        }
+        resp1 = await handler._handle_webhook(_build_request(body1))
+        body_out1 = _response_body(resp1)
+        # Pending command must carry enqueue_option across the prompt.
+        assert body_out1["session_state"]["pending_command"]["enqueue_option"] == "add"
+        mass.player_queues.play_media.assert_not_awaited()
+        # Turn 2: ordinal "первая" → replay pending → play_media with ADD option.
+        body2 = {
+            "session": {"skill_id": "skill-uuid-1", "session_id": "s1", "new": False},
+            "request": {"command": "первая"},
+            "state": {"session": body_out1["session_state"]},
+        }
+        await handler._handle_webhook(_build_request(body2))
+        await asyncio.sleep(0)
+        mass.player_queues.play_media.assert_awaited_once()
+        assert mass.player_queues.play_media.call_args.kwargs["option"] == QueueOption.ADD
+
     async def test_add_to_queue_uses_queue_option_add(self) -> None:
         """'добавь Metallica на кухне' → play_media(option=QueueOption.ADD)."""
         track = MagicMock(uri="library://track/1", spec_set=["uri"])
