@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.8.9] — 2026-05-06
+
+Three Copilot review findings on the upstream PR — all docs/comment fixes, no behaviour change.
+
+### Docs
+- **Module docstring of `provider/dialogs.py` describes the actual three-tier state strategy.** The previous text claimed *"the handler does not keep any in-process LRU"* — true before v1.8.8, contradictory after. Now describes session → application → in-process cache with the LRU/TTL details, so a maintainer or security reviewer reading the file gets the right picture.
+- **`Exposed Playlists` config description corrected.** Previous text said playlists *"appear as input_source mode slots one..ten on every exposed player, in the order you select them"* — implied slot-stable across players. Reality: native sources fill slots first, playlists fill the remainder up to the 10-slot cap, so a player with ≥10 native sources gets no playlist slots and the playlist→slot mapping varies between players. Description now spells this out so users don't expect playlist slot N to mean the same thing on every player.
+- **Removed forward-version reference in code comment.** A comment in `dialogs.py` near the in-process cache constants said *"…until v1.8.8 added this cache"* — Copilot rightly flagged forward/version-coupled comments as fragile during backports. Reworded without the version mention.
+
 ## [1.8.8] — 2026-05-06
 
 User shared a dev-console transcript that conclusively diagnosed the disambiguation-loop bug on Yandex Stations. The actual webhook request body for **every** turn after the first arrived **without a `state` field at all** — Yandex didn't echo back `state.session` OR `state.application` despite both being set on the previous response. The v1.8.5 application-state mirror was no help because Yandex was dropping that bucket too. Adding a third-tier in-process state cache fixes it.
