@@ -4,6 +4,58 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.1.0] — 2026-05-06
+
+### Added
+
+- **Auto-create Smart Home skill** is back. Click *Auto-create Smart Home skill*
+  in the cloud_plus or direct config form; after a one-time Yandex Passport
+  Device Flow login, the skill is provisioned at `dialogs.yandex.ru`
+  programmatically (POST `/apps` → upload logo → patch draft → register
+  OAuth app → publish). The resulting `skill_id` populates automatically on
+  success. The flow is **resumable** — transient failures checkpoint the
+  partial state and the next click resumes from the last completed step.
+- Cached Yandex Passport `x_token` (`CONF_AUTH_X_TOKEN`) is restored.
+  Subsequent auto-create runs within the token's TTL skip the Device Code
+  prompt entirely; only the first attempt asks the user to confirm at
+  `ya.ru/device`.
+- State-aware action button: label flips between *Create…* / *Retry* /
+  *Continue* / *Re-create* based on the current artifacts state, with
+  a status banner that surfaces `last_error` on failure.
+
+### Changed
+
+- **Adapted to `ya-dialogs-api 2.0.0`.** The lib's 2.0.0 release renamed
+  `skill_type="smart_home"` → `channel="smartHome"` (Yandex API wire value)
+  and made OAuth params optional. Smart-home call site now imports
+  `SMART_HOME_CHANNEL` and passes `channel=`. Manifest dependency bumped
+  to `ya-dialogs-api>=2.0.0`. No behavioural change for users.
+
+### Internal
+
+- New `provider/ma_authenticator.py` — adapter wrapping
+  `ya-passport-auth.PassportClient` Device Flow + an MA-flavored activation
+  HTML page hosted on `mass.webserver`. Conforms to the `AuthenticatorCM`
+  Protocol expected by `ya-dialogs-api.auto_create_skill` (no-arg
+  async-context-manager factory yielding an authorized
+  `aiohttp.ClientSession`). The bulk of the file is the activation page
+  HTML/CSS/JS template, ported verbatim from the deleted `auto_skill.py`.
+- New `provider/_smarthome_auto_create.py` — URL derivation
+  helpers (`derive_smart_home_urls` returns the five pre-computed values
+  required by `auto_create_skill`). Replaces the `derive_*` functions
+  previously vendored inside the now-extracted `auto_skill.py`.
+- Restored config keys: `CONF_AUTO_CREATE_ARTIFACTS`,
+  `CONF_AUTO_CREATE_SESSION_ID`, `CONF_AUTH_X_TOKEN`,
+  `CONF_ACTION_AUTO_CREATE`. Existing 2.0.0 manual-setup configs are
+  unaffected — these keys default to empty.
+
+### Tests
+
+196 → 224 (+28). New: 12 tests for URL derivations + 16 tests for
+authenticator session-id validation and HTML escaping. The Device Flow
+body is verified end-to-end against a real Yandex Passport account in V.4
+of the rollout plan.
+
 ## [2.0.0] — 2026-05-06
 
 ### Removed (BREAKING)
