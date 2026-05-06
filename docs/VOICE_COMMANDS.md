@@ -132,6 +132,17 @@ Supported phrases (case-insensitive; trailing `на <player>` accepted):
 | `включи звук` / `сделай звук` | `unmute` |
 | `сколько колонок (ты)? (видишь\|знаешь)?` / `какие колонки (ты)? (видишь\|знаешь\|есть)?` / `какие у тебя колонки` / `перечисли колонки` / `список колонок` / `покажи колонки` / `назови колонки` | `list_players` (informational — replies with count + names) |
 | `забудь колонку` / `сбрось колонку` / `забудь плеер` / `забудь выбор` / `сбрось выбор` / `выбери колонку заново` / `поменяй колонку` / `сменить колонку` | `forget_player` — clears the saved default-player so the next ambiguous command asks again (replies *"Хорошо, забыл колонку. В следующий раз спрошу."*) |
+| `что (сейчас)? играет` / `что (мы)? слушаем` / `что за песня\|трек\|композиция` / `какой (сейчас)? трек\|играет` | `now_playing` — info — replies with `queue.current_item.name` (already pre-formatted as "Artist - Title" or stream title for radio) |
+| `перемешай` / `включи перемешивание` / `случайный порядок` / `в случайном порядке` | `shuffle_on` |
+| `выключи перемешивание` / `не перемешивай` / `по порядку` | `shuffle_off` |
+| `повтор песни\|трек\|эту` / `повтори песню\|трек` | `repeat_one` |
+| `повтор всё\|очередь\|плейлист` / `повторяй` / `включи повтор` | `repeat_all` |
+| `выключи повтор` / `не повторяй` | `repeat_off` |
+| `(перемотай\|промотай)? вперёд (на)? N (секунд\|минут)?` (digit + optional unit; minutes × 60) | `seek_forward(N seconds)` |
+| `(перемотай\|промотай)? назад (на)? N (секунд\|минут)?` | `seek_back(N seconds)` |
+| `(перемотай)? к началу` / `в начало` / `начни (трек)? заново` | `seek_start` (absolute seek to 0) |
+| `(переведи\|перенеси) (музыку)? на <player>` / `продолжи (музыку)? в\|на <player>` | `transfer` — moves the queue from the saved default player (SOURCE) to the named target player. Replies *"Перевожу на <name>"* and updates `last_player_id` to the target. Replies *"Уже играет на <name>"* if target = current, *"Сначала включи музыку на колонке"* if no source is saved yet. |
+| `добавь[те] / добавить <query>` (treats the rest as a normal play parser input — kind/marker/hint all still work) | **add-to-queue** — uses `play_media(option=QueueOption.ADD)` instead of REPLACE. Replies *"Добавил <query> в очередь на <player>"*. `radio_mode` is forced off (you don't add a station, you add a track). |
 
 Note: bare `выключи` maps to `stop` (safer / reversible). Saying
 "выключи колонку" to actually power-off the player is not yet
