@@ -80,11 +80,15 @@ class StateNotifier:
         # returns transient HTTP 5xx for ~1-2 minutes after a freshly
         # created skill (CDN warmup), then 400 + UNKNOWN_USER until the
         # user links the skill in the mobile app. Without dedupe each
-        # 1 s flush logs a full traceback — flooding the log. We log
-        # the first occurrence of each new error class at WARNING with
-        # context-appropriate guidance, then silence repeats at DEBUG
-        # until a different error class or a successful callback resets
-        # the fingerprint.
+        # 1 s flush logs a full traceback — flooding the log. First
+        # occurrence per fingerprint logs as follows:
+        #   - UNKNOWN_USER, HTTP 5xx → WARNING (expected first-run state,
+        #     no traceback — see _emit_callback_error)
+        #   - transport / unexpected errors → ERROR + traceback (real
+        #     bugs worth diagnostic detail — see outer except)
+        # Repeats with the same fingerprint drop to DEBUG until a
+        # different error class arrives or a successful callback resets
+        # the fingerprint (which then logs an INFO recovery line).
         self._last_error_fingerprint: str | None = None
 
     async def start(self) -> None:
@@ -221,13 +225,15 @@ class StateNotifier:
     async def _send_state_callback(self, devices: list[DeviceState]) -> None:
         """POST state callback to Yandex.
 
-        Yandex's callback endpoint can fail in three normal first-run
-        ways: HTTP 5xx while the skill propagates through their CDN,
-        HTTP 400 + UNKNOWN_USER until the user links the skill in the
-        mobile app, and transport-level errors during transient network
-        issues. All three are deduped via ``_last_error_fingerprint`` so
-        we emit a single WARNING per error class and stay quiet on
-        repeats until something changes.
+        Yandex's callback endpoint can fail three ways: HTTP 5xx while
+        the skill propagates through their CDN, HTTP 400 + UNKNOWN_USER
+        until the user links the skill in the mobile app, and
+        transport-level errors during network issues. All three are
+        deduped via ``_last_error_fingerprint`` so each class only logs
+        once per "episode" — UNKNOWN_USER and 5xx at WARNING (expected
+        first-run states), transport / unexpected errors at ERROR with
+        traceback (real bugs worth diagnostic detail). Repeats drop to
+        DEBUG until something changes.
         """
         payload = CallbackRequest(
             ts=time.time(),
