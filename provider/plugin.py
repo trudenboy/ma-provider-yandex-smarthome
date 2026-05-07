@@ -246,11 +246,12 @@ class YandexSmartHomePlugin(PluginProvider):
         # this is the normal "first run" / "skill created but token not yet
         # pasted" state.
         has_skill_id = bool(self._skill_id)
-        has_skill_token = bool(self._skill_token and self._skill_token.get_secret())
-        if has_skill_id and has_skill_token:
+        skill_token = self._skill_token
+        has_skill_token = skill_token is not None and bool(skill_token.get_secret())
+        if has_skill_id and has_skill_token and skill_token is not None:
             session = self.mass.http_session
             callback_url = f"{YANDEX_DIALOGS_CALLBACK_BASE}/{self._skill_id}/callback/state"
-            auth_header = {"Authorization": f"OAuth {self._skill_token.get_secret()}"}
+            auth_header = {"Authorization": f"OAuth {skill_token.get_secret()}"}
 
             self._state_notifier = StateNotifier(
                 mass=self.mass,
