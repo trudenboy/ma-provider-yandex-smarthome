@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.1.1] — 2026-05-07
+
+### Fixed
+
+- State-callback error log no longer floods after a freshly auto-created
+  skill. Yandex's CDN returns HTTP 5xx for ~1-2 minutes while propagating
+  a new skill, then HTTP 400 + UNKNOWN_USER until the user links the
+  skill in the Yandex app. Each error class now emits a single WARNING
+  on first occurrence with context-appropriate guidance, then drops to
+  DEBUG on repeats until a different error class arrives or a successful
+  callback resets the fingerprint. INFO line confirms recovery.
+
 ## [2.1.0] — 2026-05-06
 
 ### Added
