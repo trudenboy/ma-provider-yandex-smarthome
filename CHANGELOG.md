@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.1.3] — 2026-05-07
+
+### Fixed
+
+- State-callback error log flood after auto-create — second pass. 2.1.1
+  deduplicated logging inside `_send_state_callback`, but
+  `_flush_pending` still re-raised the exception so MA's task scheduler
+  re-logged it as `Error doing task: Task exception was never retrieved`
+  with full traceback on every 1-s retry. `_flush_pending` now swallows
+  the deduped exception (re-queue + reschedule already happen inside the
+  except block, so the bubble served no purpose). `asyncio.CancelledError`
+  is still propagated.
+
 ## [2.1.2] — 2026-05-07
 
 ### Removed
