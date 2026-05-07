@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.1.2] — 2026-05-07
+
+### Removed
+
+- Dead code: `_resolve_external_base_url` helper in `provider/__init__.py`
+  was defined but never called — the live code path uses
+  `resolve_base_url` from `_smarthome_auto_create.py`. Flagged by Copilot
+  review on upstream PR music-assistant/server#3834.
+
 ## [2.1.1] — 2026-05-07
 
 ### Fixed
