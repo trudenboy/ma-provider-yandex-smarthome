@@ -1,83 +1,104 @@
+<!-- ma-provider-tools: rendered from wrappers/CLAUDE.md.j2 -->
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file aligns development of the **Yandex Smart Home** provider with the
+upstream [`music-assistant/server`](https://github.com/music-assistant/server)
+standards. It is rendered from `wrappers/CLAUDE.md.j2` in
+[`trudenboy/ma-provider-tools`](https://github.com/trudenboy/ma-provider-tools)
+and is kept in sync across every provider repo — **do not edit it here**.
 
-## Project Overview
+Provider-specific architecture, key flows, and gotchas live in
+[`CLAUDE.local.md`](./CLAUDE.local.md). Claude Code automatically picks up both
+files when working in this repository.
 
-Music Assistant (MA) Plugin Provider that exposes MA players to Yandex Alice via the Yandex Smart Home API. This is a **plugin provider** (not a player or music provider) — it doesn't create players or provide music, it bridges existing MA players to the Yandex ecosystem for voice control.
+## Development Commands
 
-## Architecture
+- `./scripts/setup.sh` — initial setup (venv via `uv`, dependencies, pre-commit hooks). Re-run after pulling latest code.
+- `uv run pytest` — run all tests
+- `uv run pytest provider/tests/<file>.py` — run a specific test file
+- `uv run ruff check provider/` — lint
+- `uv run ruff format provider/` — auto-format
+- `uv run mypy provider/` — type check
+- `pre-commit run --all-files` — full pre-commit gate
 
-```
-Alice → Yandex Cloud → Smart Home API callback → this plugin → MA Player commands
-                                                              ← MA Player state → Yandex state reports
-```
+Always run `pre-commit run --all-files` after a code change to ensure the new
+code adheres to the project standards.
 
-**Connection modes:**
-- **Cloud / Cloud Plus**: Alice → Yandex Cloud → yaha-cloud.ru WebSocket relay → plugin
-- **Direct**: Alice → Yandex Cloud → HTTPS → MA Webserver (dynamic routes) → plugin
+## Code Style
 
-**Provider** (`provider/`): MA Plugin Provider with Smart Home API bridge.
-- `__init__.py` — `setup()`, `get_config_entries()` (instance_name, cloud_token)
-- `plugin.py` — `YandexSmartHomePlugin(PluginProvider)`: main plugin class, event subscriptions, device lifecycle
-- `direct.py` — `DirectConnectionHandler`: HTTP endpoints for direct connection mode (routes registered on MA webserver)
-- `constants.py` — Yandex Smart Home API constants (device types, capabilities, API URLs)
-- `manifest.json` — provider metadata (type: plugin, domain: yandex_smarthome)
+### Comments
 
-### Key Flows
+Only use comments to explain complex, multi-line blocks of code. Do not comment
+obvious operations.
 
-**Device Registration:**
-1. Plugin loads → subscribes to MA player events
-2. For each MA player → creates Yandex Smart Home device (type: media_device)
-3. Registers capabilities: on_off, range(volume), toggle(mute), toggle(pause)
-4. Reports device list to Yandex via Smart Home API
+### Docstring Format
 
-**Voice Command Handling:**
-1. Alice sends command → Yandex Cloud → Smart Home API callback to plugin
-2. Plugin receives capability action (e.g. on_off=true, volume=50)
-3. Maps to MA player command (play, pause, stop, volume_set, etc.)
-4. Executes command on MA player
+Use Sphinx-style docstrings with `:param:` syntax. For simple functions, a
+single-line docstring is fine.
 
-**State Reporting:**
-1. MA player state changes → plugin receives event
-2. Maps MA state to Yandex Smart Home device state
-3. Reports state to Yandex via callback_state API
+Don't explain inner workings of the code in the docstrings (you can use inline
+comments for that if/when needed). The docstring should provide clarity to the
+**caller** of the function/method, not explain how it works
+technically/internally.
 
-## Development Setup
+```python
+def my_function(param1: str, param2: int, param3: bool = False) -> str:
+    """
+    Brief one-line description of the function.
 
-```bash
-# Docker dev environment (recommended)
-docker compose -f docker-compose.dev.yml up
-
-# Or manual:
-pip install -e ".[test]"
-pytest
+    :param param1: Description of what param1 is used for.
+    :param param2: Description of what param2 is used for.
+    :param param3: Description of what param3 is used for.
+    """
 ```
 
-## Code Standards
+Do **not** use Google-style (`Args:`) or bullet-style (`- param:`) docstrings.
+AI assistants tend to generate Google-style by default — explicitly steer them
+to Sphinx, and rewrite anything that slips through.
 
-- **Python**: PEP 8, type hints on all functions, `from __future__ import annotations`
-- **Commits**: `type(scope): description` — types: feat, fix, docs, style, refactor, test, chore
-- **Async**: All I/O uses async/await (aiohttp)
-- **MA conventions**: Follow patterns from `_demo_plugin_provider` and `hass` plugin provider
-- **DO NOT use subagents (Task tool) without explicit user instruction or confirmation!**
+## Branching and PRs
 
-## Key References
+- All work-in-progress PRs target `dev` (primary development branch).
+- Before opening a PR: run lint + tests + `pre-commit run --all-files`. CI runs `ruff format --check`, so pushing without `ruff format` is the most common red build.
 
-| Source | Purpose |
-|--------|---------|
-| `music_assistant/providers/_demo_plugin_provider/` | Canonical plugin provider template |
-| `music_assistant/providers/hass/` | Real plugin with PlayerControl registration |
-| `music_assistant/models/plugin.py` | PluginProvider, PluginSource base classes |
-| `dext0r/yandex_smart_home` | Yandex Smart Home protocol reference |
+## Pull Request Workflow
 
-## Gotchas
+All non-trivial changes go through a pull request — never push directly to
+`dev`. Inside a PR, follow this loop:
 
-- **No play_media from Alice**: Yandex Smart Home API does NOT support `play_media` for third-party devices. "Включи музыку" → `on_off: true` only. Plugin resumes current MA queue.
-- **Cloud vs Direct mode**: Without a public URL, need a cloud relay (like dext0r's yaha-cloud.ru WebSocket relay). Direct mode needs port forwarding or reverse proxy.
-- **Device types**: Use `devices.types.media_device` for MA players in Yandex.
-- **Capabilities limited**: Only on_off, range(volume), toggle(mute/pause), mode(input_source). No seek, no track info push.
-- **This is a plugin, not a player provider**: It does NOT create MA players. It controls existing ones.
-- **Don't name files `http.py`**: Shadows Python's stdlib `http` module. The direct connection handler is in `direct.py`.
-- **Direct mode uses `mass.webserver.register_dynamic_route()`**: MA's built-in mechanism for adding HTTP endpoints. Returns an unregister callback.
-- **OAuth is minimal**: Single access token (UUID) stored in config. Pending authorization codes kept in memory with 5-min TTL.
+1. **Self-review.** Run at least one self-review pass on the diff (e.g. the
+   `/code-review` skill or an equivalent reviewer) before asking for human
+   review.
+2. **Copilot triage.** Check the PR for GitHub Copilot review comments. For
+   each comment: analyze it, apply a fix when warranted, reply with a short
+   justification, and resolve the thread.
+3. **Version + changelog.** *After* review feedback is addressed, bump the
+   `VERSION` file (PEP 440 — `1.2.0` stable, `1.2.0b1` beta) and add a
+   `CHANGELOG.md` entry — in the same PR. The release pipeline tags and
+   publishes automatically when the new `VERSION` lands on `dev`.
+4. **Ask before merging.** Always request explicit maintainer approval to
+   merge. Do not self-merge or enable auto-merge without it. (Auto-merge is
+   reserved for `distribute.yml`-generated wrapper-sync PRs from
+   `ma-provider-tools`.)
+
+Follow-up commits driven by review (your own pass or Copilot's) land directly
+on the PR branch — no separate PR needed.
+
+## Upstream is Read-Only
+
+Never push to or open PRs against the upstream Music Assistant repo
+(`music-assistant/server` — the true upstream) or the integration fork
+(`trudenboy/ma-server`) without an explicit maintainer instruction. The
+provider repo is the source of truth; sync to the integration fork and
+upstream PR submission run automatically through `ma-provider-tools`
+workflows (`sync-to-fork.yml`, `upstream-pr.yml`).
+
+## Debugging
+
+Music Assistant stores its data in `$HOME/.musicassistant/`. When debugging
+locally:
+
+- **Logs:** `$HOME/.musicassistant/musicassistant.log` (current),
+  `musicassistant.log.1`, `.log.2`, etc. for older rotated logs.
+- **Database:** `$HOME/.musicassistant/library.db` — query via `sqlite3`.
+  **Only execute SELECT queries** — never write to a live database.
