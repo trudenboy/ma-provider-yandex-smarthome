@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.1.9] - 2026-05-09
+
+### Changed
+
+- Bumped `ya-dialogs-api` pin in `manifest.json` from 2.3.0 to 2.4.0. No functional change — the upstream additions (TOML manifest runtime-mapping block, `ya_dialogs_api.runtime` dispatcher) target the `aliceSkill` intent flow and are not exercised by the Smart Home channel this provider uses.
+
 ## [2.1.8] - 2026-05-09
 
 ### Changed
