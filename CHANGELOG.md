@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.1.4] - 2026-05-09
+
+### Changed
+
+- Rewrote 4 Google-style docstrings (`provider/_smarthome_auto_create.py`, `provider/ma_authenticator.py`, `provider/direct.py`) to Sphinx-style `:param:` / `:returns:` / `:raises:` per the upstream music-assistant/server CLAUDE.md docstring rule.
+
 ## [2.1.3] — 2026-05-07
 
 ### Fixed
