@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.1.6] - 2026-05-09
+
+### Changed
+
+- Bumped `ya-dialogs-api` pin in `manifest.json` from 2.1.1 to 2.1.2. No functional change — the upstream fix targets the `aliceSkill` intents diff/upsert flow, which is a no-op for the Smart Home channel this provider uses.
+
 ## [2.1.5] - 2026-05-09
 
 ### Changed
