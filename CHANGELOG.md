@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.1.5] - 2026-05-09
+
+### Changed
+
+- Bumped `ya-dialogs-api` pin in `manifest.json` from 2.0.0 to 2.1.1. No functional change — upstream 2.1.x additions are scoped to Yandex Dialog (`aliceSkill`) skills and are no-ops for the Smart Home channel this provider uses.
+
 ## [2.1.4] - 2026-05-09
 
 ### Changed
