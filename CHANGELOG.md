@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.1.7] - 2026-05-09
+
+### Changed
+
+- Bumped `ya-dialogs-api` pin in `manifest.json` from 2.1.2 to 2.2.0. No functional change — the upstream additions (`SlotDeclaration`, `EntityDraft`, `set_entities`, `entities=` orchestrator kwarg) are scoped to the `aliceSkill` channel and are no-ops for the Smart Home channel this provider uses.
+
 ## [2.1.6] - 2026-05-09
 
 ### Changed
