@@ -1,5 +1,18 @@
 # Yandex Smart Home — Music Assistant Plugin Provider
 
+
+<!-- >>> ma-provider-tools sync (readme header) — DO NOT EDIT >>> -->
+[![CI](https://github.com/trudenboy/ma-provider-yandex-smarthome/actions/workflows/test.yml/badge.svg)](https://github.com/trudenboy/ma-provider-yandex-smarthome/actions/workflows/test.yml)
+[![Release](https://img.shields.io/github/v/release/trudenboy/ma-provider-yandex-smarthome?display_name=tag)](https://github.com/trudenboy/ma-provider-yandex-smarthome/releases/latest)
+[![License](https://img.shields.io/github/license/trudenboy/ma-provider-yandex-smarthome)](LICENSE)
+[![Music Assistant](https://img.shields.io/badge/Music%20Assistant-provider-9070B8?logo=python&logoColor=white)](https://www.music-assistant.io/)
+[![Stars](https://img.shields.io/github/stars/trudenboy/ma-provider-yandex-smarthome?style=flat&logo=github)](https://github.com/trudenboy/ma-provider-yandex-smarthome/stargazers)
+
+**📖 [Documentation / Документация](https://trudenboy.github.io/ma-provider-yandex-smarthome/)** · **🔄 [Changelog / Журнал](CHANGELOG.md)** · **🐛 [Issues / Проблемы](https://github.com/trudenboy/ma-provider-yandex-smarthome/issues)** · **💬 [Discussions / Обсуждения](https://github.com/trudenboy/ma-provider-yandex-smarthome/discussions)**
+
+**Related providers:** [Yandex Alice](https://github.com/trudenboy/ma-provider-yandex-alice) · [Yandex Station](https://github.com/trudenboy/ma-provider-yandex-station)
+<!-- <<< ma-provider-tools sync (readme header) <<< -->
+
 [![Tests](https://github.com/trudenboy/ma-provider-yandex-smarthome/actions/workflows/test.yml/badge.svg)](https://github.com/trudenboy/ma-provider-yandex-smarthome/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 

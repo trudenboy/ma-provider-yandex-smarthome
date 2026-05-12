@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.1.10] - 2026-05-12
+
+### Changed
+
+- Removed 65 `# type: ignore` comments from `tests/test_*.py` that became
+  unused after the upstream mypy coverage extension (PR
+  `trudenboy/ma-provider-tools#59`). All `[unused-ignore]` mypy errors
+  resolved.
+
+### Fixed
+
+- `tests/test_direct.py::_get_pending_code` now wraps the dict-key iterator
+  in `str()` to satisfy the declared `str` return type (mypy
+  `[no-any-return]`).
+
 ## [2.1.9] - 2026-05-09
 
 ### Changed
