@@ -779,7 +779,7 @@ class TestInputSourceCapability:
         player = MockPlayer(source_list=sources, supported_features={"select_source"})
         desc = get_device_description(player)
         mode_caps = [c for c in desc.capabilities if c.type == YandexCapabilityType.MODE]
-        assert len(mode_caps[0].parameters.modes) == 10  # type: ignore[arg-type,union-attr]
+        assert len(mode_caps[0].parameters.modes) == 10
 
     def test_state_with_active_source(self) -> None:
         """State should report current source as mode value."""
@@ -872,7 +872,7 @@ class TestPlaylistInputSources:
         desc = get_device_description(player, playlist_uris=playlist_uris)
         mode_caps = [c for c in desc.capabilities if c.type == YandexCapabilityType.MODE]
         assert len(mode_caps) == 1
-        assert len(mode_caps[0].parameters.modes) == 10  # type: ignore[arg-type,union-attr]
+        assert len(mode_caps[0].parameters.modes) == 10
 
     def test_native_full_ignores_playlists(self) -> None:
         """If native sources already fill all 10 slots, playlists are ignored."""
@@ -882,7 +882,7 @@ class TestPlaylistInputSources:
         desc = get_device_description(player, playlist_uris=playlist_uris)
         mode_caps = [c for c in desc.capabilities if c.type == YandexCapabilityType.MODE]
         assert len(mode_caps) == 1
-        assert len(mode_caps[0].parameters.modes) == 10  # type: ignore[arg-type,union-attr]
+        assert len(mode_caps[0].parameters.modes) == 10
 
     def test_state_with_native_active_in_combined_mode(self) -> None:
         """Native active source still reports correct state when playlists also configured."""
