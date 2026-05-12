@@ -13,9 +13,6 @@
 **Related providers:** [Yandex Alice](https://github.com/trudenboy/ma-provider-yandex-alice) · [Yandex Station](https://github.com/trudenboy/ma-provider-yandex-station)
 <!-- <<< ma-provider-tools sync (readme header) <<< -->
 
-[![Tests](https://github.com/trudenboy/ma-provider-yandex-smarthome/actions/workflows/test.yml/badge.svg)](https://github.com/trudenboy/ma-provider-yandex-smarthome/actions/workflows/test.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
 **Expose Music Assistant players to Yandex Alice via the [Yandex Smart Home API](https://yandex.ru/dev/dialogs/smart-home/).**
 
 > «Алиса, включи музыку на Music Assistant»
