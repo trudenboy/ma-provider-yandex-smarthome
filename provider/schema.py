@@ -17,7 +17,7 @@ try:
     from enum import StrEnum
 except ImportError:
     # Python < 3.11 fallback (needed for local dev; upstream requires >=3.12)
-    class StrEnum(str, Enum):  # type: ignore[no-redef]  # noqa: UP042
+    class StrEnum(str, Enum):  # type: ignore[no-redef]
         """Backport of StrEnum for Python < 3.11."""
 
 
