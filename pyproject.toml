@@ -2,10 +2,10 @@
 [project]
 name = "ma-provider-yandex-smarthome"
 description = "Yandex Smart Home provider for Music Assistant"
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 dynamic = ["version"]
 dependencies = [
-  "ya-passport-auth>=1.4.1",
+  "ya-passport-auth==1.5.0",
   "ya-dialogs-api>=2.0.0",
 ]
 
@@ -53,7 +53,7 @@ ignore-words-list = "hass,"
 
 # >>> ma-provider-tools sync (mypy) — DO NOT EDIT >>>
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.14"
 platform = "linux"
 follow_imports = "silent"
 ignore_missing_imports = true
