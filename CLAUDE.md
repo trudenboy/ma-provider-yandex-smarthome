@@ -30,13 +30,12 @@ Operational rules for AI assistants working in this repo:
 
 1. **A human owns every PR.** The contributor must be able to explain every
    change in their own words; PRs that look like unreviewed AI output are
-   closed.
+   closed. AI may be change title or description of pr.
 2. **Never open, push to, comment on, or close anything in `music-assistant/*`
    directly.** The only path is the `upstream-pr.yml` workflow, which opens
    the PR as a draft with a human-attestation checklist.
-3. **Replies to human reviewers are written by humans.** AI may polish
-   grammar and clarity; AI may not draft the substance. This applies in
-   upstream PRs **and** in our own provider-repo PRs.
+3. **Replies to human reviewers are written by humans.** AI may prepare drafts, polish
+   grammar and clarity; This applies only in upstream PRs **not** in our own provider-repo PRs.
 4. **Replies to AI review comments may be AI-drafted.** GitHub Copilot,
    code-scanning bots, and similar tools post AI output; replying with
    AI-drafted text is allowed because the conversation is AI ↔ AI. The
@@ -144,6 +143,18 @@ Never push to or open PRs against the upstream Music Assistant repo
 provider repo is the source of truth; sync to the integration fork and
 upstream PR submission run automatically through `ma-provider-tools`
 workflows (`sync-to-fork.yml`, `upstream-pr.yml`).
+
+**Reverse-sync (incoming).** Contributions made *upstream* against the inlined
+provider (someone editing `music_assistant/providers/yandex_smarthome/` directly in
+`music-assistant/server`) are detected and ported back here automatically by the
+`ma-provider-tools` reverse-sync radar. They arrive as **draft** PRs on a
+`reverse-sync/<domain>-pr<N>` branch, crediting the upstream author via
+`Co-authored-by`. A PR labelled **`needs-human`** applied with conflicts: it
+carries `<<<<<<<` markers (and the upstream change may need adapting to this
+repo's current code) — resolve them, drop the label, and treat it like any other
+PR (review, changelog, maintainer approval). `VERSION` / `translations/en.json`
+are never touched by reverse-sync; bump them as usual. Do **not** manually
+re-port a change the radar already opened a PR for.
 
 This provider is intended to be inlined into
 `music_assistant/providers/yandex_smarthome` upstream eventually — that is the
