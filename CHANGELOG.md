@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.1.11] - 2026-07-09
+
+### Changed
+
+- The Yandex Passport sign-in page for skill auto-creation now comes from the shared `ya-passport-auth[ma]` layer used by all Music Assistant yandex providers: Russian/English localization, dark-theme support, tap-to-copy code, an honest countdown and clear terminal states explaining why a sign-in failed.
+- The sign-in step returns the moment the outcome is known instead of pausing for a grace period; the page keeps polling in the background and closes itself.
+- Transient Yandex Passport failures (network, rate limiting) during sign-in now surface as "temporarily unavailable" instead of a login failure. The cached-token fast path is unchanged.
+
 ## [2.1.10] - 2026-05-12
 
 ### Changed

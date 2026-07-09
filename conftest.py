@@ -146,6 +146,35 @@ class _MassEvent:
 
 _ensure_module("music_assistant_models.event", {"MassEvent": _MassEvent})
 
+
+# music_assistant_models.errors — needed by ya_passport_auth.ma (the shared
+# auth layer imports the MA error types at module level).
+class _MusicAssistantError(Exception):
+    pass
+
+
+class _LoginFailed(_MusicAssistantError):
+    pass
+
+
+class _ResourceTemporarilyUnavailable(_MusicAssistantError):
+    pass
+
+
+class _InvalidDataError(_MusicAssistantError):
+    pass
+
+
+_ensure_module(
+    "music_assistant_models.errors",
+    {
+        "MusicAssistantError": _MusicAssistantError,
+        "LoginFailed": _LoginFailed,
+        "ResourceTemporarilyUnavailable": _ResourceTemporarilyUnavailable,
+        "InvalidDataError": _InvalidDataError,
+    },
+)
+
 # ---------------------------------------------------------------------------
 # 2. Mock music_assistant server modules
 # ---------------------------------------------------------------------------
