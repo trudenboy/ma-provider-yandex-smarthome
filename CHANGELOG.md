@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-07-09
+
+### Added
+
+- **Yandex account source**: skill auto-create can now borrow the Yandex account of a configured Yandex Music provider instead of running its own Device Flow — one sign-in for the whole household, no device-code popup. Pick the source in the settings dropdown; "Use own credentials" remains the default and behaves exactly as before. When borrowing, nothing is stored or rotated by this provider, and a missing or rejected linked account reports "re-authenticate the Yandex Music provider" in the auto-create status instead of silently falling back to an own sign-in.
+
 ## [2.1.11] - 2026-07-09
 
 ### Changed

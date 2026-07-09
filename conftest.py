@@ -117,10 +117,23 @@ class _ConfigEntry:
 
 
 class _ConfigValueOption:
-    def __init__(self, title="", value=None):
-        self.title = title
+    # Mirrors music_assistant_models.config_entries.ConfigValueOption:
+    # ``value`` first, optional ``title``.
+    def __init__(self, value=None, title=None):
         self.value = value
+        self.title = title
 
+
+class _ProviderType(_StrEnum):
+    MUSIC = "music"
+    PLAYER = "player"
+    METADATA = "metadata"
+    PLUGIN = "plugin"
+
+
+_prov_enums = sys.modules.get("music_assistant_models.enums")
+if _prov_enums is not None and not hasattr(_prov_enums, "ProviderType"):
+    _prov_enums.ProviderType = _ProviderType
 
 _ensure_module(
     "music_assistant_models.config_entries",
