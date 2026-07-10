@@ -24,6 +24,13 @@ from provider.constants import (
 from provider.direct import DirectConnectionHandler
 from provider.plugin import YandexSmartHomePlugin
 
+
+def _body_json(resp: web.Response) -> Any:
+    """Decode the JSON body of a response."""
+    assert isinstance(resp.body, bytes | bytearray)
+    return json.loads(resp.body)
+
+
 TEST_CLIENT_SECRET = "test-client-secret-abc123"
 
 # token_store lists shared between fixtures and tests
@@ -314,7 +321,7 @@ async def test_devices_success(handler: DirectConnectionHandler) -> None:
     ):
         resp = await handler._handle_devices(req)
         assert resp.status == 200
-        body = json.loads(resp.body)  # type: ignore[arg-type]
+        body = _body_json(resp)
         assert body["request_id"] == "req-1"
 
 
@@ -518,7 +525,7 @@ async def test_token_exchange_valid_code(handler: DirectConnectionHandler) -> No
     )
     resp = await handler._handle_oauth_token(req_token)
     assert resp.status == 200
-    body = json.loads(resp.body)  # type: ignore[arg-type]
+    body = _body_json(resp)
     assert body["access_token"] == "test-token-abc"
     assert body["token_type"] == "bearer"
     assert "refresh_token" in body
@@ -554,7 +561,7 @@ async def test_token_exchange_generates_new_token(
     )
     resp = await handler_no_token._handle_oauth_token(req_token)
     assert resp.status == 200
-    body = json.loads(resp.body)  # type: ignore[arg-type]
+    body = _body_json(resp)
     assert body["access_token"]
     assert len(body["access_token"]) == 32  # uuid4().hex
     assert len(_handler_no_token_tokens) == 1
@@ -576,7 +583,7 @@ async def test_token_exchange_invalid_client_secret(handler: DirectConnectionHan
     )
     resp = await handler._handle_oauth_token(req)
     assert resp.status == 401
-    body = json.loads(resp.body)  # type: ignore[arg-type]
+    body = _body_json(resp)
     assert body["error"] == "invalid_client"
 
 
@@ -595,7 +602,7 @@ async def test_token_exchange_invalid_client_id(handler: DirectConnectionHandler
     )
     resp = await handler._handle_oauth_token(req)
     assert resp.status == 401
-    body = json.loads(resp.body)  # type: ignore[arg-type]
+    body = _body_json(resp)
     assert body["error"] == "invalid_client"
 
 
@@ -614,7 +621,7 @@ async def test_token_exchange_invalid_code(handler: DirectConnectionHandler) -> 
     )
     resp = await handler._handle_oauth_token(req)
     assert resp.status == 400
-    body = json.loads(resp.body)  # type: ignore[arg-type]
+    body = _body_json(resp)
     assert body["error"] == "invalid_grant"
 
 
@@ -651,7 +658,7 @@ async def test_refresh_token_valid(handler: DirectConnectionHandler) -> None:
     )
     resp = await handler._handle_oauth_token(req)
     assert resp.status == 200
-    body = json.loads(resp.body)  # type: ignore[arg-type]
+    body = _body_json(resp)
     assert body["access_token"] == "test-token-abc"
 
 
@@ -686,7 +693,7 @@ async def test_unsupported_grant_type(handler: DirectConnectionHandler) -> None:
     )
     resp = await handler._handle_oauth_token(req)
     assert resp.status == 400
-    body = json.loads(resp.body)  # type: ignore[arg-type]
+    body = _body_json(resp)
     assert body["error"] == "unsupported_grant_type"
 
 
