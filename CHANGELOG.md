@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.2.3] - 2026-07-10
+
+### Changed
+
+- Settings-form texts (labels, descriptions, button captions) now come from the Music Assistant translation pipeline instead of being hardcoded in English, making the configuration UI localizable. Ported back from the upstream localization work; dynamic status texts are unchanged.
+- The provider icon now uses the upstream-optimized artwork.
+
 ## [2.2.1] - 2026-07-09
 
 ### Added
