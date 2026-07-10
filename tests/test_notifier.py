@@ -139,7 +139,7 @@ class TestStateNotifierLifecycle:
         unsub = notifier._unsub
         await notifier.stop()
 
-        unsub.assert_called_once()
+        unsub.assert_called_once()  # type: ignore[union-attr]
         assert notifier._unsub is None
         assert notifier._heartbeat_task is None
 
@@ -162,7 +162,7 @@ class TestStateNotifierEvents:
         player = MockPlayer(player_id="p1", playback_state=PlaybackState.PLAYING)
         event = MockEvent(event=EventType.PLAYER_UPDATED, data=player)
 
-        notifier._on_player_event(event)
+        notifier._on_player_event(event)  # type: ignore[arg-type]
 
         assert "p1" in notifier._dirty_player_ids
 
@@ -174,7 +174,7 @@ class TestStateNotifierEvents:
         player = MockPlayer(player_id="p1", available=False)
         event = MockEvent(event=EventType.PLAYER_UPDATED, data=player)
 
-        notifier._on_player_event(event)
+        notifier._on_player_event(event)  # type: ignore[arg-type]
 
         assert "p1" not in notifier._dirty_player_ids
 
@@ -184,7 +184,7 @@ class TestStateNotifierEvents:
         notifier = _make_notifier(mass=mass)
 
         event = MockEvent(event=EventType.PLAYER_ADDED, data=MockPlayer())
-        notifier._on_player_event(event)
+        notifier._on_player_event(event)  # type: ignore[arg-type]
 
         # Discovery triggers create_task
         mass.create_task.assert_called()
@@ -195,7 +195,7 @@ class TestStateNotifierEvents:
         notifier = _make_notifier(mass=mass)
 
         event = MockEvent(event=EventType.PLAYER_REMOVED, data="p1")
-        notifier._on_player_event(event)
+        notifier._on_player_event(event)  # type: ignore[arg-type]
 
         mass.create_task.assert_called()
 
@@ -205,7 +205,7 @@ class TestStateNotifierEvents:
         notifier = _make_notifier(mass=mass)
 
         event = MockEvent(event=EventType.PLAYER_UPDATED, data=None)
-        notifier._on_player_event(event)
+        notifier._on_player_event(event)  # type: ignore[arg-type]
 
         assert len(notifier._dirty_player_ids) == 0
 
@@ -217,7 +217,7 @@ class TestStateNotifierEvents:
 
         player = MockPlayer(player_id="p1", playback_state=PlaybackState.PLAYING)
         event = MockEvent(event=EventType.PLAYER_UPDATED, data=player)
-        notifier._on_player_event(event)
+        notifier._on_player_event(event)  # type: ignore[arg-type]
 
         assert "p1" not in notifier._dirty_player_ids
 
@@ -229,7 +229,7 @@ class TestStateNotifierEvents:
 
         player = MockPlayer(player_id="p1", playback_state=PlaybackState.PLAYING)
         event = MockEvent(event=EventType.PLAYER_UPDATED, data=player)
-        notifier._on_player_event(event)
+        notifier._on_player_event(event)  # type: ignore[arg-type]
 
         assert "p1" in notifier._dirty_player_ids
 
@@ -240,7 +240,7 @@ class TestStateNotifierEvents:
 
         child = MockPlayer(player_id="child1", synced_to="grp1")
         event = MockEvent(event=EventType.PLAYER_UPDATED, data=child)
-        notifier._on_player_event(event)
+        notifier._on_player_event(event)  # type: ignore[arg-type]
 
         assert "grp1" in notifier._dirty_player_ids
         assert "child1" not in notifier._dirty_player_ids
@@ -307,7 +307,7 @@ class TestStateNotifierFlush:
 
         # Simulate event with transient volume=0
         event = MockEvent(event=EventType.PLAYER_UPDATED, data=player_event)
-        notifier._on_player_event(event)
+        notifier._on_player_event(event)  # type: ignore[arg-type]
 
         # Flush should use live player state (volume=75)
         await notifier._flush_pending()
