@@ -220,6 +220,28 @@ class _PluginProvider:
 _ensure_module("music_assistant.models.plugin", {"PluginProvider": _PluginProvider})
 _ensure_module("music_assistant.models", {"ProviderInstanceType": MagicMock})
 
+
+class _SetupFlowError(Exception):
+    """Minimal setup-flow error carrying a translation key."""
+
+    def __init__(self, message: str = "", translation_key: str | None = None):
+        super().__init__(message)
+        self.translation_key = translation_key
+
+
+class _AbortFlow(Exception):
+    """Minimal setup-flow abort carrying a translation key."""
+
+    def __init__(self, translation_key: str):
+        super().__init__(translation_key)
+        self.translation_key = translation_key
+
+
+_ensure_module(
+    "music_assistant.models.setup_flow",
+    {"AbortFlow": _AbortFlow, "SetupFlowError": _SetupFlowError},
+)
+
 # ---------------------------------------------------------------------------
 # 3. Make provider/ importable as both 'provider' and
 #    'music_assistant.providers.yandex_smarthome'
