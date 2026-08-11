@@ -81,6 +81,17 @@ async def test_init_reads_credentials_from_setup_and_options_from_config() -> No
     assert CONF_EXPOSED_PLAYERS not in setup_keys
 
 
+def test_setup_value_keeps_legacy_config_fallback() -> None:
+    """Instances created before setup flows still read their saved credentials."""
+    plugin = _plugin()
+    with mock.patch.object(
+        plugin.config,
+        "get_value",
+        side_effect=lambda key, *_: {CONF_CONNECTION_TYPE: CONNECTION_TYPE_DIRECT}.get(key),
+    ):
+        assert plugin._get_setup_value(CONF_CONNECTION_TYPE) == CONNECTION_TYPE_DIRECT
+
+
 async def test_direct_token_rotation_updates_setup_data_immediately() -> None:
     """A token minted by the Direct OAuth endpoint is persisted as setup data."""
     plugin = _plugin()

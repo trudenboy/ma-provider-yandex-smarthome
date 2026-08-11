@@ -5,6 +5,7 @@ from __future__ import annotations
 from unittest import mock
 
 import pytest
+from music_assistant_models.errors import LoginFailed
 
 from provider.ma_authenticator import make_authenticator
 
@@ -38,9 +39,21 @@ async def test_rejected_cached_token_is_not_replaced_by_device_flow() -> None:
 
     with (
         mock.patch("ya_passport_auth.PassportClient.create", return_value=client_cm),
-        pytest.raises(RuntimeError, match="rejected"),
+        pytest.raises(LoginFailed, match="Yandex Music"),
     ):
         async with make_authenticator(cached_x_token="expired")():
             pass
 
     client.start_device_login.assert_not_awaited()
+
+
+@pytest.mark.parametrize("token", [None, ""])
+async def test_missing_token_requires_yandex_music_reauthentication(
+    token: str | None,
+) -> None:
+    """Missing borrowed credentials fail with owner-specific recovery guidance."""
+    authenticator = make_authenticator(cached_x_token=token)
+
+    with pytest.raises(LoginFailed, match="Yandex Music"):
+        async with authenticator():
+            pass

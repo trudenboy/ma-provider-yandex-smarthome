@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import dataclasses
 from types import SimpleNamespace
 from typing import Any
@@ -21,16 +22,22 @@ from provider.constants import (
     CONF_CONNECTION_TYPE,
     CONF_DIRECT_CLIENT_SECRET,
     CONF_EXTERNAL_BASE_URL,
+    CONF_SKILL_ID,
+    CONF_SKILL_TOKEN,
     CONF_YM_INSTANCE,
     CONNECTION_TYPE_CLOUD,
     CONNECTION_TYPE_CLOUD_PLUS,
     CONNECTION_TYPE_DIRECT,
 )
 from provider.setup_flow import (
+    _code_image,
+    _collect_skill_token,
     _collect_user,
+    _device_image,
     _device_login,
     _provision_skill,
     _run_cloud,
+    _run_cloud_plus,
     _run_direct,
     _user_entries,
 )
@@ -207,3 +214,150 @@ async def test_direct_generates_client_secret_before_provisioning() -> None:
     assert provision.await_args is not None
     assert provision.await_args.kwargs["connection_type"] == CONNECTION_TYPE_DIRECT
     session.finish.assert_awaited_once_with(collected)
+
+
+async def test_cloud_plus_auto_provisions_then_links() -> None:
+    """Cloud Plus automatic setup follows registration, provisioning, and linking order."""
+    session = _fake_session()
+    session.form = mock.AsyncMock(return_value={"skill_method": "auto"})
+    collected: dict[str, Any] = {}
+    with (
+        mock.patch(
+            f"{_SETUP_FLOW}.register_cloud_instance", new_callable=mock.AsyncMock
+        ) as register,
+        mock.patch(f"{_SETUP_FLOW}._provision_skill", new_callable=mock.AsyncMock) as provision,
+        mock.patch(
+            f"{_SETUP_FLOW}._collect_skill_token", new_callable=mock.AsyncMock
+        ) as collect_token,
+        mock.patch(f"{_SETUP_FLOW}._show_linking_code", new_callable=mock.AsyncMock) as show_code,
+    ):
+        register.return_value = {
+            "id": "cloud-id",
+            "password": "cloud-password",
+            "connection_token": "connection-token",
+        }
+        provision.return_value = "skill-id"
+        collect_token.return_value = None
+
+        await _run_cloud_plus(session, collected, "Test", BORROW_SOURCE_OWN)
+
+    assert register.await_args is not None
+    assert register.await_args.kwargs["platform"] == "yandex"
+    assert collected[CONF_SKILL_ID] == "skill-id"
+    provision.assert_awaited_once()
+    show_code.assert_awaited_once()
+    session.finish.assert_awaited_once_with(collected)
+
+
+async def test_cloud_plus_manual_accepts_existing_skill_id() -> None:
+    """Cloud Plus manual setup bypasses automatic provisioning."""
+    session = _fake_session()
+    session.form = mock.AsyncMock(
+        side_effect=[{"skill_method": "manual"}, {CONF_SKILL_ID: "existing-skill"}]
+    )
+    collected: dict[str, Any] = {}
+    with (
+        mock.patch(
+            f"{_SETUP_FLOW}.register_cloud_instance", new_callable=mock.AsyncMock
+        ) as register,
+        mock.patch(f"{_SETUP_FLOW}._provision_skill", new_callable=mock.AsyncMock) as provision,
+        mock.patch(
+            f"{_SETUP_FLOW}._collect_skill_token", new_callable=mock.AsyncMock
+        ) as collect_token,
+        mock.patch(f"{_SETUP_FLOW}._show_linking_code", new_callable=mock.AsyncMock),
+    ):
+        register.return_value = {
+            "id": "cloud-id",
+            "password": "cloud-password",
+            "connection_token": "connection-token",
+        }
+        collect_token.return_value = None
+
+        await _run_cloud_plus(session, collected, "Test", BORROW_SOURCE_OWN)
+
+    assert collected[CONF_SKILL_ID] == "existing-skill"
+    provision.assert_not_awaited()
+    session.finish.assert_awaited_once_with(collected)
+
+
+async def test_skill_token_reprompts_after_empty_submission() -> None:
+    """An empty skill token produces a localized error before accepting a retry."""
+    session = _fake_session()
+    session.form = mock.AsyncMock(side_effect=[{}, {CONF_SKILL_TOKEN: "oauth-token"}])
+    collected: dict[str, Any] = {}
+
+    errors = await _collect_skill_token(session, collected, None)
+    assert errors == {"base": "skill_token_required"}
+
+    errors = await _collect_skill_token(session, collected, errors)
+    assert errors is None
+    assert collected[CONF_SKILL_TOKEN] == "oauth-token"
+    assert session.form.await_args_list[1].kwargs["errors"] == {"base": "skill_token_required"}
+
+
+async def test_provisioning_tracks_intermediate_artifacts() -> None:
+    """Provisioning stores progress artifacts before persisting the final result."""
+    session = _fake_session()
+    collected: dict[str, Any] = {CONF_CLOUD_INSTANCE_ID: "cloud-id"}
+    observed_states: list[SkillCreationState] = []
+
+    async def _create(**kwargs: Any) -> Any:
+        intermediate = dataclasses.replace(
+            load_artifacts(None), state=SkillCreationState.APP_CREATED
+        )
+        await kwargs["progress_cb"](intermediate)
+        observed_states.append(load_artifacts(str(collected["auto_create_artifacts"])).state)
+        return _done_artifacts("skill-id")
+
+    with (
+        mock.patch(f"{_SETUP_FLOW}.make_authenticator"),
+        mock.patch(f"{_SETUP_FLOW}.auto_create_skill", side_effect=_create),
+        mock.patch(f"{_SETUP_FLOW}.load_default_logo_bytes", return_value=b"logo"),
+        mock.patch(f"{_SETUP_FLOW}._borrowed_x_token", return_value="borrowed-token"),
+    ):
+        result = await _provision_skill(
+            session,
+            collected,
+            connection_type=CONNECTION_TYPE_CLOUD_PLUS,
+            skill_name="Test",
+            ym_instance="linked-account",
+        )
+
+    assert result == "skill-id"
+    assert observed_states == [SkillCreationState.APP_CREATED]
+
+
+async def test_device_login_timeout_propagates_to_setup_engine() -> None:
+    """Setup-session expiry remains responsible for rendering timeout state."""
+    session = _fake_session()
+    session.progress_until = mock.AsyncMock(side_effect=TimeoutError("expired"))
+    device = SimpleNamespace(
+        user_code="ABCD-1234",
+        verification_url="https://ya.ru/device",
+        expires_in=300,
+    )
+    client = mock.MagicMock()
+    client.start_device_login = mock.AsyncMock(return_value=device)
+    client.poll_device_until_confirmed.return_value = mock.AsyncMock()()
+    client_cm = mock.MagicMock()
+    client_cm.__aenter__ = mock.AsyncMock(return_value=client)
+    client_cm.__aexit__ = mock.AsyncMock(return_value=False)
+
+    with (
+        mock.patch("ya_passport_auth.PassportClient.create", return_value=client_cm),
+        pytest.raises(TimeoutError, match="expired"),
+    ):
+        await _device_login(session)
+
+
+def test_setup_images_escape_dynamic_values() -> None:
+    """Device and linking-code SVGs escape values before embedding them."""
+    device_svg = base64.b64decode(
+        _device_image("</text><script>", "https://x/<tag>").split(",", 1)[1]
+    ).decode()
+    code_svg = base64.b64decode(_code_image("</text><script>").split(",", 1)[1]).decode()
+
+    assert "</text><script>" not in device_svg
+    assert "</text><script>" not in code_svg
+    assert "&lt;script&gt;" in device_svg
+    assert "&lt;script&gt;" in code_svg
