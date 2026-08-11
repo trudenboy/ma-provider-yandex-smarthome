@@ -5,10 +5,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from provider import setup_flow
+
 
 def test_setup_flow_translation_keys_are_complete() -> None:
     """Every setup step and surfaced error has owner-provided English text."""
-    strings = json.loads((Path(__file__).parents[1] / "provider" / "strings.json").read_text())
+    strings = json.loads(Path(setup_flow.__file__).with_name("strings.json").read_text())
 
     assert set(strings["setup_flow"]) >= {
         "user",
