@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- Provider onboarding now uses Music Assistant's guided setup wizard. It walks through the selected Cloud, Cloud Plus, or Direct path in order, performs Yandex sign-in inside the flow, and keeps credentials separate from the regular playback options. Existing saved settings remain readable during migration.
+
 ## [2.2.3] - 2026-07-10
 
 ### Changed

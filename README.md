@@ -75,16 +75,11 @@ Alice voice command
 1. Copy the `provider/` folder to your MA custom providers directory
 2. Restart Music Assistant
 3. Go to **Settings → Providers → Add → Yandex Smart Home**
-4. Choose connection type:
-   - **Cloud** — uses public Yaha Cloud skill (simplest setup)
-   - **Cloud Plus** — uses a private skill (required if Yaha Cloud is already linked to Home Assistant on the same Yandex account)
-   - **Direct** — Yandex calls your MA server directly via HTTPS (requires public URL, no relay needed)
-5. **Cloud / Cloud Plus setup:**
-   - Click **Register with cloud** — creates an instance on the yaha-cloud.ru relay
-   - Copy the OTP code and enter it in the Yandex app: Devices → Add device → Smart Home → find the skill → enter OTP
-   - (Cloud Plus only) Create a private skill in [Yandex.Dialogs](https://dialogs.yandex.ru/developer/smart-home) — the config flow provides all required values to copy
-6. **Direct setup:**
-   - Create a private skill in [Yandex.Dialogs](https://dialogs.yandex.ru/developer/smart-home), configure Backend URL / Account Linking from the config flow, publish, then link account in Yandex app
+4. Follow the guided setup wizard and choose a connection mode:
+   - **Cloud** — public Yaha Cloud skill; simplest setup
+   - **Cloud Plus** — private skill through the relay; use this when the public skill is already linked to another installation
+   - **Direct** — Yandex calls your MA server over a public HTTPS URL; no relay
+5. Complete the steps shown by Music Assistant. Registration, Yandex sign-in, skill provisioning and account linking are presented in the required order.
 
 ### Development
 
@@ -106,30 +101,30 @@ pytest
 | Parameter | Description |
 |---|---|
 | **Instance Name** | How this MA instance appears in Yandex Smart Home. Alice uses this name. |
-| **Connection Type** | `cloud` (public skill), `cloud_plus` (private skill via relay), or `direct` (no relay, requires public URL). |
 | **Exposed Players** | Select which MA players to expose to Alice. Empty = all players. |
+| **Exposed Playlists** | Select up to 10 library playlists to expose as input-source slots. |
 
-Cloud Plus mode additionally requires **Skill ID** and **Skill OAuth Token** from Yandex.Dialogs.
+Connection mode and credentials are collected by the setup wizard. Reconfigure the provider to run that wizard again; the regular settings page only contains playback options.
 
 ### Setup flow per mode
 
-Auto-create is the default path for `cloud_plus` and `direct`. The config form shows the single next step you need to complete; later steps only appear after you finish the current one.
-
-> **Note:** Auto-create uses an undocumented Yandex Dialogs API — if it fails, the form automatically shows copy-paste fields so you can create the skill by hand in `dialogs.yandex.ru/developer` without leaving MA settings.
+The wizard persists each provider's setup credentials separately from its normal playback options. For skill provisioning, you can use this provider's own Yandex account or borrow the authenticated account from a configured Yandex Music provider.
 
 #### Cloud Plus (3 steps)
 
-1. **Register cloud instance** — click **Register with cloud**. The provider creates a yaha-cloud.ru relay instance. (Step 2 becomes visible afterwards.)
-2. **Create Smart Home skill** — click **Create skill automatically**. A popup opens showing your short Device Flow code; open `ya.ru/device` from the popup's link, log in to your Yandex account, and confirm the code. The provider creates the private skill, uploads the logo, wires up account linking, and publishes. On success **Skill ID** is filled in automatically; open the **OAuth URL** link and paste the resulting token into **Skill OAuth Token**. On failure, the form unfolds copy-paste fields for manual setup.
-3. **Link skill to Yandex** — click **Get OTP code**. Open the Yandex app → Devices → Add device → Smart Home → find your private skill → enter the OTP. Save provider config.
+1. The wizard registers a private yaha-cloud.ru relay slot.
+2. Choose automatic skill creation or enter the ID of an existing Yandex Dialogs skill. Automatic creation shows a Yandex Device Flow code inside the wizard and resumes when confirmation is detected.
+3. Paste the skill OAuth token, then enter the one-time linking code shown by Music Assistant in the Yandex app.
 
 #### Direct (1 step)
 
-1. **Create Smart Home skill** — same as Step 2 above. Requires MA to be reachable from the public internet over **HTTPS** (reverse proxy with a real certificate — self-signed won't work). Linking happens via Yandex.Dialogs' own Account linking UI after the skill exists, so there's no Step 3.
+1. Enter or confirm the public **HTTPS** URL for Music Assistant. The wizard validates it before provisioning.
+2. Confirm the Yandex Device Flow code; the provider creates and configures the private skill.
+3. Paste the skill OAuth token. Linking then uses Yandex Dialogs account linking, so there is no relay OTP.
 
 #### Cloud (unchanged)
 
-Public Yaha Cloud skill — just **Register** then **Get OTP** and enter it in the Yandex app.
+The wizard registers the public relay slot, displays a one-time code, and waits while you enter it in the Yandex app.
 
 ## Limitations
 
