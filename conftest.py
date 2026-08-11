@@ -19,7 +19,7 @@ try:
     from enum import StrEnum as _StrEnum
 except ImportError:
 
-    class _StrEnum(str, Enum):  # type: ignore[no-redef]
+    class _StrEnum(str, Enum):  # type: ignore[no-redef]  # noqa: UP042
         """Backport of StrEnum for Python < 3.11."""
 
 
@@ -206,6 +206,21 @@ class _PluginProvider:
         self.config = config or MagicMock()
         self.supported_features = supported_features or set()
         self.logger = MagicMock()
+
+    def get_setup_value(self, key, default=None):
+        """Read setup data, falling back to legacy config values."""
+        setup_data = getattr(self.config, "setup_data", None)
+        if isinstance(setup_data, dict) and key in setup_data:
+            return setup_data[key]
+        return self.config.get_value(key, default)
+
+    def _update_setup_data(self, key, value, immediate=True):
+        """Update the in-memory setup-data stand-in used by provider tests."""
+        setup_data = getattr(self.config, "setup_data", None)
+        if not isinstance(setup_data, dict):
+            setup_data = {}
+            self.config.setup_data = setup_data
+        setup_data[key] = value
 
     async def handle_async_init(self):
         pass
