@@ -67,15 +67,16 @@ async def test_init_reads_credentials_from_setup_and_options_from_config() -> No
         CONF_DIRECT_ACCESS_TOKEN: "access-token",
         CONF_DIRECT_CLIENT_SECRET: "client-secret",
     }
-    plugin.get_setup_value = mock.MagicMock(side_effect=lambda key, *_: setup_values.get(key))
-
-    await plugin.handle_async_init()
+    with mock.patch.object(
+        plugin, "_get_setup_value", side_effect=lambda key: setup_values.get(key)
+    ) as get_setup_value:
+        await plugin.handle_async_init()
 
     assert plugin._connection_type == CONNECTION_TYPE_DIRECT
     assert plugin._instance_name == "Living room"
     assert plugin._direct_client_secret == "client-secret"
     assert plugin._exposed_ids == {"player-1"}
-    setup_keys = {call.args[0] for call in plugin.get_setup_value.call_args_list}
+    setup_keys = {call.args[0] for call in get_setup_value.call_args_list}
     assert CONF_INSTANCE_NAME not in setup_keys
     assert CONF_EXPOSED_PLAYERS not in setup_keys
 
@@ -90,12 +91,11 @@ async def test_direct_token_rotation_updates_setup_data_immediately() -> None:
     plugin._exposed_playlists = ()
     plugin._skill_id = ""
     plugin._skill_token = None
-    plugin._update_setup_data = mock.MagicMock()
-
-    with mock.patch("provider.plugin.DirectConnectionHandler") as handler_cls:
+    with (
+        mock.patch.object(plugin, "_persist_setup_value") as persist_setup_value,
+        mock.patch("provider.plugin.DirectConnectionHandler") as handler_cls,
+    ):
         await plugin._start_direct_mode()
         handler_cls.call_args.kwargs["on_token_created"]("new-token")
 
-    plugin._update_setup_data.assert_called_once_with(
-        CONF_DIRECT_ACCESS_TOKEN, "new-token", immediate=True
-    )
+    persist_setup_value.assert_called_once_with(CONF_DIRECT_ACCESS_TOKEN, "new-token")

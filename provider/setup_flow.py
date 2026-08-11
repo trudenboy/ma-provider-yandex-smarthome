@@ -290,7 +290,7 @@ async def _provision_skill(
         collected[CONF_AUTO_CREATE_ARTIFACTS] = dump_artifacts(artifacts)
         if artifacts.state != SkillCreationState.DONE or not artifacts.skill_id:
             raise SetupFlowError(artifacts.last_error or "skill creation failed")
-        return artifacts.skill_id
+        return str(artifacts.skill_id)
 
     if ym_instance != BORROW_SOURCE_OWN:
         return await _attempt(_borrowed_x_token(session.mass, ym_instance))
@@ -328,7 +328,7 @@ async def _device_login(session: SetupSession) -> str:
             )
         except InvalidCredentialsError as err:
             raise AbortFlow("device_login_denied") from err
-    return credentials.x_token.get_secret()
+    return str(credentials.x_token.get_secret())
 
 
 async def _collect_skill_token(

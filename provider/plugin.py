@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import asdict
-from typing import Any
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from music_assistant_models.config_entries import ConfigEntry, ConfigValueOption
 from music_assistant_models.enums import ConfigEntryType
@@ -60,6 +60,19 @@ from .handlers import (
 from .notifier import StateNotifier
 from .playlists import fetch_playlist_options
 from .schema import CloudRequest
+
+if TYPE_CHECKING:
+    from music_assistant_models.config_entries import ConfigValueType
+
+
+class _SetupDataProvider(Protocol):
+    """Setup-data API supplied by current Music Assistant releases."""
+
+    def get_setup_value(self, key: str, default: ConfigValueType = None) -> ConfigValueType:
+        """Return a setup value."""
+
+    def _update_setup_data(self, key: str, value: ConfigValueType, immediate: bool = True) -> None:
+        """Persist a setup value."""
 
 
 class YandexSmartHomePlugin(PluginProvider):
@@ -116,25 +129,25 @@ class YandexSmartHomePlugin(PluginProvider):
     async def handle_async_init(self) -> None:
         """Handle async initialization of the plugin."""
         self._connection_type = str(
-            self.get_setup_value(CONF_CONNECTION_TYPE) or CONNECTION_TYPE_CLOUD
+            self._get_setup_value(CONF_CONNECTION_TYPE) or CONNECTION_TYPE_CLOUD
         )
         self._instance_name = str(self.config.get_value(CONF_INSTANCE_NAME) or "Music Assistant")
-        cloud_token_raw = str(self.get_setup_value(CONF_CLOUD_INSTANCE_PASSWORD) or "")
+        cloud_token_raw = str(self._get_setup_value(CONF_CLOUD_INSTANCE_PASSWORD) or "")
         self._cloud_token: SecretStr | None = (
             SecretStr(cloud_token_raw) if cloud_token_raw else None
         )
-        conn_token_raw = str(self.get_setup_value(CONF_CLOUD_CONNECTION_TOKEN) or "")
+        conn_token_raw = str(self._get_setup_value(CONF_CLOUD_CONNECTION_TOKEN) or "")
         self._connection_token: SecretStr | None = (
             SecretStr(conn_token_raw) if conn_token_raw else None
         )
-        self._cloud_instance_id = str(self.get_setup_value(CONF_CLOUD_INSTANCE_ID) or "")
-        self._skill_id = str(self.get_setup_value(CONF_SKILL_ID) or "")
-        skill_token_raw = str(self.get_setup_value(CONF_SKILL_TOKEN) or "")
+        self._cloud_instance_id = str(self._get_setup_value(CONF_CLOUD_INSTANCE_ID) or "")
+        self._skill_id = str(self._get_setup_value(CONF_SKILL_ID) or "")
+        skill_token_raw = str(self._get_setup_value(CONF_SKILL_TOKEN) or "")
         self._skill_token: SecretStr | None = (
             SecretStr(skill_token_raw) if skill_token_raw else None
         )
-        self._direct_access_token = str(self.get_setup_value(CONF_DIRECT_ACCESS_TOKEN) or "")
-        self._direct_client_secret = str(self.get_setup_value(CONF_DIRECT_CLIENT_SECRET) or "")
+        self._direct_access_token = str(self._get_setup_value(CONF_DIRECT_ACCESS_TOKEN) or "")
+        self._direct_client_secret = str(self._get_setup_value(CONF_DIRECT_CLIENT_SECRET) or "")
 
         # Parse exposed players filter
         exposed_raw = self.config.get_value(CONF_EXPOSED_PLAYERS) or []
@@ -296,7 +309,7 @@ class YandexSmartHomePlugin(PluginProvider):
         def _on_token_created(token: str) -> None:
             """Persist new access token generated during OAuth flow."""
             self._direct_access_token = token
-            self._update_setup_data(CONF_DIRECT_ACCESS_TOKEN, token, immediate=True)
+            self._persist_setup_value(CONF_DIRECT_ACCESS_TOKEN, token)
 
         self._direct_handler = DirectConnectionHandler(
             mass=self.mass,
@@ -423,3 +436,11 @@ class YandexSmartHomePlugin(PluginProvider):
         except Exception:
             self.logger.debug("could not enumerate players")
         return options
+
+    def _get_setup_value(self, key: str) -> ConfigValueType:
+        """Read a setup value through Music Assistant's provider API."""
+        return cast("_SetupDataProvider", self).get_setup_value(key)
+
+    def _persist_setup_value(self, key: str, value: ConfigValueType) -> None:
+        """Persist a setup value immediately through Music Assistant's provider API."""
+        cast("_SetupDataProvider", self)._update_setup_data(key, value, immediate=True)

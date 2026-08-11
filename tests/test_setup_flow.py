@@ -204,5 +204,6 @@ async def test_direct_generates_client_secret_before_provisioning() -> None:
         await _run_direct(session, collected, "Test", BORROW_SOURCE_OWN)
 
     assert collected[CONF_DIRECT_CLIENT_SECRET]
+    assert provision.await_args is not None
     assert provision.await_args.kwargs["connection_type"] == CONNECTION_TYPE_DIRECT
     session.finish.assert_awaited_once_with(collected)
