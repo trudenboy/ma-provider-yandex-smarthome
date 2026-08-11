@@ -73,3 +73,6 @@ secrets.yaml
 
 # Internal planning docs
 docs/IMPLEMENTATION_PLAN.md
+
+# Isolated development worktrees
+.worktrees/
