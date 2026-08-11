@@ -156,9 +156,9 @@ async def test_own_rejected_cache_runs_one_fresh_device_login() -> None:
 
     assert result == "skill-id"
     assert collected[CONF_AUTH_X_TOKEN] == "fresh-token"
-    assert [call.kwargs["cached_x_token"] for call in make_auth.call_args_list] == [
-        "expired",
-        "fresh-token",
+    assert [call.kwargs for call in make_auth.call_args_list] == [
+        {"cached_x_token": "expired"},
+        {"cached_x_token": "fresh-token"},
     ]
     device_login.assert_awaited_once_with(session)
 

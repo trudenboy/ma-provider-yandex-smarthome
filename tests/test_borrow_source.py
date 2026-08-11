@@ -9,7 +9,6 @@ from unittest import mock
 
 import pytest
 from music_assistant_models.enums import ProviderType
-from music_assistant_models.errors import LoginFailed
 from ya_dialogs_api import SkillCreationState, load_artifacts
 from ya_passport_auth.ma import BORROW_SOURCE_OWN
 
@@ -20,7 +19,6 @@ from provider.constants import (
     CONF_CONNECTION_TYPE,
     CONF_YM_INSTANCE,
 )
-from provider.ma_authenticator import make_authenticator
 from provider.setup_flow import _collect_user, _provision_skill, _user_entries
 
 _SETUP_FLOW = "provider.setup_flow"
@@ -100,53 +98,6 @@ class TestAccountSourceDropdown:
         assert source.value == BORROW_SOURCE_OWN
 
 
-class TestAuthenticatorNoDeviceFlow:
-    """The compatibility authenticator must not start Device Flow for borrowed tokens."""
-
-    async def test_no_device_flow_when_disallowed(self) -> None:
-        """Fail with guidance when the borrowed token is rejected."""
-        authenticator = make_authenticator(
-            mass=mock.MagicMock(),
-            session_id="s1",
-            cached_x_token="test-x-borrowed",
-            allow_device_flow=False,
-        )
-        fake_client = mock.MagicMock()
-        fake_client.refresh_passport_cookies = mock.AsyncMock(side_effect=RuntimeError("rejected"))
-        fake_client.start_device_login = mock.AsyncMock()
-        client_cm = mock.MagicMock()
-        client_cm.__aenter__ = mock.AsyncMock(return_value=fake_client)
-        client_cm.__aexit__ = mock.AsyncMock(return_value=False)
-        with (
-            mock.patch("ya_passport_auth.PassportClient.create", return_value=client_cm),
-            pytest.raises(LoginFailed, match="Yandex Music"),
-        ):
-            async with authenticator():
-                pass
-        fake_client.start_device_login.assert_not_awaited()
-
-    async def test_missing_borrowed_token_fails_fast(self) -> None:
-        """Fail with guidance when the linked account has no session token."""
-        authenticator = make_authenticator(
-            mass=mock.MagicMock(),
-            session_id="s1",
-            cached_x_token=None,
-            allow_device_flow=False,
-        )
-        fake_client = mock.MagicMock()
-        fake_client.start_device_login = mock.AsyncMock()
-        client_cm = mock.MagicMock()
-        client_cm.__aenter__ = mock.AsyncMock(return_value=fake_client)
-        client_cm.__aexit__ = mock.AsyncMock(return_value=False)
-        with (
-            mock.patch("ya_passport_auth.PassportClient.create", return_value=client_cm),
-            pytest.raises(LoginFailed, match="Yandex Music"),
-        ):
-            async with authenticator():
-                pass
-        fake_client.start_device_login.assert_not_awaited()
-
-
 class TestProvisionSkillBorrow:
     """Skill provisioning with credentials owned by Yandex Music."""
 
@@ -170,10 +121,7 @@ class TestProvisionSkillBorrow:
             )
 
         assert skill_id == "skill-xyz"
-        kwargs = make_auth.call_args.kwargs
-        assert kwargs["cached_x_token"] == "test-x-ym"
-        assert kwargs["allow_device_flow"] is False
-        assert kwargs["on_token_obtained"] is None
+        assert make_auth.call_args.kwargs == {"cached_x_token": "test-x-ym"}
         assert CONF_AUTH_X_TOKEN not in collected
 
     async def test_borrow_source_error_raises_setup_flow_error(self) -> None:
