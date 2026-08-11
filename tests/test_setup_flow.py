@@ -2,24 +2,38 @@
 
 from __future__ import annotations
 
+import dataclasses
 from types import SimpleNamespace
 from typing import Any
 from unittest import mock
 
+import pytest
+from ya_dialogs_api import SkillCreationState, load_artifacts
+from ya_passport_auth import InvalidCredentialsError
 from ya_passport_auth.ma import BORROW_SOURCE_OWN
 
+from music_assistant.models.setup_flow import AbortFlow
 from provider.constants import (
+    CONF_AUTH_X_TOKEN,
     CONF_CLOUD_CONNECTION_TOKEN,
     CONF_CLOUD_INSTANCE_ID,
     CONF_CLOUD_INSTANCE_PASSWORD,
     CONF_CONNECTION_TYPE,
+    CONF_DIRECT_CLIENT_SECRET,
     CONF_EXTERNAL_BASE_URL,
     CONF_YM_INSTANCE,
     CONNECTION_TYPE_CLOUD,
     CONNECTION_TYPE_CLOUD_PLUS,
     CONNECTION_TYPE_DIRECT,
 )
-from provider.setup_flow import _collect_user, _run_cloud, _user_entries
+from provider.setup_flow import (
+    _collect_user,
+    _device_login,
+    _provision_skill,
+    _run_cloud,
+    _run_direct,
+    _user_entries,
+)
 
 _SETUP_FLOW = "provider.setup_flow"
 
@@ -40,6 +54,13 @@ def _fake_session(*, setup_data: dict[str, Any] | None = None) -> Any:
 
     session.progress_until = mock.AsyncMock(side_effect=_progress_until)
     return session
+
+
+def _done_artifacts(skill_id: str) -> Any:
+    """Create completed skill artifacts for provisioning tests."""
+    return dataclasses.replace(
+        load_artifacts(None), state=SkillCreationState.DONE, skill_id=skill_id
+    )
 
 
 def test_user_entries_offer_all_connection_modes() -> None:
@@ -75,9 +96,7 @@ async def test_direct_reprompts_when_effective_url_is_not_https() -> None:
         result = await _collect_user(session, {})
 
     assert result[0] == CONNECTION_TYPE_CLOUD
-    assert session.form.await_args_list[1].kwargs["errors"] == {
-        "base": "direct_requires_https"
-    }
+    assert session.form.await_args_list[1].kwargs["errors"] == {"base": "direct_requires_https"}
 
 
 async def test_cloud_registers_shows_otp_and_finishes() -> None:
@@ -105,4 +124,85 @@ async def test_cloud_registers_shows_otp_and_finishes() -> None:
         CONF_CLOUD_CONNECTION_TOKEN: "connection-token",
     }
     session.progress.assert_called_once()
+    session.finish.assert_awaited_once_with(collected)
+
+
+async def test_own_rejected_cache_runs_one_fresh_device_login() -> None:
+    """A rejected own cache triggers one native Device Flow and retry."""
+    session = _fake_session(setup_data={CONF_AUTH_X_TOKEN: "expired"})
+    collected = {
+        **session.context.setup_data,
+        CONF_CLOUD_INSTANCE_ID: "cloud-id",
+    }
+    with (
+        mock.patch(f"{_SETUP_FLOW}.make_authenticator") as make_auth,
+        mock.patch(f"{_SETUP_FLOW}.auto_create_skill", new_callable=mock.AsyncMock) as create,
+        mock.patch(f"{_SETUP_FLOW}.load_default_logo_bytes", return_value=b"logo"),
+        mock.patch(f"{_SETUP_FLOW}._device_login", new_callable=mock.AsyncMock) as device_login,
+    ):
+        create.side_effect = [
+            InvalidCredentialsError("expired"),
+            _done_artifacts("skill-id"),
+        ]
+        device_login.return_value = "fresh-token"
+
+        result = await _provision_skill(
+            session,
+            collected,
+            connection_type=CONNECTION_TYPE_CLOUD_PLUS,
+            skill_name="Test",
+            ym_instance=BORROW_SOURCE_OWN,
+        )
+
+    assert result == "skill-id"
+    assert collected[CONF_AUTH_X_TOKEN] == "fresh-token"
+    assert [call.kwargs["cached_x_token"] for call in make_auth.call_args_list] == [
+        "expired",
+        "fresh-token",
+    ]
+    device_login.assert_awaited_once_with(session)
+
+
+async def test_device_login_denial_aborts_with_translation_key() -> None:
+    """A denied native Device Flow aborts with its localized reason."""
+    session = _fake_session()
+    device = SimpleNamespace(
+        user_code="ABCD-1234",
+        verification_url="https://ya.ru/device",
+        expires_in=300,
+    )
+    client = mock.MagicMock()
+    client.start_device_login = mock.AsyncMock(return_value=device)
+    client.poll_device_until_confirmed = mock.MagicMock(
+        return_value=mock.AsyncMock(side_effect=InvalidCredentialsError("denied"))()
+    )
+    client_cm = mock.MagicMock()
+    client_cm.__aenter__ = mock.AsyncMock(return_value=client)
+    client_cm.__aexit__ = mock.AsyncMock(return_value=False)
+
+    with (
+        mock.patch("ya_passport_auth.PassportClient.create", return_value=client_cm),
+        pytest.raises(AbortFlow) as err,
+    ):
+        await _device_login(session)
+
+    assert err.value.translation_key == "device_login_denied"
+
+
+async def test_direct_generates_client_secret_before_provisioning() -> None:
+    """Direct setup creates its OAuth secret before deriving skill URLs."""
+    session = _fake_session()
+    collected: dict[str, Any] = {}
+    with (
+        mock.patch(f"{_SETUP_FLOW}._provision_skill", new_callable=mock.AsyncMock) as provision,
+        mock.patch(
+            f"{_SETUP_FLOW}._collect_skill_token", new_callable=mock.AsyncMock
+        ) as collect_token,
+    ):
+        provision.return_value = "skill-id"
+        collect_token.return_value = None
+        await _run_direct(session, collected, "Test", BORROW_SOURCE_OWN)
+
+    assert collected[CONF_DIRECT_CLIENT_SECRET]
+    assert provision.await_args.kwargs["connection_type"] == CONNECTION_TYPE_DIRECT
     session.finish.assert_awaited_once_with(collected)
