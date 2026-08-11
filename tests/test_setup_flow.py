@@ -193,7 +193,7 @@ async def test_device_login_denial_aborts_with_translation_key() -> None:
     ):
         await _device_login(session)
 
-    assert err.value.translation_key == "device_login_denied"
+    assert err.value.args == ("device_login_denied",)
 
 
 async def test_direct_generates_client_secret_before_provisioning() -> None:
