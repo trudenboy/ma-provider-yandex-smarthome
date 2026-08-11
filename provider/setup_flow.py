@@ -52,6 +52,7 @@ from .ma_authenticator import make_authenticator
 if TYPE_CHECKING:
     from music_assistant_models.config_entries import ConfigValueType
 
+    from music_assistant.mass import MusicAssistant
     from music_assistant.models.setup_flow import SetupSession
 
 _SKILL_CREATE_TIMEOUT = 180.0
@@ -358,7 +359,7 @@ async def _collect_skill_token(
     return {"base": "skill_token_required"}
 
 
-def _borrowed_x_token(mass: object, ym_instance: str) -> str:
+def _borrowed_x_token(mass: MusicAssistant, ym_instance: str) -> str:
     """Read a linked Yandex Music x-token without taking ownership of it."""
     try:
         _, x_token = BorrowedCredentialSource(mass, ym_instance).read_tokens()
