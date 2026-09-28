@@ -131,14 +131,14 @@ async def _run_cloud(session: SetupSession, collected: dict[str, ConfigValueType
     collected[CONF_CLOUD_INSTANCE_ID] = data["id"]
     collected[CONF_CLOUD_INSTANCE_PASSWORD] = data["password"]
     collected[CONF_CLOUD_CONNECTION_TOKEN] = data["connection_token"]
-    errors: dict[str, str] | None = None
+    errors: dict[str, str | SetupFlowError] | None = None
     while True:
         await _show_linking_code(session, collected, errors=errors)
         try:
             await session.finish(collected)
             return
         except SetupFlowError as err:
-            errors = {"base": err.translation_key or str(err)}
+            errors = {"base": err}
 
 
 async def _run_cloud_plus(
@@ -200,7 +200,7 @@ async def _run_cloud_plus(
         )
         collected[CONF_SKILL_ID] = str(skill_values[CONF_SKILL_ID])
 
-    errors: dict[str, str] | None = None
+    errors: dict[str, str | SetupFlowError] | None = None
     while True:
         errors = await _collect_skill_token(session, collected, errors)
         if errors is not None:
@@ -210,7 +210,15 @@ async def _run_cloud_plus(
             await session.finish(collected)
             return
         except SetupFlowError as err:
+<<<<<<< provider
             errors = {"base": err.translation_key or str(err)}
+||||||| upstream-base
+            # a finish failure here is most likely a rejected skill token; re-prompt it
+            errors = {"base": err.translation_key or str(err)}
+=======
+            # a finish failure here is most likely a rejected skill token; re-prompt it
+            errors = {"base": err}
+>>>>>>> upstream-head
 
 
 async def _run_direct(
@@ -229,7 +237,7 @@ async def _run_direct(
         skill_name=instance_name,
         ym_instance=ym_instance,
     )
-    errors: dict[str, str] | None = None
+    errors: dict[str, str | SetupFlowError] | None = None
     while True:
         errors = await _collect_skill_token(session, collected, errors)
         if errors is not None:
@@ -238,7 +246,7 @@ async def _run_direct(
             await session.finish(collected)
             return
         except SetupFlowError as err:
-            errors = {"base": err.translation_key or str(err)}
+            errors = {"base": err}
 
 
 async def _provision_skill(
@@ -380,7 +388,7 @@ async def _show_linking_code(
     session: SetupSession,
     collected: dict[str, ConfigValueType],
     *,
-    errors: dict[str, str] | None,
+    errors: dict[str, str | SetupFlowError] | None,
 ) -> None:
     """Fetch the relay OTP and wait for confirmation after displaying it."""
     code = await session.progress_until(
@@ -408,6 +416,78 @@ async def _show_linking_code(
     )
 
 
+<<<<<<< provider
+||||||| upstream-base
+async def _collect_skill_token(
+    session: SetupSession,
+    collected: dict[str, ConfigValueType],
+    errors: dict[str, str] | None,
+) -> dict[str, str] | None:
+    """
+    Show the skill-OAuth-token form and store a pasted token in ``collected``.
+
+    Returns None when a usable token is present (pasted now or kept from a prior run),
+    or a form-errors dict to re-render when the field was left empty with nothing stored.
+    """
+    existing = collected.get(CONF_SKILL_TOKEN)
+    values = await session.form(
+        [
+            ConfigEntry(
+                key=CONF_SKILL_TOKEN,
+                type=ConfigEntryType.SECURE_STRING,
+                required=not existing,
+                help_link=YANDEX_OAUTH_URL,
+            )
+        ],
+        step_id="skill_token",
+        errors=errors,
+    )
+    pasted = str(values.get(CONF_SKILL_TOKEN) or "")
+    if pasted:
+        collected[CONF_SKILL_TOKEN] = pasted
+        return None
+    if existing:
+        # reconfigure: keep the previously stored token when the field is left blank
+        return None
+    return {"base": "skill_token_required"}
+
+
+=======
+async def _collect_skill_token(
+    session: SetupSession,
+    collected: dict[str, ConfigValueType],
+    errors: dict[str, str | SetupFlowError] | None,
+) -> dict[str, str | SetupFlowError] | None:
+    """
+    Show the skill-OAuth-token form and store a pasted token in ``collected``.
+
+    Returns None when a usable token is present (pasted now or kept from a prior run),
+    or a form-errors dict to re-render when the field was left empty with nothing stored.
+    """
+    existing = collected.get(CONF_SKILL_TOKEN)
+    values = await session.form(
+        [
+            ConfigEntry(
+                key=CONF_SKILL_TOKEN,
+                type=ConfigEntryType.SECURE_STRING,
+                required=not existing,
+                help_link=YANDEX_OAUTH_URL,
+            )
+        ],
+        step_id="skill_token",
+        errors=errors,
+    )
+    pasted = str(values.get(CONF_SKILL_TOKEN) or "")
+    if pasted:
+        collected[CONF_SKILL_TOKEN] = pasted
+        return None
+    if existing:
+        # reconfigure: keep the previously stored token when the field is left blank
+        return None
+    return {"base": "skill_token_required"}
+
+
+>>>>>>> upstream-head
 def _user_entries(
     connection_default: str,
     ym_default: str,
