@@ -131,14 +131,14 @@ async def _run_cloud(session: SetupSession, collected: dict[str, ConfigValueType
     collected[CONF_CLOUD_INSTANCE_ID] = data["id"]
     collected[CONF_CLOUD_INSTANCE_PASSWORD] = data["password"]
     collected[CONF_CLOUD_CONNECTION_TOKEN] = data["connection_token"]
-    errors: dict[str, str] | None = None
+    errors: dict[str, str | SetupFlowError] | None = None
     while True:
         await _show_linking_code(session, collected, errors=errors)
         try:
             await session.finish(collected)
             return
         except SetupFlowError as err:
-            errors = {"base": err.translation_key or str(err)}
+            errors = {"base": err}
 
 
 async def _run_cloud_plus(
@@ -200,7 +200,7 @@ async def _run_cloud_plus(
         )
         collected[CONF_SKILL_ID] = str(skill_values[CONF_SKILL_ID])
 
-    errors: dict[str, str] | None = None
+    errors: dict[str, str | SetupFlowError] | None = None
     while True:
         errors = await _collect_skill_token(session, collected, errors)
         if errors is not None:
@@ -210,7 +210,8 @@ async def _run_cloud_plus(
             await session.finish(collected)
             return
         except SetupFlowError as err:
-            errors = {"base": err.translation_key or str(err)}
+            # a finish failure here is most likely a rejected skill token; re-prompt it
+            errors = {"base": err}
 
 
 async def _run_direct(
@@ -229,7 +230,7 @@ async def _run_direct(
         skill_name=instance_name,
         ym_instance=ym_instance,
     )
-    errors: dict[str, str] | None = None
+    errors: dict[str, str | SetupFlowError] | None = None
     while True:
         errors = await _collect_skill_token(session, collected, errors)
         if errors is not None:
@@ -238,7 +239,7 @@ async def _run_direct(
             await session.finish(collected)
             return
         except SetupFlowError as err:
-            errors = {"base": err.translation_key or str(err)}
+            errors = {"base": err}
 
 
 async def _provision_skill(
@@ -334,8 +335,8 @@ async def _device_login(session: SetupSession) -> str:
 async def _collect_skill_token(
     session: SetupSession,
     collected: dict[str, ConfigValueType],
-    errors: dict[str, str] | None,
-) -> dict[str, str] | None:
+    errors: dict[str, str | SetupFlowError] | None,
+) -> dict[str, str | SetupFlowError] | None:
     """Collect a skill OAuth token or return errors for a missing value."""
     existing = collected.get(CONF_SKILL_TOKEN)
     values = await session.form(
@@ -380,7 +381,7 @@ async def _show_linking_code(
     session: SetupSession,
     collected: dict[str, ConfigValueType],
     *,
-    errors: dict[str, str] | None,
+    errors: dict[str, str | SetupFlowError] | None,
 ) -> None:
     """Fetch the relay OTP and wait for confirmation after displaying it."""
     code = await session.progress_until(

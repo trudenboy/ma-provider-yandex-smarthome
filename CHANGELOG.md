@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.2.6] - 2026-10-06
+
+### Changed
+
+- Requires Music Assistant 2.10.0 or newer and `ya-passport-auth` 2.1.0, aligned with the other Yandex providers.
+
+### Fixed
+
+- A linked Yandex Music account is read from its setup data, so skill auto-create uses the account's current tokens after a token refresh instead of stale ones left in its configuration.
+- Setup errors in the Cloud, Cloud Plus and Direct flows keep their localized message after a failed attempt.
+
 ## [2.2.5] - 2026-08-11
 
 ### Changed
