@@ -723,4 +723,6 @@ Voice-UX overhaul of the experimental Dialogs skill, driven by the research writ
 ### Notes
 - on_off: "включи" = play/resume, "выключи" = stop. Device always reports as "on" while player is available.
 - Yandex Smart Home API does **not** support `play_media` for third-party devices.
+- Reverse-synced upstream PR #6904 (WIP)
+- Reverse-synced upstream PR #6905 (WIP)
 - Reverse-synced upstream PR #6890 (WIP)
