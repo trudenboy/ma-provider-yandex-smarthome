@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.2.10] - 2026-10-26
+
+### Fixed
+
+- Setting up the Direct connection no longer fails with "Validate uri error": the provider now answers Yandex's backend check while the skill is being created.
+
 ## [2.2.9] - 2026-10-26
 
 ### Fixed
