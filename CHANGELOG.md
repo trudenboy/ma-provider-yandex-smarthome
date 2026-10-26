@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.2.11] - 2026-10-26
+
+### Fixed
+
+- Two Direct-connection setups running at the same time no longer break each other: the backend check stays answered until the last skill finishes deploying.
+
 ## [2.2.10] - 2026-10-26
 
 ### Fixed
