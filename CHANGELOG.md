@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.2.8] - 2026-10-26
+
+### Fixed
+
+- The provider's tests now pass against the current Music Assistant server, so this version can be included in Music Assistant itself.
+
 ## [2.2.7] - 2026-10-26
 
 ### Changed
