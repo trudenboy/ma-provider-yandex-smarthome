@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.2.9] - 2026-10-26
+
+### Fixed
+
+- The setup-flow tests now check the step-expiry error Music Assistant actually raises when a device-login step times out.
+
 ## [2.2.8] - 2026-10-26
 
 ### Fixed
