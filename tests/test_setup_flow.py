@@ -13,7 +13,7 @@ from ya_dialogs_api import SkillCreationState, load_artifacts
 from ya_passport_auth import InvalidCredentialsError
 from ya_passport_auth.ma import BORROW_SOURCE_OWN
 
-from music_assistant.models.setup_flow import AbortFlow
+from music_assistant.models.setup_flow import AbortFlow, StepExpiredError
 from provider.constants import (
     CONF_AUTH_X_TOKEN,
     CONF_CLOUD_CONNECTION_TOKEN,
@@ -330,7 +330,7 @@ async def test_provisioning_tracks_intermediate_artifacts() -> None:
 async def test_device_login_timeout_propagates_to_setup_engine() -> None:
     """Setup-session expiry remains responsible for rendering timeout state."""
     session = _fake_session()
-    session.progress_until = mock.AsyncMock(side_effect=TimeoutError("expired"))
+    session.progress_until = mock.AsyncMock(side_effect=StepExpiredError("expired"))
     device = SimpleNamespace(
         user_code="ABCD-1234",
         verification_url="https://ya.ru/device",
@@ -345,7 +345,7 @@ async def test_device_login_timeout_propagates_to_setup_engine() -> None:
 
     with (
         mock.patch("ya_passport_auth.PassportClient.create", return_value=client_cm),
-        pytest.raises(TimeoutError, match="expired"),
+        pytest.raises(StepExpiredError, match="expired"),
     ):
         await _device_login(session)
 

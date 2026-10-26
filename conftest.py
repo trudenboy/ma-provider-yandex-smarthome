@@ -252,9 +252,17 @@ class _AbortFlow(Exception):
         self.translation_key = translation_key
 
 
+class _StepExpiredError(Exception):
+    """Minimal setup-flow step-deadline expiry."""
+
+
 _ensure_module(
     "music_assistant.models.setup_flow",
-    {"AbortFlow": _AbortFlow, "SetupFlowError": _SetupFlowError},
+    {
+        "AbortFlow": _AbortFlow,
+        "SetupFlowError": _SetupFlowError,
+        "StepExpiredError": _StepExpiredError,
+    },
 )
 
 # ---------------------------------------------------------------------------
