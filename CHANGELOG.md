@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.2.12] - 2026-10-27
+
+### Fixed
+
+- The concurrent Direct-setup test no longer leaves the skill pipeline mocked for the tests that run after it.
+
 ## [2.2.11] - 2026-10-26
 
 ### Fixed
