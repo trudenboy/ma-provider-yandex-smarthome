@@ -1,94 +1,85 @@
-# Copilot Instructions
+<!-- ma-provider-tools: rendered from wrappers/.github/copilot-instructions.md.j2 -->
+# Copilot Instructions — Yandex Smart Home
 
-## Project Overview
+This repo is the source of truth for the **Yandex Smart Home** Music Assistant
+provider, which is later inlined upstream into
+`music-assistant/server/music_assistant/providers/yandex_smarthome/`. Review it by
+the upstream standards below (mirrored verbatim from upstream by
+`ma-provider-tools`; do not edit), with these provider-repo exceptions:
 
-Music Assistant (MA) Plugin Provider that bridges existing MA players to Yandex Alice via the Yandex Smart Home API. This is a **plugin provider** — it does NOT create players or provide music, it exposes existing MA players for voice control.
+- **Paths.** Upstream `music_assistant/providers/yandex_smarthome/` is
+  `provider/` here, and `tests/providers/yandex_smarthome/` is `tests/`.
+  `music_assistant/helpers/` and the demo providers come from the installed
+  `music-assistant` package.
+- **Project standards** are in `AGENTS.md` (`CLAUDE.md` is a symlink to it),
+  with provider specifics in `CLAUDE.local.md`. Deviations are at least
+  `[PROBLEM]`.
+- **PR title.** Provider-repo PRs **use** Conventional Commit prefixes
+  (`feat:`, `fix:`, …). Do not flag them. Only PRs in `music-assistant/server`
+  must not have one.
+- **PR description.** Provider-repo PRs follow this repo's
+  `.github/PULL_REQUEST_TEMPLATE.md`. The upstream PR-description rules apply
+  only to text drafted for an upstream PR body.
+- **Settled by CI.** In addition to lint and tests, `check-upstream-rules`
+  (`MA001`–`MA006`), the method-order hook and upstream's own repo checks
+  (blocking IO, icons, manifests) already run. Do not repeat their findings;
+  only question a `# ma-allow:` reason that does not hold up.
+- **Mirrored files.** `.github/instructions/*`, `.claude/skills/*`,
+  `scripts/check_*.py`, `ruff.toml` and the sync-managed workflows are
+  distributed from `ma-provider-tools`. Changes to them belong there, not in
+  this repo.
 
-## Architecture
+## PR Review Standards
 
-```
-Alice → Yandex Cloud → Smart Home API → yaha-cloud.ru WebSocket relay → this plugin → MA Player commands
-                                                                                     ← MA Player state → Yandex state reports
-```
+### Philosophy
 
-### Module Responsibilities
+Comment only where you're confident there's a real issue — if you're uncertain whether something is a problem, don't raise it. Actionable feedback, not observations. One sentence where one sentence does the job. On documentation or user-facing text, flag wording only when it's genuinely confusing or could mislead someone into an error.
 
-- `provider/__init__.py` — `setup()` entry point, `get_config_entries()` with auto-registration config flow (OTP, Cloud Plus setup)
-- `provider/plugin.py` — `YandexSmartHomePlugin(PluginProvider)`: event subscriptions, cloud lifecycle, routes incoming requests to handlers
-- `provider/handlers.py` — Pure async functions for the 4 Smart Home API endpoints: `/user/devices`, `/user/devices/query`, `/user/devices/action`, `/user/unlink`
-- `provider/device.py` — Maps MA Player state ↔ Yandex Smart Home device descriptions, capabilities, and action execution
-- `provider/schema.py` — Dataclass models for the Yandex Smart Home protocol (device descriptions, capabilities, actions, callbacks)
-- `provider/cloud.py` — `CloudManager`: persistent WebSocket connection to yaha-cloud.ru relay with reconnect/heartbeat
-- `provider/notifier.py` — `StateNotifier`: debounced state reporting to Yandex (1s debounce, hourly heartbeat)
-- `provider/constants.py` — All config keys (`CONF_*`), connection types, API URLs, capability/device type constants, timing values
+### What to review
 
-### Key Flows
+Correctness and bugs, blocking IO in async code, security, performance, test coverage, docs the change makes wrong, and consistency with the surrounding code. `AGENTS.md` holds the project standards — deviations from it are at least `[PROBLEM]`.
 
-**Device Registration:** Plugin loads → subscribes to MA player events → creates Yandex device per player (type `media_device.receiver`) → registers capabilities (on_off, volume, mute, pause, channel, input_source) → reports to Yandex.
+### Linked issues
 
-**Voice Commands:** Alice → Yandex Cloud → WebSocket relay → `plugin._handle_cloud_request()` → routes by normalized action path → `handlers.py` functions → `device.py` maps to MA player commands.
+If the PR references an issue, read it before reviewing the diff. Then judge two things: whether the change actually resolves the reported problem, and whether it does so in the most elegant way available. A fix that works but patches a symptom, sits at the wrong layer, or adds a special case where the existing design already had a seam for it is a `[PROBLEM]` — say which approach would be cleaner and why. A change that leaves part of the issue unaddressed, or addresses something else entirely, is `[CRITICAL]`.
 
-**State Reporting:** MA player state changes → `StateNotifier` receives event → debounces → maps via `device.py` → POSTs to Yandex callback/state API.
+### Reuse over reimplementation
 
-### Connection Modes
+Check whether `music_assistant/helpers/` already covers what new code does; providers are expected to use the shared helpers rather than reimplement. A music provider parsing PLS itself instead of calling `parse_pls` from `music_assistant.helpers.playlists` is a `[PROBLEM]`.
 
-- **Cloud** — public Yaha Cloud skill via yaha-cloud.ru WebSocket relay (no public URL needed)
-- **Cloud Plus** — private skill in Yandex.Dialogs (same relay, own OAuth)
-- **Direct** — HTTP webhook (not yet implemented)
+### New providers
 
-## Build, Test, Lint
+When the PR adds files under `music_assistant/providers/`, the matching demo provider is the ground truth — it's the annotated template that encodes the required structure, lifecycle and config schema:
 
-```bash
-# Install dev dependencies (uses uv)
-uv sync
+| Provider type | Reference |
+|---|---|
+| Music source | `music_assistant/providers/_demo_music_provider` |
+| Player | `music_assistant/providers/_demo_player_provider` |
+| Plugin | `music_assistant/providers/_demo_plugin_provider` |
+| Audio analysis | `music_assistant/providers/_demo_audio_analysis_provider` |
 
-# Run all tests
-uv run pytest
+Read the demo provider alongside the new one, then flag deviations from its requirements and patterns as `[PROBLEM]` or `[CRITICAL]` depending on what breaks. Provider icons (`icon.svg`) are capped at 5KB — anything larger is `[CRITICAL]`.
 
-# Run a single test file
-uv run pytest tests/test_handlers.py
+### Don't duplicate CI
 
-# Run a single test function
-uv run pytest tests/test_handlers.py::test_handle_device_list -v
+Reviews are requested only once `lint` and `test` have passed on the commit under review, so formatting, lint, test failures and missing dependencies are already settled — don't flag them. `.pre-commit-config.yaml` and `.github/workflows/test.yml` are the authority on that class of problem. Spend the review on what CI can't see.
 
-# Lint (ruff checks all rules, see ruff.toml for ignores)
-uv run ruff check .
-uv run ruff format --check .
+### PR title
 
-# Type checking
-uv run mypy --ignore-missing-imports provider
+A functional description of the change, with no conventional-commit prefix (`feat:`, `fix:`, `refactor:`, `chore:`, ...) — labels do the categorizing. A prefixed title is a `[PROBLEM]`.
 
-# Spell checking
-uv run codespell
+### Existing review comments
 
-# Pre-commit (runs all of the above)
-uv run pre-commit run --all-files
+Flag earlier review comments on the PR that haven't been addressed.
 
-# Dev environment with Docker (runs a real MA server with provider mounted)
-docker compose -f docker-compose.dev.yml up
-# MA UI at http://localhost:8095
-```
+### Severity
 
-## Code Conventions
+- `[CRITICAL]` — must fix before merge: bugs, security issues, broken functionality
+- `[PROBLEM]` — should fix: bad patterns, missing tests, standards deviations
+- `[SUGGESTION]` — optional: minor refactors, nice-to-haves
 
-- All files start with `from __future__ import annotations`
-- All I/O is async/await (aiohttp for HTTP/WS)
-- Protocol models use `@dataclass` in `schema.py`, serialized with `dataclasses.asdict()`
-- Config keys are `CONF_*` constants in `constants.py` — never use raw strings
-- Capability/device type constants are full Yandex API strings (e.g., `devices.capabilities.on_off`)
-- Ruff is configured with `select = ["ALL"]` and explicit ignores — line length is 100, target Python 3.12
-- Commit messages follow `type(scope): description` — types: feat, fix, docs, style, refactor, test, chore
-- Follow patterns from MA's `_demo_plugin_provider` and `hass` plugin provider
+### Output
 
-## Testing Approach
+Post an inline comment on GitHub for every `[CRITICAL]` and `[PROBLEM]`. Do not post `[SUGGESTION]` items, and don't comment on what's already fine.
 
-Tests mock the entire `music_assistant` and `music_assistant_models` package hierarchy. The root `conftest.py` creates stub modules with `_ensure_module()` and registers them in `sys.modules` before any provider imports. This allows `provider/` to be importable both as `provider.*` and `music_assistant.providers.yandex_smarthome.*`.
-
-When writing tests: import from the `music_assistant.providers.yandex_smarthome` namespace path, not directly from `provider`.
-
-## Gotchas
-
-- Yandex Smart Home API does NOT support `play_media` for third-party devices — "Включи музыку" triggers `on_off: true` only, which resumes the current MA queue
-- Capabilities are limited to: on_off, range(volume), toggle(mute/pause), range(channel for next/prev), mode(input_source). No seek, no track info push
-- Max 10 input sources (Yandex mode capability limit)
-- Cloud relay action paths may or may not include `/v1.0` prefix — `plugin.py` normalizes with `removeprefix("/v1.0")`
+Each comment carries its severity, states the problem in a sentence, says why it matters when that isn't self-evident, and gives a concrete fix or snippet.
