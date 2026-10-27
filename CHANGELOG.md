@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.2.13] - 2026-10-27
+
+### Changed
+
+- Malformed Direct-connection requests (unreadable device query, device action, or OAuth token bodies) and failed player lookups during Alice queries and actions are now recorded in the debug log instead of being silently ignored. Responses to Alice are unchanged.
+
 ## [2.2.12] - 2026-10-27
 
 ### Fixed
