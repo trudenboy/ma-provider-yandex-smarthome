@@ -21,7 +21,7 @@ description: Документация провайдера Yandex Smart Home д�
 
 
 
-Music Assistant поддерживает [Yandex Smart Home](https://yandex.ru/dev/dialogs/smart-home/) — плеер.
+Music Assistant поддерживает [Yandex Smart Home](https://yandex.ru/dev/dialogs/smart-home/) — плагин-провайдер.
 Провайдер создан и поддерживается [TrudenBoy](https://github.com/TrudenBoy).
 
 
