@@ -70,8 +70,14 @@ async def handle_devices_query(
     for device_id in device_ids:
         try:
             player = mass.players.get_player(device_id)
+<<<<<<< provider
         except Exception as err:
             _LOGGER.debug("Player lookup failed for %s: %s", device_id, err)
+||||||| upstream-base
+        except Exception:
+=======
+        except TypeError:  # a list or dict id can not be looked up
+>>>>>>> upstream-head
             player = None
 
         if player is None:
@@ -101,8 +107,14 @@ async def handle_devices_action(
     for device_action in payload.devices:
         try:
             player = mass.players.get_player(device_action.id)
+<<<<<<< provider
         except Exception as err:
             _LOGGER.debug("Player lookup failed for %s: %s", device_action.id, err)
+||||||| upstream-base
+        except Exception:
+=======
+        except TypeError:  # a list or dict id can not be looked up
+>>>>>>> upstream-head
             player = None
 
         if player is None:
