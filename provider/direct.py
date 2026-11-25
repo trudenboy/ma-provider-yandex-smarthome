@@ -245,8 +245,14 @@ class DirectConnectionHandler:
 
         try:
             body = await request.json()
+<<<<<<< provider
         except Exception as err:
             self._logger.debug("Invalid /user/devices/query request body: %s", err)
+||||||| upstream-base
+        except Exception:
+=======
+        except Exception:  # noqa: BLE001 - any unreadable body is a bad request
+>>>>>>> upstream-head
             return web.json_response(build_response(request_id, {}), status=400)
 
         try:
@@ -277,8 +283,14 @@ class DirectConnectionHandler:
 
         try:
             body = await request.json()
+<<<<<<< provider
         except Exception as err:
             self._logger.debug("Invalid /user/devices/action request body: %s", err)
+||||||| upstream-base
+        except Exception:
+=======
+        except Exception:  # noqa: BLE001 - any unreadable body is a bad request
+>>>>>>> upstream-head
             return web.json_response(build_response(request_id, {}), status=400)
 
         try:
@@ -370,8 +382,14 @@ class DirectConnectionHandler:
         """
         try:
             data = await request.post()
+<<<<<<< provider
         except Exception as err:
             self._logger.debug("Invalid /auth/token request body: %s", err)
+||||||| upstream-base
+        except Exception:
+=======
+        except Exception:  # noqa: BLE001 - any unreadable form is a bad request
+>>>>>>> upstream-head
             return web.json_response({"error": "invalid_request"}, status=400)
 
         # Validate client credentials
